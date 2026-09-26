@@ -1,0 +1,1669 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Lave · Flutter QQ 机器人客户端 架构设计</title>
+<style>
+  :root{
+    --bg:#f5f7fa; --panel:#fff; --ink:#0f172a; --ink2:#334155; --ink3:#64748b;
+    --line:#e2e8f0; --line2:#eef2f7;
+    --brand:#12b7f5; --brand-ink:#0a7ea4; --brand-soft:#e8f7fe;
+    --violet:#7c5cff; --violet-soft:#f1edff;
+    --ok:#047857; --ok-soft:#e6f6ef;
+    --warn:#b45309; --warn-soft:#fef4e6;
+    --danger:#b42318; --danger-soft:#fdeceb;
+    --code-bg:#0c1424; --code-ink:#dde6f2;
+    --radius:10px;
+    --mono:"JetBrains Mono","Cascadia Code","SFMono-Regular",Consolas,"Liberation Mono",Menlo,monospace;
+  }
+  *{box-sizing:border-box}
+  html{scroll-behavior:smooth}
+  body{margin:0;background:var(--bg);color:var(--ink);font-size:15px;line-height:1.75;
+    font-family:"PingFang SC","Noto Sans CJK SC","WenQuanYi Micro Hei","Microsoft YaHei",-apple-system,"Segoe UI",Roboto,system-ui,sans-serif;
+    -webkit-font-smoothing:antialiased}
+  .layout{display:flex;align-items:flex-start;max-width:1560px;margin:0 auto}
+  .sidebar{position:sticky;top:0;flex:0 0 292px;height:100vh;overflow-y:auto;padding:26px 18px 60px 26px;
+    border-right:1px solid var(--line);background:var(--panel)}
+  .brandmark{display:flex;align-items:center;gap:10px;margin-bottom:6px}
+  .dot{width:11px;height:11px;border-radius:50%;background:var(--violet);box-shadow:0 0 0 4px var(--violet-soft)}
+  .brand-title{font-size:16px;font-weight:700}
+  .brand-sub{font-size:12px;color:var(--ink3);margin:0 0 18px 21px}
+  .toc{list-style:none;margin:0;padding:0;font-size:13.5px}
+  .toc li{margin:1px 0}
+  .toc a{display:block;padding:6px 10px;border-radius:7px;color:var(--ink2);text-decoration:none;
+    border-left:2px solid transparent;transition:.15s}
+  .toc a:hover{background:var(--violet-soft);color:#5b3fd6}
+  .toc .l1>a{font-weight:650;color:var(--ink);margin-top:8px}
+  .toc .l2>a{padding-left:22px;color:var(--ink3);font-size:13px}
+  .toc .l2>a:hover{color:#5b3fd6}
+  main{flex:1;min-width:0;padding:0 44px 130px}
+  .hero{background:linear-gradient(135deg,#0c1424 0%,#2a2450 55%,#4a3fb0 100%);color:#fff;
+    border-radius:0 0 18px 18px;padding:44px 44px 38px;margin:0 -44px 34px}
+  .hero h1{margin:0 0 10px;font-size:30px;line-height:1.32}
+  .hero p{margin:0;color:#c9d2e6;max-width:920px;font-size:14.5px}
+  .hero .chips{margin-top:20px;display:flex;flex-wrap:wrap;gap:8px}
+  .chip{background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.2);padding:4px 11px;
+    border-radius:999px;font-size:12.5px;color:#e9eefb}
+  .chip strong{color:#fff}
+  h2{font-size:23px;margin:58px 0 14px;padding-bottom:10px;border-bottom:2px solid var(--line)}
+  h2:first-of-type{margin-top:10px}
+  h3{font-size:17.5px;margin:34px 0 10px}
+  h4{font-size:15px;margin:22px 0 8px;color:var(--ink2)}
+  p{margin:10px 0}
+  ul,ol{margin:10px 0;padding-left:22px}
+  li{margin:5px 0}
+  a{color:#5b3fd6}
+  code{font-family:var(--mono);font-size:12.8px;background:#eef1f6;padding:1.5px 5px;border-radius:5px;color:#3730a3;word-break:break-word}
+  pre{background:var(--code-bg);color:var(--code-ink);border-radius:var(--radius);padding:16px 18px;overflow-x:auto;
+    margin:14px 0;border:1px solid #1b2942;font-size:12.6px;line-height:1.66}
+  pre code{background:none;color:inherit;padding:0;font-size:inherit}
+  .tw{overflow-x:auto;margin:14px 0;border:1px solid var(--line);border-radius:var(--radius);background:var(--panel)}
+  table{border-collapse:collapse;width:100%;font-size:13.2px;min-width:520px}
+  th,td{padding:9px 12px;text-align:left;vertical-align:top;border-bottom:1px solid var(--line2)}
+  th{background:#f1f5f9;font-weight:650;color:var(--ink2);white-space:nowrap;font-size:12.8px}
+  tbody tr:last-child td{border-bottom:none}
+  tbody tr:hover{background:#fafcfe}
+  td code{font-size:12.2px}
+  .box{border-radius:var(--radius);padding:14px 16px 14px 46px;margin:16px 0;position:relative;font-size:14px;border:1px solid}
+  .box::before{position:absolute;left:15px;top:13px;font-size:16px;font-weight:700}
+  .box>p:first-child{margin-top:0}.box>p:last-child{margin-bottom:0}
+  .box .t{font-weight:700;display:block;margin-bottom:3px}
+  .info{background:var(--brand-soft);border-color:#bfe6fa}.info::before{content:"i";color:var(--brand-ink);font-family:var(--mono)}
+  .ok{background:var(--ok-soft);border-color:#bfe6d2}.ok::before{content:"✓";color:var(--ok)}
+  .warn{background:var(--warn-soft);border-color:#f6dcbb}.warn::before{content:"!";color:var(--warn)}
+  .risk{background:var(--danger-soft);border-color:#f5c6c2}.risk::before{content:"×";color:var(--danger)}
+  .note{background:var(--violet-soft);border-color:#d6cbff}.note::before{content:"◆";color:#5b3fd6}
+  .badge{display:inline-block;padding:1.5px 8px;border-radius:999px;font-size:11.5px;font-weight:650;white-space:nowrap;line-height:1.7}
+  .b-ok{background:var(--ok-soft);color:var(--ok);border:1px solid #bfe6d2}
+  .b-no{background:#f1f5f9;color:var(--ink3);border:1px solid #e0e6ee}
+  .b-warn{background:var(--warn-soft);color:var(--warn);border:1px solid #f6dcbb}
+  .b-brand{background:var(--brand-soft);color:var(--brand-ink);border:1px solid #bfe6fa}
+  .b-violet{background:var(--violet-soft);color:#5b3fd6;border:1px solid #d6cbff}
+  .b-risk{background:var(--danger-soft);color:var(--danger);border:1px solid #f5c6c2}
+  .cols{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin:16px 0}
+  .cols3{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin:16px 0}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);padding:16px 18px}
+  .card h4{margin:0 0 8px;font-size:15px}
+  .card ul{margin:8px 0 0;padding-left:20px;font-size:13.5px}
+  .card.pick{border-color:#d6cbff;box-shadow:0 0 0 3px var(--violet-soft)}
+  .card.dim{opacity:.85}
+  .tag{font-size:11.5px;padding:1px 7px;border-radius:5px;background:#eef1f6;color:var(--ink3);font-weight:600}
+  .flow{display:flex;flex-wrap:wrap;margin:20px 0;counter-reset:step}
+  .step{flex:1 1 150px;background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);
+    padding:13px 14px 13px 16px;margin:0 10px 12px 0;position:relative}
+  .step::before{counter-increment:step;content:counter(step);position:absolute;top:-9px;left:12px;background:var(--violet);
+    color:#fff;width:21px;height:21px;border-radius:6px;font-size:12px;font-weight:700;display:flex;align-items:center;justify-content:center}
+  .step .st{margin:8px 0 3px;font-weight:700;font-size:13.5px}
+  .step .sd{font-size:12.5px;color:var(--ink3);line-height:1.55}
+  .kv td:first-child{width:220px;color:var(--ink2);font-weight:600}
+  .src{font-size:12.2px;color:var(--ink3);margin:6px 0 0}
+  .ft{margin-top:70px;padding-top:20px;border-top:1px solid var(--line);font-size:12.5px;color:var(--ink3)}
+  .dart-title{font-size:12.5px;color:var(--ink3);margin:16px 0 4px;font-weight:650}
+  .tree{background:var(--code-bg);color:var(--code-ink);border-radius:var(--radius);padding:18px 20px;overflow-x:auto;
+    margin:14px 0;border:1px solid #1b2942;font-family:var(--mono);font-size:12.4px;line-height:1.72;white-space:pre}
+  @media (max-width:1080px){
+    .sidebar{display:none} main{padding:0 20px 80px}
+    .hero{margin:0 -20px 24px;padding:30px 24px 26px}
+    .hero h1{font-size:24px}
+    .cols,.cols3{grid-template-columns:1fr}
+  }
+</style>
+</head>
+<body>
+<div class="layout">
+
+<aside class="sidebar">
+  <div class="brandmark"><span class="dot"></span><span class="brand-title">Lave · Flutter 客户端</span></div>
+  <p class="brand-sub">QQ 机器人架构设计 v1（待评审）</p>
+  <ul class="toc">
+    <li class="l1"><a href="#s0">0 · 文档定位与决策清单</a></li>
+    <li class="l1"><a href="#s1">1 · 整体系统架构</a></li>
+    <li class="l2"><a href="#s1-1">架构图</a></li>
+    <li class="l2"><a href="#s1-2">三条数据链路</a></li>
+    <li class="l2"><a href="#s1-3">模块与官方文档对应表</a></li>
+    <li class="l1"><a href="#s2">2 · 三个必须先定的决策</a></li>
+    <li class="l2"><a href="#s2-1">凭证策略（关键）</a></li>
+    <li class="l2"><a href="#s2-2">后台保活策略</a></li>
+    <li class="l2"><a href="#s2-3">并发连接策略</a></li>
+    <li class="l1"><a href="#s3">3 · 模块划分</a></li>
+    <li class="l2"><a href="#s3-1">分层职责</a></li>
+    <li class="l2"><a href="#s3-2">模块清单</a></li>
+    <li class="l2"><a href="#s3-3">WSS 连接状态机</a></li>
+    <li class="l2"><a href="#s3-4">事件分发管线</a></li>
+    <li class="l1"><a href="#s4">4 · Dart 数据模型</a></li>
+    <li class="l2"><a href="#s4-1">枚举与常量</a></li>
+    <li class="l2"><a href="#s4-2">WSS 帧模型</a></li>
+    <li class="l2"><a href="#s4-3">事件模型</a></li>
+    <li class="l2"><a href="#s4-4">消息元素模型</a></li>
+    <li class="l2"><a href="#s4-5">HTTP 实体</a></li>
+    <li class="l2"><a href="#s4-6">协议模型 → 领域模型</a></li>
+    <li class="l1"><a href="#s5">5 · 状态管理选型</a></li>
+    <li class="l1"><a href="#s6">6 · 项目目录结构</a></li>
+    <li class="l1"><a href="#s7">7 · 平台配置清单</a></li>
+    <li class="l1"><a href="#s8">8 · 异常处理矩阵</a></li>
+    <li class="l1"><a href="#s9">9 · 待实测确认清单</a></li>
+    <li class="l1"><a href="#s10">10 · 需求覆盖对照</a></li>
+  </ul>
+  <p class="brand-sub" style="margin-top:18px;padding-top:14px;border-top:1px solid var(--line)">
+    依赖版本已核对 pub.dev：web_socket_channel 3.0.3 / flutter_riverpod 3.3.1 / drift 2.35.0 / flutter_secure_storage 11.0.0 / image_picker 1.2.3 / connectivity_plus 7.3.1
+  </p>
+</aside>
+
+<main>
+
+<div class="hero">
+  <h1>Lave · Flutter QQ 机器人客户端架构设计</h1>
+  <p>Flutter APP 直接作为 QQ 机器人客户端：手机端直连腾讯官方 Gateway WSS 网关维护长连接与事件接收，同时内置官方 OpenAPI 调用能力完成消息发送。全部协议行为严格对齐已整理的官方文档知识库，不引入任何非官方协议实现。</p>
+  <div class="chips">
+    <span class="chip">Flutter <strong>3.44.2</strong> / Dart <strong>3.12.2</strong></span>
+    <span class="chip">平台：<strong>Android + iOS</strong></span>
+    <span class="chip">事件通道：<strong>Gateway WSS</strong></span>
+    <span class="chip">公网后端：<strong>不需要</strong>（事件链路）</span>
+    <span class="chip">文档依据：<strong>qq-bot 知识库</strong></span>
+  </div>
+</div>
+
+<h2 id="s0">0 · 文档定位与决策清单</h2>
+
+<p>本文档是<strong>架构方案</strong>，不含实现代码。它与上一轮产出的领域知识库配套使用：</p>
+<div class="tw">
+  <table class="kv">
+    <tbody>
+      <tr><td>领域知识库</td><td><code>docs/qq-bot/knowledge-base.html</code> —— 官方字段、枚举、限流、错误码的事实基准</td></tr>
+      <tr><td>原始笔记</td><td><code>docs/qq-bot/raw/*.md</code> —— 逐字原文与核查记录</td></tr>
+      <tr><td>本文档</td><td>系统边界、模块职责、数据模型、技术选型、目录结构</td></tr>
+      <tr><td>下一步</td><td>架构确认后产出任务级实施计划（TDD、按任务拆分、逐任务可验证），再进入编码</td></tr>
+    </tbody>
+  </table>
+</div>
+
+<h3>0.1 待你确认的决策</h3>
+<div class="tw">
+  <table>
+    <thead><tr><th>#</th><th>决策项</th><th>影响范围</th><th>我的建议</th></tr></thead>
+    <tbody>
+      <tr>
+        <td>D1</td><td><strong>凭证策略</strong>：AppSecret 是否落在设备上</td>
+        <td>是否需要一个极薄 Token 代理；<code>CredentialProvider</code> 的实现个数；风险等级</td>
+        <td><span class="badge b-ok">已确认</span> <b>方案 A</b>：AppSecret 由用户在设置页输入，存入本地安全存储（见 2.1）</td>
+      </tr>
+      <tr>
+        <td>D2</td><td><strong>后台保活策略</strong>：Android 前台服务强度 / iOS 是否接受后台断连</td>
+        <td>权限声明、通知样式、App Store 审核话术、消息及时性</td>
+        <td><span class="badge b-ok">已确认</span> Android 前台服务常驻；iOS 挂起为主 + 额外尝试 BGTaskScheduler 唤醒（见 2.2）</td>
+      </tr>
+      <tr>
+        <td>D3</td><td><strong>并发连接数</strong>：多机器人是否同时在线</td>
+        <td>连接管理器形态、电量与流量、UI 信息架构</td>
+        <td><span class="badge b-ok">已确认</span> 允许多个 Bot 同时在线（见 2.3）</td>
+      </tr>
+      <tr>
+        <td>D4</td><td>状态管理：Riverpod vs Bloc</td>
+        <td>全项目代码风格与样板量</td>
+        <td><span class="badge b-violet">Riverpod 3.3.1</span>（见第 5 章）</td>
+      </tr>
+    </tbody>
+  </table>
+</div>
+
+<h2 id="s1">1 · 整体系统架构</h2>
+
+<h3 id="s1-1">1.1 架构图</h3>
+
+<div class="tw" style="border:none;background:transparent">
+<div class="tree">┌───────────────────────────── Flutter APP（Android / iOS）──────────────────────────────┐
+│                                                                                        │
+│  【Presentation】  features/                                                            │
+│    机器人管理  ·  实时消息面板  ·  发送面板  ·  事件日志  ·  设置                            │
+│         ▲  watch / listen                                                              │
+│         │                                                                              │
+│  【Application】  Riverpod Notifier                                                     │
+│    ConnectionController  ·  BotController  ·  ConsoleController  ·  ComposerController  │
+│         ▲ 调用用例 / 暴露 AsyncValue                                                     │
+│         │                                                                              │
+│  【Domain】  纯 Dart，无 Flutter 依赖                                                     │
+│    EventDispatcher  ·  CommandEngine  ·  ErrorMapper                                    │
+│    领域模型：QqMessage / QqEvent / BotProfile / Conversation                             │
+│         ▲ 解析后的事件                                                                   │
+│         │                                                                              │
+│  【Gateway 通道】                                                                        │
+│    GatewayConnection（单连接状态机）                                                      │
+│    ├─ GatewayApi        GET /gateway/bot 取接入点                                       │
+│    ├─ ProtocolCodec     Op 帧编解码（10/2/1/6/0/11/9/7）                                 │
+│    ├─ HeartbeatScheduler 按 heartbeat_interval 定时发 Op1，等 Op11                        │
+│    ├─ SessionStore      session_id + seq 的读写与持久化                                   │
+│    └─ EventDecoder      按 t 分派为协议事件模型                                            │
+│         │                                                                              │
+│  【Api 通道】                                                                            │
+│    QqHttpClient  统一域名 / Authorization: QQBot {token} / 超时 / X-Tps-trace-ID 采集     │
+│    ├─ TokenApi          POST /app/getAppAccessToken（或经代理）                            │
+│    ├─ MessageApi        /v2/users|groups/{openid}/messages（发/撤/流式）                   │
+│    ├─ MediaApi          files / upload_prepare / upload_part_finish（分片直传）            │
+│    └─ InteractionApi    PUT /interactions/{id}                                           │
+│         │                                                                              │
+│  【Data】                                                                                │
+│    CredentialStore   flutter_secure_storage（AppID / Secret / Token）                     │
+│    AppDatabase       drift（bots / messages / events / sessions / dedup）                 │
+│         │                                                                              │
+└─────────┼──────────────────────────────────────────────────────────────────────────────┘
+          │
+          │  ① HTTP   GET  https://api.bot.qq.com/gateway/bot        ← 取 wss 地址 + 分片 + 限额
+          │  ② WSS    wss://api.bot.qq.com/websocket/                ← 长连接主通道
+          │             Op10 Hello → Op2 Identify → Op0 READY
+          │             Op1 Heartbeat ⇄ Op11 ACK
+          │             Op0 业务事件流（s 自增）
+          │             断线 → Op6 Resume → 补发 → Op0 RESUMED
+          │  ③ HTTP   https://api.bot.qq.com/v2/...                  ← 发消息 / 撤回 / 上传
+          │             （分片上传时由设备直接 PUT 到预签名 URL）
+          ▼
+┌───────────────────────── QQ 开放平台（腾讯侧）───────────────────────────────────────────┐
+│  Gateway 网关（WebSocket 长连接）          OpenAPI（HTTPS，api.bot.qq.com）              │
+│  ─ 事件下发：C2C_MESSAGE_CREATE / GROUP_AT_MESSAGE_CREATE / GROUP_ADD_ROBOT             │
+│              GROUP_MEMBER_ADD / FRIEND_ADD / INTERACTION_CREATE / …                     │
+│  ─ 鉴权：Identify 的 token 字段            ─ 鉴权：Authorization: QQBot {ACCESS_TOKEN}    │
+│  ─ 心跳：heartbeat_interval（毫秒）         ─ 发消息 / 流式消息 / 撤回 / 富媒体 / 互动回应    │
+│  ─ 续传：session_id + seq → Resume          ─ 限流：100 QPS 发消息 / 10 QPS 撤回 等         │
+└────────────────────────────────────────────────────────────────────────────────────────┘</div>
+</div>
+
+<div class="note">
+  <span class="t">这套架构的关键性质</span>
+  <ul>
+    <li><strong>事件链路零后端</strong>：WSS 由设备主动外连腾讯网关，不需要公网 IP、不需要服务器、不需要域名与证书。这是官方对 WebSocket 通道的定位（「不依赖公网服务器部署，适合个人单机使用」）。</li>
+    <li><strong>数据主权在设备</strong>：消息历史、事件日志、session/seq 全部落本地 SQLite，不经过任何第三方。</li>
+    <li><strong>唯一的「可能后端」是凭证签发</strong>：仅当选择方案 B 时才需要一个约几十行的 Token 端点，且它不接触任何消息数据（见 2.1）。</li>
+    <li><strong>协议层与业务层隔离</strong>：所有 wire 模型（含官方命名混乱的 openid 家族）只存在于 Gateway 通道内，UI 只消费领域模型。这样官方字段一旦调整，改动被限制在一层内。</li>
+  </ul>
+</div>
+
+<h3 id="s1-2">1.2 三条数据链路</h3>
+
+<h4>链路 A：建立与维持事件通道（WSS 主链路）</h4>
+<div class="flow">
+  <div class="step"><div class="st">取接入点</div><div class="sd"><code>GET /gateway/bot</code> 拿 <code>url</code> / <code>shards</code> / <code>session_start_limit</code></div></div>
+  <div class="step"><div class="st">建立连接</div><div class="sd">连接 <code>wss://…</code>，等待 <code>ready</code> 与首帧 Hello</div></div>
+  <div class="step"><div class="st">接收 Hello</div><div class="sd">记录 <code>heartbeat_interval</code>（毫秒），据此排心跳</div></div>
+  <div class="step"><div class="st">Identify</div><div class="sd">发 <code>Op2</code>：token / intents / shard / properties</div></div>
+  <div class="step"><div class="st">收到 READY</div><div class="sd">落盘 <code>session_id</code>，进入在线态，启动心跳与事件派发</div></div>
+  <div class="step"><div class="st">心跳循环</div><div class="sd">按周期发 <code>Op1</code>（<code>d</code>=最新 <code>s</code>），等 <code>Op11</code></div></div>
+</div>
+
+<h4>链路 B：断线恢复（Resume 优先，Identify 兜底）</h4>
+<div class="flow">
+  <div class="step"><div class="st">检测断开</div><div class="sd">流关闭 / 收到 <code>Op7</code> / 心跳超时 / 网络事件</div></div>
+  <div class="step"><div class="st">退避重连</div><div class="sd">指数退避 + 抖动，避免 4008「发送 payload 过快」</div></div>
+  <div class="step"><div class="st">判定可用性</div><div class="sd">本地有 <code>session_id</code> + <code>seq</code> 吗？</div></div>
+  <div class="step"><div class="st">发 Resume</div><div class="sd"><code>Op6</code>：token / session_id / seq</div></div>
+  <div class="step"><div class="st">等 RESUMED</div><div class="sd">网关补发遗漏事件，收到 <code>t=RESUMED</code> 后恢复在线态</div></div>
+  <div class="step"><div class="st">失败则 Identify</div><div class="sd">按错误码分流：4006/4007 必须 Identify；4009 可重试 Resume</div></div>
+</div>
+
+<h4>链路 C：发送消息（被动回复优先，主动消息受频控）</h4>
+<div class="flow">
+  <div class="step"><div class="st">选目标</div><div class="sd">单聊 <code>user_openid</code> 或群聊 <code>group_openid</code></div></div>
+  <div class="step"><div class="st">文本直发</div><div class="sd"><code>msg_type=0</code> + <code>content</code></div></div>
+  <div class="step"><div class="st">图片先上传</div><div class="sd">分片三段式拿 <code>file_info</code>（注意 <code>ttl</code>）</div></div>
+  <div class="step"><div class="st">带媒体发送</div><div class="sd"><code>msg_type=7</code> + <code>media.file_info</code></div></div>
+  <div class="step"><div class="st">绑定被动身份</div><div class="sd">回复用户消息带 <code>msg_id</code>，回事件带 <code>event_id</code>，配 <code>msg_seq</code></div></div>
+  <div class="step"><div class="st">结果落库</div><div class="sd">存消息 id / timestamp / <code>ext_info.ref_idx</code> 供撤回与引用</div></div>
+</div>
+
+<h3 id="s1-3">1.3 模块与官方文档对应表</h3>
+<div class="tw">
+  <table>
+    <thead><tr><th>本项目模块</th><th>对应官方接口 / 协议</th><th>知识库章节</th></tr></thead>
+    <tbody>
+      <tr><td><code>GatewayApi</code></td><td><code>GET /gateway</code>、<code>GET /gateway/bot</code></td><td>3.1</td></tr>
+      <tr><td><code>ProtocolCodec</code></td><td>OpCode 0/1/2/6/7/9/10/11、payload <code>id/op/d/s/t</code></td><td>3.3 / 3.4</td></tr>
+      <tr><td><code>GatewayConnection</code>（Identify）</td><td>Op2 的 <code>token/intents/shard/properties</code></td><td>3.5</td></tr>
+      <tr><td><code>HeartbeatScheduler</code></td><td>Op10 <code>heartbeat_interval</code>、Op1 <code>d=s</code>、Op11</td><td>3.6</td></tr>
+      <tr><td><code>SessionStore</code></td><td>READY 的 <code>session_id</code>、Resume 的 <code>seq</code></td><td>3.7</td></tr>
+      <tr><td><code>ConnectionRecovery</code></td><td>WSS 错误码表与官方处理逻辑</td><td>8 / 10.1</td></tr>
+      <tr><td><code>EventDecoder</code></td><td>Op0 Dispatch 的 <code>t</code> 分派与各事件 JSON</td><td>5 / 6</td></tr>
+      <tr><td><code>CredentialStore</code></td><td>AppID / AppSecret / Token（已弃用说明）</td><td>2.1</td></tr>
+      <tr><td><code>TokenApi</code></td><td><code>POST /app/getAppAccessToken</code>，<code>expires_in</code> 与 60 秒内换新</td><td>2.2 / 2.3</td></tr>
+      <tr><td><code>QqHttpClient</code></td><td><code>Authorization: QQBot {ACCESS_TOKEN}</code>、<code>X-Tps-trace-ID</code>、5 秒超时建议</td><td>2.4 / 10</td></tr>
+      <tr><td><code>MessageApi</code></td><td>单聊/群聊发消息、流式消息、撤回</td><td>7.1 / 7.2 / 7.3</td></tr>
+      <tr><td><code>MediaApi</code></td><td><code>files</code> / <code>upload_prepare</code> / <code>upload_part_finish</code>、<code>file_type</code> 限制</td><td>7.4</td></tr>
+      <tr><td><code>InteractionApi</code></td><td><code>PUT /interactions/{interaction_id}</code></td><td>5.6 / 7.5</td></tr>
+      <tr><td><code>CommandEngine</code></td><td>被动回复窗口（群 5 分钟 / 单聊 60 分钟）与 <code>msg_seq</code> 规则</td><td>9.1</td></tr>
+      <tr><td><code>DedupGuard</code></td><td><code>msg_id</code> 可能重复推送 → 结合 <code>msg_seq</code> 去重</td><td>5.1 / 9.1</td></tr>
+      <tr><td><code>RateLimitGuard</code></td><td>接口 QPS、主动消息频控、被动回复次数</td><td>9.1</td></tr>
+    </tbody>
+  </table>
+</div>
+
+<h2 id="s2">2 · 三个必须先定的决策</h2>
+
+<h3 id="s2-1">2.1 D1 凭证策略 —— <span class="badge b-risk">本项目唯一的硬约束</span></h3>
+
+<p>官方文档在鉴权章节明确写着：<strong>「为了安全考虑，请勿在应用前端使用访问凭证。请在应用服务端发起 API 访问请求。」</strong> 而本项目的需求是「APP 内置 HTTP API 调用能力发送消息」，两者天然冲突。冲突的根源在于调用链：</p>
+
+<pre><code>发送消息  →  需要 Authorization: QQBot {ACCESS_TOKEN}
+ACCESS_TOKEN  →  需要用 AppID + CLIENT_SECRET 调 POST /app/getAppAccessToken 换取
+              →  有效期 7200 秒，需在过期前 60 秒内换新
+CLIENT_SECRET  →  只能来自开放平台管理端，没有第二种获取方式</code></pre>
+
+<p>也就是说：<strong>只要 APP 自己发消息，就必然要么持有 CLIENT_SECRET，要么在 2 小时内被用户手动重填一次 ACCESS_TOKEN。</strong> 二者必选其一，没有第三条纯本地的路。三个可选方案：</p>
+
+<div class="note">
+  <span class="t">决策结果（已确认）</span>
+  <p>采用 <strong>方案 A · 纯本地</strong>：AppSecret 由用户在设置页手动输入，经 <code>flutter_secure_storage</code> 存入设备；APP 自行调用 <code>POST /app/getAppAccessToken</code> 换取 ACCESS_TOKEN，并按官方机制在<strong>过期前 60 秒窗口内</strong>静默换新。</p>
+  <p><code>CredentialProvider</code> 这层抽象仍然保留：它只增加一个接口文件、不增加代理实现，收益是把「将来切换凭证来源」从一次 API 层重构降级为改 1 个文件 + 设置页多一个输入框。因此方案 C 实际落地为「方案 A + 抽象」，而不是二选一。</p>
+  <p><strong>本决策的代价不变，需要你知悉</strong>：AppSecret 存在于设备上，在设备被 root / App 被反编译的条件下存在泄露风险，且一旦泄露等于机器人被完全接管（他人可以以你的机器人身份向所有用户发消息）。因此本形态定位为<strong>自用 / 内测</strong>，不适合作为上架发布形态。UI 上必须向用户明示这一点，防护清单见下方。</p>
+</div>
+
+<div class="cols3">
+  <div class="card pick">
+    <h4>方案 A · 纯本地 <span class="tag">已确认采用</span></h4>
+    <p style="font-size:13.5px;margin:6px 0 0">AppSecret 存进 <code>flutter_secure_storage</code>，APP 自行换取与续期 ACCESS_TOKEN。</p>
+    <ul>
+      <li><span class="badge b-ok">零后端</span> 完全符合「不需要额外部署公网后端服务」</li>
+      <li><span class="badge b-ok">体验最好</span> 配置一次永久可用</li>
+      <li><span class="badge b-risk">违反官方安全要求</span></li>
+      <li><span class="badge b-risk">AppSecret 泄露 = 机器人被完全接管</span> 可被他人以你的机器人身份对所有用户发消息</li>
+      <li>仅适合自用 / 内测，不适合上架发布</li>
+    </ul>
+  </div>
+  <div class="card">
+    <h4>方案 B · 极薄 Token 代理</h4>
+    <p style="font-size:13.5px;margin:6px 0 0">一个只有 <code>POST /token</code> 的服务（约 30 行；可用 Cloudflare Worker / 云函数），AppSecret 只存在于该服务上。</p>
+    <ul>
+      <li><span class="badge b-ok">符合官方安全要求</span> 设备上无长期密钥</li>
+      <li><span class="badge b-ok">事件链路仍是零后端</span> 代理只发 token，不碰消息</li>
+      <li><span class="badge b-ok">可随时收回权限</span> 按设备签发 access key</li>
+      <li><span class="badge b-warn">需要一个可访问端点</span> 与「不部署后端」有出入（但几乎零运维）</li>
+    </ul>
+  </div>
+  <div class="card">
+    <h4>方案 C · 接口隔离，先 A 后 B <span class="tag">抽象保留</span></h4>
+    <p style="font-size:13.5px;margin:6px 0 0">把凭证来源抽象成 <code>CredentialProvider</code>，先落地方案 A 的实现，方案 B 的实现留空位。</p>
+    <ul>
+      <li><span class="badge b-violet">不阻塞开工</span> 架构上不为将来改方案返工</li>
+      <li><span class="badge b-violet">风险可控</span> 首期在 UI 上明确标注风险等级与适用场景</li>
+      <li><span class="badge b-violet">已预留</span> 设置页预留「Token 代理地址」输入项，接上即用</li>
+      <li>推荐理由：这是<strong>唯一不浪费工作量</strong>的解法，切换成本约等于改 1 个文件</li>
+    </ul>
+  </div>
+</div>
+
+<div class="note">
+  <span class="t">抽象边界怎么画（无论选 A 还是 B 都不变）</span>
+  <pre style="margin:8px 0 0"><code>abstract class CredentialProvider {
+  /// 返回可直接放进 Authorization: QQBot {token} 的字符串
+  Future&lt;String&gt; accessToken(String botId);
+
+  /// 主动失效（收到 401 / 11243 时调用）
+  void invalidate(String botId);
+}
+
+// 方案 A 实现：设备内自持 AppSecret，本类负责换取与 60 秒窗口续期
+class LocalSecretCredentialProvider implements CredentialProvider { /* … */ }
+
+// 方案 B 实现：向代理请求短期凭据，设备不持有 AppSecret
+class RemoteTokenCredentialProvider implements CredentialProvider { /* … */ }</code></pre>
+</div>
+
+<div class="warn">
+  <span class="t">采用方案 A 时必须做的最小防护（不能省）</span>
+  <ul>
+    <li><code>flutter_secure_storage</code> 11.0.0，并在 Android 端设置 <code>android:allowBackup="false"</code>，否则系统备份还原后会抛 <code>InvalidKeyException: Failed to unwrap key</code>（官方插件文档明确列出的坑）。</li>
+    <li>禁止把 AppSecret 写入任何日志、崩溃上报、剪贴板与截图（Android 侧对输入页设 <code>FLAG_SECURE</code>）。</li>
+    <li>设置页对 AppSecret 字段默认掩码显示，且不做本地导出功能。</li>
+    <li>发布版本关闭调试日志输出（<code>kReleaseMode</code> 时禁用网络日志）。</li>
+    <li>凭证输入页设置 <code>FLAG_SECURE</code>（Android）以防截屏 / 录屏，并对 AppSecret 字段默认掩码显示、提供「显示」开关。</li>
+    <li>不提供 AppSecret 的一键复制到剪贴板与本地导出功能；输入框关闭自动纠错与联想。</li>
+    <li>凭证输入页常驻一行风险提示（「凭证保存在本机，仅建议自用」），并在保存时二次确认。</li>
+    <li><code>access_token</code> 与 AppSecret 的读取统一走 <code>CredentialProvider</code>，业务代码不得直接持有 AppSecret 字符串。</li>
+  </ul>
+</div>
+
+<h3 id="s2-2">2.2 D2 后台保活策略</h3>
+
+<p>这不是优化项，而是功能前提。官方对文字子频道写明「发送消息接口要求机器人接口需要连接到 WebSocket 上保持在线状态」，因此连接在线与否直接决定能力是否可用。</p>
+
+<div class="tw">
+  <table>
+    <thead><tr><th>平台</th><th>现实情况</th><th>本方案策略</th></tr></thead>
+    <tbody>
+      <tr>
+        <td><strong>Android</strong></td>
+        <td>Doze / 应用待机 / 厂商省电策略会掐断长连接；Android 8.0 起后台不再收到网络变化广播</td>
+        <td>前台服务（<code>FOREGROUND_SERVICE</code> + <code>FOREGROUND_SERVICE_DATA_SYNC</code>）+ 常驻通知显示连接状态；引导用户关闭电池优化；监听 <code>onConnectivityChanged</code> 仅在<b>前台</b>可靠，回前台时主动做一次连通性检查</td>
+      </tr>
+      <tr>
+        <td><strong>iOS</strong></td>
+        <td>后台无法可靠维持 WSS；只有 audio / voip / location 等特定 <code>UIBackgroundModes</code> 才能长时间后台运行，滥用会被审核拒</td>
+        <td><span class="badge b-ok">已确认</span> <strong>挂起为主 + BGTaskScheduler 额外尝试唤醒</strong>：使用 Apple 正式提供的 <code>BGAppRefreshTask</code> / <code>BGProcessingTask</code>，注册标识符并在 <code>Info.plist</code> 声明 <code>BGTaskSchedulerPermittedIdentifiers</code> 与 <code>UIBackgroundModes = fetch / processing</code>。进入后台不假装保活；每次被唤醒或回到前台时，<b>先把已断的 socket 重建并走 Resume</b>，再用补齐的事件按规则补回复</td>
+      </tr>
+    </tbody>
+  </table>
+</div>
+
+<div class="risk">
+  <span class="t">BGTaskScheduler 的真实能力边界（采用后仍需接受的事实）</span>
+  <p>BGTaskScheduler 是 Apple 正式提供的后台机制，<strong>审核安全</strong>，但它不是「定时器」：<strong>何时执行、是否执行、执行多久，全部由系统决定</strong>，官方不提供任何时间保证。实际表现通常是唤醒稀疏（间隔常达十几分钟到数小时）、后台窗口只有几十秒，且 <code>BGProcessingTask</code> 还要求设备充电 / 空闲等条件。</p>
+  <p>因此在本方案里它的定位是<strong>尽力而为的补充</strong>：每次被唤醒时，WSS 连接早已断开，必须在窗口内完成「重建 socket → 走 Resume → 补齐事件」这条最短路径；如果窗口不够，就把进度留到下次唤醒或回前台继续。结论仍然成立——<strong>iOS 上不能把「后台实时收到并自动回复」当作可靠承诺</strong>，产品文案不要这样写。若业务上必须保证后台实时，只能改用 Webhook 公网回调，那与本项目「手机直连、不部署后端」的定位冲突。</p>
+  <p>实现上需要注意：task 标识符必须在 App 启动完成前通过 <code>BGTaskScheduler.register</code> 注册（且注册先于 <code>didFinishLaunching</code> 返回），并在每次任务结束时重新提交下一次请求；漏掉这两点会导致后台唤醒静默失效。</p>
+</div>
+
+<h3 id="s2-3">2.3 D3 并发连接策略</h3>
+<div class="tw">
+  <table>
+    <thead><tr><th>策略</th><th>说明</th><th>建议</th></tr></thead>
+    <tbody>
+      <tr>
+        <td>单连接（同一时刻仅 1 个 Bot 在线）</td>
+        <td>切换 Bot 时先断旧连接再建新连接。省电、省流量、UI 与状态简单</td>
+        <td><span class="badge b-no">未选</span> 实现简单，但无法满足多 Bot 同时收事件的需求</td>
+      </tr>
+      <tr>
+        <td>多连接（多个 Bot 同时在线）</td>
+        <td>每个 Bot 一条 WSS + 独立 session/seq + 独立 access_token 缓存。官方 Session 限额是<strong>按 Bot 维度</strong>计算的，所以多个 Bot 不会互相挤占配额；但移动端耗电与内存随连接数线性上升，且 iOS 后台必然全部断开</td>
+        <td><span class="badge b-ok">已确认采用</span> 连接管理器按 <code>Map&lt;botId, Connection&gt;</code> 组织，每个 Bot 独立状态机</td>
+      </tr>
+    </tbody>
+  </table>
+</div>
+
+<div class="warn">
+  <span class="t">多连接带来的三项必须落实的工程约束</span>
+  <ul>
+    <li><strong>并发上限要可配、要有默认值。</strong> 每条连接都要独立跑心跳、独立保存 session/seq、独立重建，数量上去后耗电与内存是主要成本。建议默认上限 3，超过后按「最近使用」权重让空闲连接转入惰性（不建连，切到时再建），并在设置页显示每条连接的实时状态与流量估算。</li>
+    <li><strong>前台服务要承载 N 条连接。</strong> Android 前台服务的常驻通知需要汇总展示「在线 N / 总数 M」并可一键全部断开，不能每个 Bot 弹一条通知。</li>
+    <li><strong>凭证与限额都要按 Bot 隔离。</strong> <code>access_token</code> 缓存、<code>session_start_limit</code> 剩余额度、<code>DedupGuard</code> 去重表、消息与事件表都必须带 <code>botId</code> 维度，否则会出现 A 机器人的 token 被 B 机器人使用、或跨 Bot 误判重复消息这类难查的问题。</li>
+  </ul>
+</div>
+
+<p>无论几条连接，<code>shard</code> 一律使用官方明确允许的无分片写法 <code>[0, 1]</code>。分片是给单 Bot 在多服务器间水平扩展用的，移动端引入分片只增加复杂度且不带来收益。</p>
+
+<h2 id="s3">3 · 模块划分</h2>
+
+<h3 id="s3-1">3.1 分层职责</h3>
+<div class="tw">
+  <table>
+    <thead><tr><th>层</th><th>职责</th><th>约束</th></tr></thead>
+    <tbody>
+      <tr>
+        <td><strong>Presentation</strong><br><code>features/</code></td>
+        <td>只做渲染与用户交互；通过 Riverpod 读取状态、调用 Notifier 方法</td>
+        <td>禁止直接 import <code>data/</code> 与 <code>gateway/protocol/</code>；禁止出现 <code>openid</code> 等 wire 字段名</td>
+      </tr>
+      <tr>
+        <td><strong>Application</strong><br><code>features/*/application/</code></td>
+        <td>编排用例：连接控制、Bot 管理、消息列表、发送流程、指令响应</td>
+        <td>只依赖 Domain 与 Repository 抽象；不直接持有 WebSocket 或 HTTP 客户端</td>
+      </tr>
+      <tr>
+        <td><strong>Domain</strong><br><code>domain/</code></td>
+        <td>纯 Dart：领域模型、事件分发语义、指令引擎、错误语义映射</td>
+        <td>零 Flutter 依赖、零网络依赖，可在纯 Dart 测试中完整单测</td>
+      </tr>
+      <tr>
+        <td><strong>Gateway</strong><br><code>gateway/</code></td>
+        <td>WSS 协议实现：接入点获取、连接状态机、帧编解码、心跳、会话恢复、事件解码</td>
+        <td>唯一允许 import <code>web_socket_channel</code> 的位置；对外只暴露「连接状态流」与「事件流」</td>
+      </tr>
+      <tr>
+        <td><strong>Api</strong><br><code>api/</code></td>
+        <td>HTTP 协议实现：鉴权头注入、超时、trace 采集、各业务端点、错误码→语义化异常</td>
+        <td>唯一允许 import <code>http</code> 的位置；不感知 UI，不做业务决策</td>
+      </tr>
+      <tr>
+        <td><strong>Data</strong><br><code>data/</code></td>
+        <td>凭证安全存储、drift 数据库与 DAO、Repository 实现</td>
+        <td>Gateway 与 Api 通过 Repository 抽象被 Application 使用，不互相直连</td>
+      </tr>
+    </tbody>
+  </table>
+</div>
+
+<h3 id="s3-2">3.2 模块清单</h3>
+<div class="tw">
+  <table>
+    <thead><tr><th>模块</th><th>关键职责</th><th>关键产出</th><th>依赖</th></tr></thead>
+    <tbody>
+      <tr><td><code>GatewayApi</code></td><td>调 <code>GET /gateway/bot</code> 取 <code>url</code>/<code>shards</code>/<code>session_start_limit</code>；对 <code>2 QPM</code> 限额做本地节流与缓存</td><td><code>GatewayEndpoint</code></td><td>QqHttpClient</td></tr>
+      <tr><td><code>GatewayConnection</code></td><td>单条连接的生命周期与状态机；收发帧；把错误码翻译成「可否 Resume / 可否 Identify」的动作指令</td><td><code>Stream&lt;ConnectionStatus&gt;</code></td><td>ProtocolCodec / HeartbeatScheduler / SessionStore</td></tr>
+      <tr><td><code>ProtocolCodec</code></td><td>帧的编解码；容忍未知 <code>op</code>（官方仅定义 0/1/2/6/7/9/10/11/12/13）与缺失 <code>id</code> 字段</td><td><code>GatewayFrame</code> ⇄ JSON</td><td>—</td></tr>
+      <tr><td><code>HeartbeatScheduler</code></td><td>按 Hello 给的 <code>heartbeat_interval</code> 定时发 Op1（<code>d</code>=最新 <code>s</code>，首连为 <code>null</code>）；等 Op11；超时判定死链并触发重连</td><td>心跳成功/超时信号</td><td>—</td></tr>
+      <tr><td><code>SessionStore</code></td><td><code>session_id</code> 与 <code>seq</code> 的读写；<b>按「事件处理完成」而非「收到」推进 seq</b>；落盘以便进程被杀后仍可 Resume</td><td>持久化会话状态</td><td>AppDatabase</td></tr>
+      <tr><td><code>ConnectionRecovery</code></td><td>重连退避（指数 + 抖动，规避 4008）；按错误码选 Resume 或 Identify；4914/4915 进入终态并停止重试</td><td>恢复动作决策</td><td>QqWsCloseCode</td></tr>
+      <tr><td><code>EventDecoder</code></td><td>把 <code>t</code> + <code>d</code> 解码为协议事件模型；未知事件降级为 <code>UnknownEvent</code> 而不抛异常</td><td><code>QqEvent</code></td><td>protocol 模型</td></tr>
+      <tr><td><code>EventDispatcher</code></td><td>去重（<code>msg_id</code>+<code>msg_seq</code>）→ 落库 → 归一化为领域模型 → 广播给指令引擎、日志、UI</td><td>领域事件流</td><td>DedupGuard / Repository</td></tr>
+      <tr><td><code>DedupGuard</code></td><td>官方明确「相同 <code>msg_id</code> 可能重复推送」，需本地排重；同时记录每个 <code>msg_id</code> 已用的最大 <code>msg_seq</code> 以支持多次回复</td><td>放行 / 拦截</td><td>AppDatabase</td></tr>
+      <tr><td><code>CommandEngine</code></td><td>解析 <code>#command args</code>；校验被动回复窗口（群 5 分钟 / 单聊 60 分钟）与剩余可回复次数；分发到 handler</td><td><code>CommandResult</code></td><td>MessageRepository</td></tr>
+      <tr><td><code>QqHttpClient</code></td><td>统一 <code>https://api.bot.qq.com</code>；注入 <code>Authorization: QQBot {token}</code>；超时 ≥5 秒；采集 <code>X-Tps-trace-ID</code> / <code>trace_id</code></td><td><code>QqApiResult&lt;T&gt;</code></td><td>CredentialProvider</td></tr>
+      <tr><td><code>TokenApi</code></td><td><code>POST /app/getAppAccessToken</code>；处理「失败仍返回 HTTP 200、需看 body 的 <code>code</code>」；60 秒窗口内换新</td><td><code>AccessToken</code></td><td>CredentialProvider</td></tr>
+      <tr><td><code>MessageApi</code></td><td>单聊/群聊发消息、流式消息、撤回；发送前做 <code>msg_type</code> 与内容字段的一致性校验（规避 <code>22006</code>）</td><td><code>SentMessage</code></td><td>QqHttpClient</td></tr>
+      <tr><td><code>MediaApi</code></td><td>本地图片走分片三段式：<code>upload_prepare</code> → 直传预签名 URL → <code>upload_part_finish</code> → <code>files</code> 合并拿 <code>file_info</code>；管理 <code>ttl</code> 失效</td><td><code>MediaFileInfo</code></td><td>QqHttpClient</td></tr>
+      <tr><td><code>InteractionApi</code></td><td>按钮/快捷菜单回执 <code>PUT /interactions/{id}</code>，避免客户端一直 loading</td><td>—</td><td>QqHttpClient</td></tr>
+      <tr><td><code>RateLimitGuard</code></td><td>接口级 QPS、主动消息频控、被动回复次数、URL 报备前置校验（<code>304003</code>/<code>40054010</code>）</td><td>放行 / 拒绝 + 剩余配额</td><td>QqLimits</td></tr>
+      <tr><td><code>ErrorMapper</code></td><td>把 HTTP 错误码与 WSS 关闭码映射为语义化异常与中文提示</td><td><code>AppError</code></td><td>QqErrorCode</td></tr>
+    </tbody>
+  </table>
+</div>
+
+<h3 id="s3-3">3.3 WSS 连接状态机</h3>
+
+<div class="tw" style="border:none;background:transparent">
+<div style="background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);padding:18px">
+<svg viewBox="0 0 1020 520" role="img" aria-label="WSS 连接状态机">
+  <defs>
+    <marker id="m1" markerWidth="9" markerHeight="9" refX="8" refY="4.5" orient="auto"><path d="M0,0 L9,4.5 L0,9 z" fill="#7c5cff"/></marker>
+    <marker id="m2" markerWidth="9" markerHeight="9" refX="8" refY="4.5" orient="auto"><path d="M0,0 L9,4.5 L0,9 z" fill="#b45309"/></marker>
+    <marker id="m3" markerWidth="9" markerHeight="9" refX="8" refY="4.5" orient="auto"><path d="M0,0 L9,4.5 L0,9 z" fill="#b42318"/></marker>
+  </defs>
+
+  <rect x="30" y="26" width="146" height="50" rx="10" fill="#f1f5f9" stroke="#e0e6ee"/>
+  <text x="103" y="56" text-anchor="middle" font-size="13" font-weight="700" fill="#334155">idle 空闲</text>
+
+  <rect x="212" y="26" width="156" height="50" rx="10" fill="#f1edff" stroke="#d6cbff"/>
+  <text x="290" y="47" text-anchor="middle" font-size="13" font-weight="700" fill="#5b3fd6">fetchingEndpoint</text>
+  <text x="290" y="65" text-anchor="middle" font-size="11" fill="#5b3fd6">GET /gateway/bot</text>
+
+  <rect x="404" y="26" width="156" height="50" rx="10" fill="#f1edff" stroke="#d6cbff"/>
+  <text x="482" y="47" text-anchor="middle" font-size="13" font-weight="700" fill="#5b3fd6">connecting</text>
+  <text x="482" y="65" text-anchor="middle" font-size="11" fill="#5b3fd6">等 Hello（Op10）</text>
+
+  <rect x="596" y="26" width="156" height="50" rx="10" fill="#f1edff" stroke="#d6cbff"/>
+  <text x="674" y="47" text-anchor="middle" font-size="13" font-weight="700" fill="#5b3fd6">authenticating</text>
+  <text x="674" y="65" text-anchor="middle" font-size="11" fill="#5b3fd6">已发 Identify / Resume</text>
+
+  <rect x="788" y="26" width="200" height="50" rx="10" fill="#e6f6ef" stroke="#bfe6d2"/>
+  <text x="888" y="47" text-anchor="middle" font-size="13" font-weight="700" fill="#047857">online 在线</text>
+  <text x="888" y="65" text-anchor="middle" font-size="11" fill="#047857">心跳 + 事件流</text>
+
+  <line x1="176" y1="51" x2="204" y2="51" stroke="#7c5cff" stroke-width="1.6" marker-end="url(#m1)"/>
+  <line x1="368" y1="51" x2="396" y2="51" stroke="#7c5cff" stroke-width="1.6" marker-end="url(#m1)"/>
+  <line x1="560" y1="51" x2="588" y2="51" stroke="#7c5cff" stroke-width="1.6" marker-end="url(#m1)"/>
+  <line x1="752" y1="51" x2="780" y2="51" stroke="#7c5cff" stroke-width="1.6" marker-end="url(#m1)"/>
+
+  <rect x="600" y="180" width="330" height="70" rx="10" fill="#fef4e6" stroke="#f6dcbb"/>
+  <text x="765" y="205" text-anchor="middle" font-size="13" font-weight="700" fill="#b45309">backoff 退避中</text>
+  <text x="765" y="225" text-anchor="middle" font-size="11.5" fill="#b45309">指数退避 + 抖动；避免 4008；恢复网络后立即重试</text>
+  <text x="765" y="241" text-anchor="middle" font-size="11.5" fill="#b45309">依据：本地有无 session_id + seq 决定走 Resume / Identify</text>
+
+  <rect x="600" y="300" width="330" height="66" rx="10" fill="#fdeceb" stroke="#f5c6c2"/>
+  <text x="765" y="325" text-anchor="middle" font-size="13" font-weight="700" fill="#b42318">blocked 终态（停止重试）</text>
+  <text x="765" y="345" text-anchor="middle" font-size="11.5" fill="#b42318">4915 机器人已封禁 / 4914 已下架仅允许沙箱</text>
+  <text x="765" y="361" text-anchor="middle" font-size="11.5" fill="#b42318">4010~4014 参数与权限类错误需人工修正后手动重连</text>
+
+  <path d="M888 76 L888 150 L930 176" fill="none" stroke="#b45309" stroke-width="1.6" marker-end="url(#m2)"/>
+  <text x="896" y="120" font-size="11.5" fill="#b45309">断开 / Op7 / 心跳超时</text>
+
+  <path d="M600 215 L540 215 L540 84" fill="none" stroke="#7c5cff" stroke-width="1.6" marker-end="url(#m1)"/>
+  <text x="430" y="205" font-size="11.5" fill="#5b3fd6">退避结束 → 重新连接</text>
+
+  <path d="M765 250 L765 292" fill="none" stroke="#b42318" stroke-width="1.6" marker-end="url(#m3)"/>
+
+  <rect x="30" y="300" width="540" height="190" rx="10" fill="#f8fafc" stroke="#e2e8f0"/>
+  <text x="52" y="326" font-size="13" font-weight="700" fill="#334155">错误码 → 动作映射（官方错误码表的 RESUME / IDENTIFY 列）</text>
+  <text x="52" y="352" font-size="12.2" fill="#047857">4008 / 4009 可以重试 RESUME　（4009「可以重新发起 resume」）</text>
+  <text x="52" y="374" font-size="12.2" fill="#5b3fd6">4006 / 4007 / 4900~4913 → 必须重新 IDENTIFY（旧 session 作废）</text>
+  <text x="52" y="396" font-size="12.2" fill="#b42318">4914 / 4915 → 不可连接，进入 blocked，提示联系官方</text>
+  <text x="52" y="418" font-size="12.2" fill="#b42318">4001 / 4002 / 4010 / 4011 / 4012 / 4013 / 4014 → 两个都不可重试</text>
+  <text x="52" y="440" font-size="12.2" fill="#64748b">　　（属于代码或权限问题：payload 结构错、shard 非法、intents 无权限）</text>
+  <text x="52" y="468" font-size="12.2" fill="#b45309">官方未提供：心跳超时阈值、session 有效期、「短时间内」的具体时限</text>
+  <text x="52" y="484" font-size="12.2" fill="#b45309">　　→ 三者做成可配置项，默认取 heartbeat_interval 的 2 倍作为心跳判据</text>
+</svg>
+</div>
+</div>
+
+<h3 id="s3-4">3.4 事件分发管线</h3>
+<div class="flow">
+  <div class="step"><div class="st">收帧</div><div class="sd">ProtocolCodec 解出 <code>GatewayFrame</code>，非 Op0 走连接层分支</div></div>
+  <div class="step"><div class="st">取 seq</div><div class="sd">记录 <code>s</code> 供心跳使用；<b>此处不推进持久化 seq</b></div></div>
+  <div class="step"><div class="st">解码</div><div class="sd">EventDecoder 按 <code>t</code> 生成协议事件模型，未知事件降级</div></div>
+  <div class="step"><div class="st">去重</div><div class="sd">DedupGuard 用 <code>msg_id</code>+<code>msg_seq</code> 判重，命中则丢弃</div></div>
+  <div class="step"><div class="st">归一</div><div class="sd">协议模型 → 领域模型（统一 openid 语义、统一时间格式）</div></div>
+  <div class="step"><div class="st">落库</div><div class="sd">消息/事件写 drift；<b>写成功后</b>才推进持久化 seq</div></div>
+  <div class="step"><div class="st">广播</div><div class="sd">并行分发给指令引擎、事件日志、UI 流</div></div>
+</div>
+
+<div class="note">
+  <span class="t">为什么「落库成功后才推进 seq」是这个设计里最要紧的一条</span>
+  <p>官方推荐「处理过事件之后记录下 <code>s</code>」，并说明 Resume 会自动补发这个 seq 之后的事件。如果我们在「收到」就推进 seq，一旦 App 在处理或写库过程中被杀，这段事件既没落库也不会被补发——<strong>静默丢消息，且不可恢复</strong>。反过来，如果我们推进得保守（落库后才推进），最坏情况只是 Resume 后重复补发几条，而重复推送官方本来就会发生，去重层已经覆盖。所以：<strong>宁可重复，不可丢失。</strong></p>
+</div>
+
+<h2 id="s4">4 · Dart 数据模型</h2>
+
+<p>模型分两类，边界清晰：</p>
+<div class="tw">
+  <table>
+    <thead><tr><th>类别</th><th>位置</th><th>特征</th></tr></thead>
+    <tbody>
+      <tr>
+        <td><strong>协议模型</strong>（wire）</td>
+        <td><code>gateway/protocol/</code>、<code>api/dto/</code></td>
+        <td>字段名与官方 JSON <strong>逐字一致</strong>（含 <code>user_openid</code> / <code>member_openid</code> / <code>message_scene</code> 等），只负责 <code>fromJson</code> / <code>toJson</code>，不做业务判断</td>
+      </tr>
+      <tr>
+        <td><strong>领域模型</strong>（domain）</td>
+        <td><code>domain/models/</code></td>
+        <td>UI 与业务唯一消费的形态。把官方多套 openid 命名归一为 <code>ActorRef</code>，把 RFC3339 字符串与 Unix 秒统一为 <code>DateTime</code></td>
+      </tr>
+    </tbody>
+  </table>
+</div>
+
+<div class="dart-title">4.1 枚举与常量 —— <code>domain/models/qq_enums.dart</code>、<code>core/constants/</code></div>
+
+<pre><code>/// 官方 OpCode 全集（知识库 3.4）。
+/// 注意：3 / 4 / 5 / 8 官方文档未定义，因此 fromValue 必须允许返回 null，
+/// 上层遇到未知 op 只记日志、不抛异常。
+enum QqOpCode {
+  dispatch(0, 'Dispatch'),
+  heartbeat(1, 'Heartbeat'),
+  identify(2, 'Identify'),
+  resume(6, 'Resume'),
+  reconnect(7, 'Reconnect'),
+  invalidSession(9, 'Invalid Session'),
+  hello(10, 'Hello'),
+  heartbeatAck(11, 'Heartbeat ACK'),
+  httpCallbackAck(12, 'HTTP Callback ACK'),
+  callbackUrlVerify(13, '回调地址验证');
+
+  const QqOpCode(this.value, this.label);
+  final int value;
+  final String label;
+
+  static QqOpCode? fromValue(int raw) {
+    for (final e in values) {
+      if (e.value == raw) return e;
+    }
+    return null; // 未知 op，交由上层记录并忽略
+  }
+}</code></pre>
+
+<pre><code>/// 官方 intents 位定义（知识库第 4 章）。
+/// 全部按官方给的位移表达式书写，刻意不写换算后的十进制常量，
+/// 以免与官方唯一权威表述脱节。
+abstract final class QqIntents {
+  static const int guilds                = 1 &lt;&lt; 0;
+  static const int guildMembers          = 1 &lt;&lt; 1;
+  static const int guildMessages         = 1 &lt;&lt; 9;   // 仅私域机器人可设置
+  static const int guildMessageReactions = 1 &lt;&lt; 10;
+  static const int directMessage         = 1 &lt;&lt; 12;
+  static const int groupMemberEvent      = 1 &lt;&lt; 24;  // 官方未列入 intents 清单，需实测确认
+  static const int groupAndC2cEvent      = 1 &lt;&lt; 25;  // 单聊 + 群聊事件（核心）
+  static const int interaction           = 1 &lt;&lt; 26;
+  static const int messageAudit          = 1 &lt;&lt; 27;
+  static const int forumsEvent           = 1 &lt;&lt; 28;  // 仅私域机器人可设置
+  static const int audioAction           = 1 &lt;&lt; 29;
+  static const int publicGuildMessages   = 1 &lt;&lt; 30;
+
+  /// 本项目默认订阅掩码。
+  /// 只放本项目真正要用到的位——官方明确：传了无权限的 intents，
+  /// websocket 会报错并直接关闭连接。
+  static const int defaultMask =
+      groupAndC2cEvent | interaction | groupMemberEvent;
+}</code></pre>
+
+<pre><code>/// WSS 关闭码与官方处理策略（知识库 10.1）。
+/// resume / identify 两列逐字对应官方错误码表的「是否可以重试」列。
+enum QqWsCloseCode {
+  invalidOpcode(4001, '无效的 opcode', false, false),
+  invalidPayload(4002, '无效的 payload', false, false),
+  invalidSessionId(4006, '无效的 session id，无法继续 resume，请 identify', false, true),
+  seqError(4007, 'seq 错误', false, true),
+  payloadTooFast(4008, '发送 payload 过快，请重新连接，并遵守连接后返回的频控信息', true, true),
+  sessionExpired(4009, '连接过期，请重连并执行 resume 进行重新连接', true, true),
+  invalidShard(4010, '无效的 shard', false, false),
+  tooManyGuilds(4011, '连接需要处理的 guild 过多，请进行合理的分片', false, false),
+  invalidVersion(4012, '无效的 version', false, false),
+  invalidIntent(4013, '无效的 intent', false, false),
+  intentForbidden(4014, 'intent 无权限', false, false),
+  offlineSandboxOnly(4914, '机器人已下架，只允许连接沙箱环境，请断开连接，检验当前连接环境', false, false),
+  banned(4915, '机器人已封禁，不允许连接，请断开连接，申请解封后再连接', false, false);
+
+  const QqWsCloseCode(this.code, this.message, this.canResume, this.canIdentify);
+  final int code;
+  final String message;
+  final bool canResume;
+  final bool canIdentify;
+
+  /// 官方表中 4900~4913 为一整段「内部错误，请重连」，可重试 IDENTIFY。
+  static bool isInternalError(int code) =&gt; code &gt;= 4900 &amp;&amp; code &lt;= 4913;
+
+  static QqWsCloseCode? fromCode(int raw) {
+    for (final e in values) {
+      if (e.code == raw) return e;
+    }
+    return null;
+  }
+}</code></pre>
+
+<pre><code>/// 发送侧 msg_type（知识库 7.1）
+enum QqSendMsgType { text(0), markdown(2), inputNotify(6), media(7);
+  const QqSendMsgType(this.value); final int value; }
+
+/// 接收侧 message_type（知识库 5.1 / 6.1）
+enum QqRecvMsgType { text(0), ark(3), parallel(101), chatRecord(102), quote(103);
+  const QqRecvMsgType(this.value); final int value;
+  static QqRecvMsgType? fromValue(int v) { /* … */ } }
+
+/// 富媒体 file_type 与官方大小限制（知识库 7.4）
+enum QqMediaFileType {
+  image(1, softLimitMb: 20, hardLimitMb: 200, formats: 'png/jpg'),
+  video(2, softLimitMb: 30, hardLimitMb: 200, formats: 'mp4'),
+  audio(3, softLimitMb: 20, hardLimitMb: 200, formats: 'silk'),
+  file(4, softLimitMb: 200, hardLimitMb: 200, formats: '任意');
+  const QqMediaFileType(this.value,
+      {required this.softLimitMb, required this.hardLimitMb, required this.formats});
+  final int value; final int softLimitMb; final int hardLimitMb; final String formats;
+}</code></pre>
+
+<pre><code>/// 官方限流与时效常量（知识库 9.1 / 7.x）。
+/// 集中一处，UI 提示与 RateLimitGuard 共用，避免数字散落。
+abstract final class QqLimits {
+  // 接口级 QPS
+  static const int sendMessageQps        = 100;
+  static const int streamMessageQps      = 50;
+  static const int recallQps             = 10;
+  static const int uploadFileQps         = 50;
+  static const int uploadPrepareQps      = 10;
+  static const int gatewayQpm            = 2;   // GET /gateway 另有 10 QPM burst
+
+  // 被动回复窗口（官方口径存在冲突，取保守值，见知识库 11.1）
+  static const Duration c2cReplyWindow   = Duration(minutes: 60);
+  static const Duration groupReplyWindow = Duration(minutes: 5);
+  static const int c2cMaxRepliesPerMsg   = 4;   // overview 口径：60 分钟 4 次
+  static const int groupMaxRepliesPerMsg = 5;   // 5 分钟 5 次
+
+  // 其它硬约束
+  static const Duration recallDeadline   = Duration(minutes: 2);  // 超过 2 分钟不可撤回
+  static const Duration accessTokenTtl   = Duration(hours: 2);    // 7200 秒
+  static const Duration tokenRefreshLead = Duration(seconds: 60);  // 过期前 60 秒内换新
+  static const Duration httpTimeout      = Duration(seconds: 10);  // 官方建议最低 5 秒
+}</code></pre>
+
+<div class="dart-title">4.2 WSS 帧与连接期报文 —— <code>gateway/protocol/</code></div>
+
+<pre><code>/// 通用 payload 结构（知识库 3.3）。
+/// 官方示例中 id 字段时有时无，因此声明为可空；
+/// d 保持 Object? 以免在连接层做业务解析。
+class GatewayFrame {
+  const GatewayFrame({this.id, this.op, this.seq, this.type, this.data});
+
+  final String? id;        // 事件 id
+  final QqOpCode? op;      // opcode；未知 op 时为 null，同时记录 rawOp
+  final int? rawOp;        // 原始 op，便于未知值排查
+  final int? seq;          // s：下行序列号
+  final String? type;      // t：事件类型，仅 op=0 时有意义
+  final Object? data;      // d：事件内容
+
+  factory GatewayFrame.fromJson(Map&lt;String, dynamic&gt; json) { /* … */ }
+}
+
+/// Op10 Hello
+class HelloData {
+  const HelloData({required this.heartbeatInterval});
+  final int heartbeatInterval;   // 毫秒，官方示例 45000
+  factory HelloData.fromJson(Map&lt;String, dynamic&gt; json) =&gt;
+      HelloData(heartbeatInterval: json['heartbeat_interval'] as int);
+}
+
+/// Op2 Identify 的 d
+class IdentifyPayload {
+  const IdentifyPayload({
+    required this.token, required this.intents,
+    this.shard = const [0, 1], this.properties = const {},
+  });
+  final String token;                  // 格式存在官方口径冲突，见知识库 11.1 第 1 项
+  final int intents;
+  final List&lt;int&gt; shard;              // 无分片场景固定 [0, 1]（官方明确允许）
+  final Map&lt;String, String&gt; properties; // 官方：目前无实际作用，可留空
+
+  Map&lt;String, dynamic&gt; toJson() =&gt; {
+        'token': token, 'intents': intents,
+        'shard': shard, 'properties': properties,
+      };
+}
+
+/// Op6 Resume 的 d
+class ResumePayload {
+  const ResumePayload({required this.token, required this.sessionId, required this.seq});
+  final String token;
+  final String sessionId;
+  final int? seq;                      // 最后「处理完成」的事件 s
+  Map&lt;String, dynamic&gt; toJson() =&gt; {'token': token, 'session_id': sessionId, 'seq': seq};
+}
+
+/// Op0 t=READY 的 d（官方只给示例，未给字段表，故全部按可空处理）
+class ReadyData {
+  const ReadyData({this.version, this.sessionId, this.user, this.shard});
+  final int? version;
+  final String? sessionId;             // 关键：Resume 依赖它
+  final QqUser? user;
+  final List&lt;int&gt;? shard;
+  factory ReadyData.fromJson(Map&lt;String, dynamic&gt; json) =&gt; /* … */;
+}</code></pre>
+
+<div class="dart-title">4.3 事件模型 —— <code>gateway/protocol/events/</code></div>
+
+<pre><code>/// 事件基类：用 sealed 保证 switch 穷尽性，编译器帮我们兜住遗漏。
+sealed class QqEvent {
+  const QqEvent({required this.eventId, required this.seq});
+  final String? eventId;
+  final int? seq;
+
+  /// 官方未提供的事件一律落到 UnknownEvent，绝不因未知 t 而中断事件流。
+  static QqEvent decode(String? t, Object? d, {String? id, int? seq}) {
+    final map = (d is Map) ? d.cast&lt;String, dynamic&gt;() : &lt;String, dynamic&gt;{};
+    return switch (t) {
+      'C2C_MESSAGE_CREATE'       =&gt; C2cMessageCreate.fromJson(map, id, seq),
+      'GROUP_AT_MESSAGE_CREATE'  =&gt; GroupAtMessageCreate.fromJson(map, id, seq),
+      'GROUP_MESSAGE_CREATE'     =&gt; GroupMessageCreate.fromJson(map, id, seq),
+      'C2C_MSG_RECEIVE'          =&gt; C2cMsgReceive.fromJson(map, id, seq),
+      'C2C_MSG_REJECT'           =&gt; C2cMsgReject.fromJson(map, id, seq),
+      'GROUP_MSG_RECEIVE'        =&gt; GroupMsgReceive.fromJson(map, id, seq),
+      'GROUP_MSG_REJECT'         =&gt; GroupMsgReject.fromJson(map, id, seq),
+      'GROUP_ADD_ROBOT'          =&gt; GroupAddRobot.fromJson(map, id, seq),
+      'GROUP_DEL_ROBOT'          =&gt; GroupDelRobot.fromJson(map, id, seq),
+      'GROUP_MEMBER_ADD'         =&gt; GroupMemberAdd.fromJson(map, id, seq),
+      'GROUP_MEMBER_REMOVE'      =&gt; GroupMemberRemove.fromJson(map, id, seq),
+      'GROUP_JOIN_REQUEST'       =&gt; GroupJoinRequest.fromJson(map, id, seq),
+      'FRIEND_ADD'               =&gt; FriendAdd.fromJson(map, id, seq),
+      'FRIEND_DEL'               =&gt; FriendDel.fromJson(map, id, seq),
+      'INTERACTION_CREATE'       =&gt; InteractionCreate.fromJson(map, id, seq),
+      'SUBSCRIBE_MESSAGE_STATUS' =&gt; SubscribeMessageStatus.fromJson(map, id, seq),
+      _                          =&gt; UnknownEvent(t: t, raw: map, eventId: id, seq: seq),
+    };
+  }
+}</code></pre>
+
+<pre><code>/// 单聊消息事件（知识库 5.1，字段名与官方逐字一致）
+class C2cMessageCreate extends QqEvent {
+  const C2cMessageCreate({
+    required super.eventId, required super.seq,
+    this.id, this.author, this.content, this.timestamp,
+    this.messageType, this.messageScene, this.attachments,
+    this.arkData, this.msgElements,
+  });
+
+  final String? id;                       // 可作为被动回复的 msg_id
+  final QqUser? author;                   // 本场景 user_openid 有值
+  final String? content;
+  final DateTime? timestamp;              // 官方为 RFC3339 字符串，归一为 DateTime
+  final int? messageType;                 // 0 文本 / 3 卡片 / 101 并行 / 102 聊天记录 / 103 引用
+  final MessageScene? messageScene;
+  final List&lt;MessageAttachment&gt;? attachments;
+  final ArkData? arkData;
+  final List&lt;MsgElement&gt;? msgElements;
+
+  factory C2cMessageCreate.fromJson(Map&lt;String, dynamic&gt; m, String? id, int? seq) =&gt;
+      C2cMessageCreate(
+        eventId: id, seq: seq,
+        id: m['id'] as String?,
+        author: m['author'] == null ? null
+            : QqUser.fromJson((m['author'] as Map).cast&lt;String, dynamic&gt;()),
+        content: m['content'] as String?,
+        timestamp: QqTime.tryParse(m['timestamp']),
+        messageType: (m['message_type'] as num?)?.toInt(),
+        messageScene: m['message_scene'] == null ? null
+            : MessageScene.fromJson((m['message_scene'] as Map).cast&lt;String, dynamic&gt;()),
+        attachments: QqJson.list(m['attachments'], MessageAttachment.fromJson),
+        arkData: m['ark_data'] == null ? null
+            : ArkData.fromJson((m['ark_data'] as Map).cast&lt;String, dynamic&gt;()),
+        msgElements: QqJson.list(m['msg_elements'], MsgElement.fromJson),
+      );
+}
+
+/// 群 @机器人 事件（知识库 5.2）：多一个 group_openid 与 mentions，
+/// content 官方已自动去除 @机器人 前缀，客户端不得再自行剥离。
+class GroupAtMessageCreate extends QqEvent {
+  const GroupAtMessageCreate({
+    required super.eventId, required super.seq,
+    this.id, this.author, this.content, this.groupOpenid, this.timestamp,
+    this.messageType, this.messageScene, this.attachments,
+    this.mentions, this.arkData, this.msgElements,
+  });
+  final String? id;
+  final QqUser? author;                   // 本场景 member_openid 有值
+  final String? content;
+  final String? groupOpenid;
+  final DateTime? timestamp;
+  final int? messageType;
+  final MessageScene? messageScene;
+  final List&lt;MessageAttachment&gt;? attachments;
+  final List&lt;QqUser&gt;? mentions;          // 官方：不含 @机器人自身
+  final ArkData? arkData;
+  final List&lt;MsgElement&gt;? msgElements;
+  factory GroupAtMessageCreate.fromJson(Map&lt;String, dynamic&gt; m, String? id, int? seq) =&gt; /* … */;
+}
+
+/// 兜底：官方新增事件或文档未列事件时使用，保证事件流不中断
+class UnknownEvent extends QqEvent {
+  const UnknownEvent({required this.t, required this.raw, super.eventId, super.seq});
+  final String? t;
+  final Map&lt;String, dynamic&gt; raw;
+}</code></pre>
+
+<div class="dart-title">4.4 通用元素模型 —— <code>gateway/protocol/models/</code></div>
+
+<pre><code>/// 官方 User 对象：8 个字段来自四个不同的 id 体系，必须全部保留并逐一判空。
+class QqUser {
+  const QqUser({
+    this.id, this.username, this.bot,
+    this.unionOpenid, this.unionUserAccount,
+    this.userOpenid, this.memberOpenid, this.memberRole,
+  });
+  final String? id;                // 用户唯一标识（OpenID 格式）
+  final String? username;
+  final bool? bot;
+  final String? unionOpenid;       // 跨应用统一用户 OpenID（可能为空）
+  final String? unionUserAccount;  // 跨应用统一用户账号（可能为空）
+  final String? userOpenid;        // 单聊场景使用
+  final String? memberOpenid;      // 群聊场景使用
+  final String? memberRole;        // member / admin / owner
+
+  factory QqUser.fromJson(Map&lt;String, dynamic&gt; m) =&gt; QqUser(
+        id: m['id'] as String?,
+        username: m['username'] as String?,
+        bot: m['bot'] as bool?,
+        unionOpenid: m['union_openid'] as String?,
+        unionUserAccount: m['union_user_account'] as String?,
+        userOpenid: m['user_openid'] as String?,
+        memberOpenid: m['member_openid'] as String?,
+        memberRole: m['member_role'] as String?,
+      );
+}
+
+/// message_scene：ext 是 ["key=value", ...] 的字符串数组，
+/// 必须解析成 Map 才能用。三个已知 key：msg_idx / ref_msg_idx / auth_token。
+class MessageScene {
+  const MessageScene({this.source, this.ext = const {}});
+  final String? source;                     // default = 默认聊天窗口
+  final Map&lt;String, String&gt; ext;
+
+  String? get msgIdx     =&gt; ext['msg_idx'];
+  String? get refMsgIdx  =&gt; ext['ref_msg_idx'];
+
+  factory MessageScene.fromJson(Map&lt;String, dynamic&gt; m) =&gt; MessageScene(
+        source: m['source'] as String?,
+        ext: _parseExt(m['ext']),
+      );
+
+  static Map&lt;String, String&gt; _parseExt(Object? raw) {
+    if (raw is! List) return const {};
+    final out = &lt;String, String&gt;{};
+    for (final e in raw) {
+      final s = e?.toString() ?? '';
+      final i = s.indexOf('=');
+      if (i &gt; 0) out[s.substring(0, i)] = s.substring(i + 1);
+    }
+    return out;
+  }
+}
+
+/// 附件：官方 C2C/群聊体系 8 个字段。
+/// content_type 有 voice / file 这类非标准 MIME 值，不能用 MIME 规则推断。
+class MessageAttachment {
+  const MessageAttachment({
+    this.url, this.filename, this.width, this.height, this.size,
+    this.contentType, this.voiceWavUrl, this.asrReferText,
+  });
+  final String? url;
+  final String? filename;
+  final int? width;          // 非图片附件无此字段
+  final int? height;
+  final int? size;
+  final String? contentType; // voice / image/jpeg / image/png / image/gif / video/mp4 / file
+  final String? voiceWavUrl; // 语音 SILK 等转换后的 WAV URL
+  final String? asrReferText;// 语音 ASR 参考结果
+  factory MessageAttachment.fromJson(Map&lt;String, dynamic&gt; m) =&gt; /* … */;
+}
+
+/// ARK 结构化卡片（message_type = 3 时 ark_data 有值）
+class ArkData {
+  const ArkData({this.prompt, this.arkType, this.arkName, this.fields = const {}});
+  final String? prompt;
+  final String? arkType;   // tuwen / feed / miniapp / map / contact_card / video_share / …
+  final String? arkName;
+  final Map&lt;String, dynamic&gt; fields; // title / desc / jump_url / preview / source / …
+  factory ArkData.fromJson(Map&lt;String, dynamic&gt; m) =&gt; /* … */;
+}
+
+/// 引用消息元素（message_type = 103）。官方标注为递归结构，故自嵌套。
+class MsgElement {
+  const MsgElement({
+    this.msgIdx, this.author, this.messageType, this.content,
+    this.attachments, this.arkData, this.msgElements,
+  });
+  final String? msgIdx;
+  final QqUser? author;
+  final int? messageType;
+  final String? content;
+  final List&lt;MessageAttachment&gt;? attachments;
+  final ArkData? arkData;
+  final List&lt;MsgElement&gt;? msgElements;   // 递归
+  factory MsgElement.fromJson(Map&lt;String, dynamic&gt; m) =&gt; /* … */;
+}</code></pre>
+
+<div class="note">
+  <span class="t">时间字段必须容错解析</span>
+  <p>官方时间格式不统一：消息类事件是 RFC3339 字符串（带东八区偏移），而 <code>FRIEND_ADD</code>、<code>GROUP_ADD_ROBOT</code>、<code>GROUP_MEMBER_ADD</code> 等用的是 <code>integer</code> Unix 秒。因此统一走一个容错入口，不要在各事件里各写一套：</p>
+  <pre style="margin:8px 0 0"><code>abstract final class QqTime {
+  /// 同时接受 RFC3339 字符串与 Unix 秒整数；失败返回 null 而不是抛异常。
+  static DateTime? tryParse(Object? raw) {
+    if (raw is num) {
+      return DateTime.fromMillisecondsSinceEpoch(raw.toInt() * 1000);
+    }
+    if (raw is String) {
+      return DateTime.tryParse(raw);
+    }
+    return null;
+  }
+}</code></pre>
+</div>
+
+<div class="dart-title">4.5 HTTP 实体 —— <code>api/dto/</code></div>
+
+<pre><code>/// 取凭证响应（知识库 2.2）。
+/// 注意官方特别说明：该接口失败时 HTTP 仍返回 200，必须看 body 的 code。
+class AccessTokenResponse {
+  const AccessTokenResponse({this.accessToken, this.expiresIn, this.code, this.message});
+  final String? accessToken;
+  final int? expiresIn;     // 秒，官方：目前是 7200 秒之内的值（示例中为字符串 "7200"）
+  final int? code;          // 失败时的业务错误码
+  final String? message;    // 仅用于人工排查，内容可能随时调整
+
+  bool get ok =&gt; accessToken != null &amp;&amp; (code == null || code == 0);
+
+  factory AccessTokenResponse.fromJson(Map&lt;String, dynamic&gt; m) =&gt; AccessTokenResponse(
+        accessToken: m['access_token'] as String?,
+        expiresIn: int.tryParse('${m['expires_in']}'),
+        code: (m['code'] as num?)?.toInt(),
+        message: m['message'] as String?,
+      );
+}
+
+/// 统一错误体（知识库第 10 章）
+class QqApiErrorBody {
+  const QqApiErrorBody({this.errCode, this.message, this.traceId});
+  final int? errCode;     // 如 40034005 / 22006 / 11265
+  final String? message;
+  final String? traceId;  // 也可从响应头 X-Tps-trace-ID 取
+  factory QqApiErrorBody.fromJson(Map&lt;String, dynamic&gt; m) =&gt; QqApiErrorBody(
+        errCode: (m['err_code'] as num?)?.toInt() ?? (m['code'] as num?)?.toInt(),
+        message: m['message'] as String?,
+        traceId: m['trace_id'] as String?,
+      );
+}
+
+/// 发消息请求：官方是平铺字段，这里用工厂构造约束合法组合，
+/// 并在发送前本地校验，避免把 22006「消息类型与内容不匹配」丢给用户。
+class SendMessageRequest {
+  const SendMessageRequest({
+    this.msgType, this.content, this.markdown, this.media,
+    this.keyboard, this.msgId, this.eventId, this.msgSeq,
+    this.messageReference, this.isWakeup, this.inputNotify,
+  });
+
+  factory SendMessageRequest.text(String content,
+          {String? msgId, String? eventId, int? msgSeq, bool? isWakeup}) =&gt; /* … */;
+  factory SendMessageRequest.markdown(MessageMarkdown md, {/* … */}) =&gt; /* … */;
+  factory SendMessageRequest.media(String fileInfo, {/* … */}) =&gt; /* … */;
+  factory SendMessageRequest.inputNotify({int second = 60, /* … */}) =&gt; /* … */;
+
+  final int? msgType;                          // 0 / 2 / 6 / 7
+  final String? content;
+  final MessageMarkdown? markdown;
+  final MediaInfo? media;
+  final Keyboard? keyboard;
+  final String? msgId;                         // 被动：取事件 d.id
+  final String? eventId;                       // 被动：取事件最外层 id
+  final int? msgSeq;                           // 不填默认 1；相同 msg_id + msg_seq 重复发送会失败
+  final MessageReference? messageReference;
+  final bool? isWakeup;                        // 召回消息，与 msg_id / event_id 互斥
+  final InputNotify? inputNotify;
+
+  Map&lt;String, dynamic&gt; toJson() =&gt; /* 省略 null 字段 */;
+
+  /// 官方规则：传了 markdown 后 content 必须为空；
+  /// msg_id 与 event_id 二选一；is_wakeup 与二者互斥。
+  List&lt;String&gt; validate() =&gt; /* … */;
+}
+
+/// 发消息响应
+class SendMessageResponse {
+  const SendMessageResponse({this.id, this.timestamp, this.refIdx});
+  final String? id;             // 消息 ID，可用于后续撤回
+  final DateTime? timestamp;    // RFC3339 东八区
+  final String? refIdx;         // ext_info.ref_idx，供后续引用回复使用
+  factory SendMessageResponse.fromJson(Map&lt;String, dynamic&gt; m) =&gt; /* … */;
+}
+
+/// 分片上传：预上传响应（知识库 7.4）
+class UploadPrepareResponse {
+  const UploadPrepareResponse({
+    this.uploadId, this.blockSize, this.partUrls, this.uploadConfig,
+  });
+  final String? uploadId;
+  final int? blockSize;            // 官方默认 5MB，示例中出现 10485760
+  final List&lt;String&gt;? partUrls;    // 逐片 PUT 的预签名地址
+  final UploadConfig? uploadConfig;// concurrency 1 / retry_timeout 300 / retry_delay 1
+  factory UploadPrepareResponse.fromJson(Map&lt;String, dynamic&gt; m) =&gt; /* … */;
+}
+
+/// files 接口响应：file_info 与 ttl 必须成对保存，过期需重新上传
+class MediaFileInfo {
+  const MediaFileInfo({this.fileUuid, this.fileInfo, this.ttl, this.id, this.rawUrl});
+  final String? fileUuid;
+  final String? fileInfo;   // 内部为序列化二进制，直接透传给 media.file_info，不要解析
+  final int? ttl;           // 秒；0 表示可长期使用
+  final String? id;         // 仅 srv_send_msg=true 时返回
+  final String? rawUrl;     // 仅分片合并且图片/视频/语音时返回
+
+  /// 官方：ttl 为 file_info 有效期（秒），到期后需重新上传；0 表示可长期使用。
+  DateTime? expiryFrom(DateTime now) =&gt;
+      (ttl == null || ttl == 0) ? null : now.add(Duration(seconds: ttl!));
+}</code></pre>
+
+<div class="dart-title">4.6 协议模型 → 领域模型</div>
+
+<pre><code>/// 领域层唯一的「消息」模型。UI 只认它，不再接触 openid 家族。
+class QqMessage {
+  const QqMessage({
+    required this.localId, required this.botId, required this.scope,
+    required this.conversationId, required this.sender,
+    required this.direction, required this.receivedAt,
+    this.content, this.attachments = const [], this.quote, this.ark,
+    this.wireId, this.replyDeadline, this.repliesUsed = 0,
+  });
+
+  final int localId;                 // 本地自增主键
+  final String botId;
+  final ConversationScope scope;      // c2c / group / guild
+  final String conversationId;        // 单聊 = user_openid；群聊 = group_openid
+  final ActorRef sender;              // 归一后的发送者身份
+  final MessageDirection direction;    // incoming / outgoing
+  final DateTime receivedAt;          // 统一为 DateTime（来源可能是字符串或 Unix 秒）
+  final String? content;
+  final List&lt;AttachmentRef&gt; attachments;
+  final QqMessage? quote;             // 引用消息（message_type=103）
+  final ArkSummary? ark;
+  final String? wireId;               // 官方消息 id，撤回与引用需要
+  final DateTime? replyDeadline;      // 被动回复窗口截止（群 5 分钟 / 单聊 60 分钟）
+  final int repliesUsed;              // 已用回复次数，用于判断是否还能继续被动回复
+}
+
+/// 官方四套 openid 归一为一个概念，避免 UI 层写 switch。
+class ActorRef {
+  const ActorRef({required this.scopeId, this.displayName, this.role, this.unionId});
+  final String scopeId;      // 单聊取 user_openid，群聊取 member_openid
+  final String? displayName; // username
+  final GroupRole? role;     // member / admin / owner
+  final String? unionId;     // union_openid，跨应用标识
+}</code></pre>
+
+<h2 id="s5">5 · 状态管理选型</h2>
+
+<p><strong>建议：Riverpod（<code>flutter_riverpod</code> 3.3.1）</strong>，不叠加 Bloc，不额外引入 <code>get_it</code>。</p>
+
+<div class="tw">
+  <table>
+    <thead><tr><th>方案</th><th>对本项目的匹配度</th><th>结论</th></tr></thead>
+    <tbody>
+      <tr>
+        <td><strong>Riverpod 3.3.1</strong></td>
+        <td>同时解决三件事：<strong>依赖注入</strong>（WSS 连接、HTTP 客户端、数据库都是长生命周期单例，需要跨页面共享且可被测试替换）、<strong>异步状态</strong>（<code>AsyncValue</code> 原生表达 loading / error / data，正好对应「连接中 / 连接失败 / 已连接」）、<strong>流式数据</strong>（drift 的查询本身就是 <code>Stream</code>，与 <code>StreamProvider</code> 天然契合）。编译期安全，无 BuildContext 依赖，可在纯 Dart 测试中用 <code>ProviderContainer</code> 覆盖依赖</td>
+        <td><span class="badge b-violet">采用</span></td>
+      </tr>
+      <tr>
+        <td>Bloc</td>
+        <td>事件驱动语义与本项目契合，但连接层与数据库不需要 event→state 的显式映射，会带来大量样板；且 Bloc 不含 DI，仍需再引一个容器</td>
+        <td>不采用</td>
+      </tr>
+      <tr>
+        <td>Provider + ChangeNotifier</td>
+        <td>足够简单，但缺少编译期安全与 <code>AsyncValue</code>，错误与加载态要手写；连接状态机分支多时容易漏状态</td>
+        <td>不采用</td>
+      </tr>
+      <tr>
+        <td>纯 <code>StreamBuilder</code> + 手动单例</td>
+        <td>原型阶段可行，但多 Bot 切换、依赖替换、测试注入会迅速失控</td>
+        <td>不采用</td>
+      </tr>
+    </tbody>
+  </table>
+</div>
+
+<h3>5.1 Provider 拓扑（草图）</h3>
+<pre><code>// ── 基础设施（keepAlive，全局唯一）─────────────────────────────
+final secureStorageProvider      = Provider((ref) =&gt; FlutterSecureStorage());
+final appDatabaseProvider        = Provider((ref) =&gt; AppDatabase());          // drift
+final credentialProvider         = Provider&lt;CredentialProvider&gt;((ref) =&gt; LocalSecretCredentialProvider(...));
+final qqHttpClientProvider       = Provider((ref) =&gt; QqHttpClient(ref.watch(credentialProvider)));
+
+// ── API 层 ────────────────────────────────────────────────────
+final tokenApiProvider           = Provider((ref) =&gt; TokenApi(ref.watch(qqHttpClientProvider)));
+final gatewayApiProvider         = Provider((ref) =&gt; GatewayApi(ref.watch(qqHttpClientProvider)));
+final messageApiProvider         = Provider((ref) =&gt; MessageApi(ref.watch(qqHttpClientProvider)));
+final mediaApiProvider           = Provider((ref) =&gt; MediaApi(ref.watch(qqHttpClientProvider)));
+
+// ── Repository ────────────────────────────────────────────────
+final botRepositoryProvider      = Provider((ref) =&gt; BotRepository(...));
+final messageRepositoryProvider  = Provider((ref) =&gt; MessageRepository(ref.watch(appDatabaseProvider)));
+final sessionRepositoryProvider  = Provider((ref) =&gt; SessionRepository(ref.watch(appDatabaseProvider)));
+
+// ── Gateway（按 botId 分族；本期即启用多 Bot 并发）──────────────
+final gatewayConnectionProvider  = Provider.family&lt;GatewayConnection, String&gt;((ref, botId) =&gt; ...);
+final connectionRegistryProvider = Provider((ref) =&gt; ConnectionRegistry(ref)); // 并发上限 / 惰性转出
+
+// ── UI 状态 ───────────────────────────────────────────────────
+final activeBotProvider          = NotifierProvider&lt;ActiveBotNotifier, BotProfile?&gt;(...);
+final connectionStatusProvider   = StreamProvider&lt;ConnectionStatus&gt;(...);   // 来自连接状态机
+final eventLogProvider           = StreamProvider&lt;List&lt;BotEvent&gt;&gt;(...);     // 来自 drift 查询
+final conversationsProvider      = StreamProvider&lt;List&lt;Conversation&gt;&gt;(...);
+final messagesProvider           = StreamProvider.family&lt;List&lt;QqMessage&gt;, String&gt;(...);
+final composerProvider           = NotifierProvider&lt;ComposerNotifier, ComposerState&gt;(...);
+final commandRegistryProvider    = Provider((ref) =&gt; CommandRegistry.withBuiltIns());</code></pre>
+
+<div class="note">
+  <span class="t">两条落地约定</span>
+  <ul>
+    <li><strong>是否上 codegen（<code>riverpod_generator</code>）</strong>：首期建议不上。本项目 provider 数量在 25 个以内，手写 <code>Provider</code> / <code>NotifierProvider</code> 成本可接受，能少一层 build_runner 与生成物管理；等 provider 数量明显增长再迁移，迁移是机械操作。</li>
+    <li><strong>Riverpod 3.x 的 API 与 2.x 有差异</strong>（例如 <code>Ref</code> 的用法与 <code>Notifier</code> 的书写方式）。编码前按 3.x 官方迁移文档核对一遍，不要沿用 2.x 的写法记忆。</li>
+  </ul>
+</div>
+
+<h3>5.2 可测试性设计</h3>
+<div class="tw">
+  <table>
+    <thead><tr><th>要测的东西</th><th>怎么测</th><th>关键点</th></tr></thead>
+    <tbody>
+      <tr><td>帧编解码</td><td>纯 Dart 单测：喂官方 JSON 样例，断言模型</td><td>把知识库里 32 段官方 JSON 样例直接做成测试用例，<strong>这是一次投入长期受益的回归网</strong></td></tr>
+      <tr><td>状态机迁移</td><td>把 WebSocket 抽象成 <code>GatewaySocket</code> 接口，用假实现注入动作序列</td><td>覆盖：Hello→Identify→READY、断线→Resume→RESUMED、4006 时改 Identify、4915 进终态</td></tr>
+      <tr><td>心跳</td><td>注入可控时钟（<code>Clock</code>），断言按 <code>heartbeat_interval</code> 发送且 <code>d</code> 序列正确</td><td>首连 <code>d=null</code>；超时判定可被单测</td></tr>
+      <tr><td>去重</td><td>同 <code>msg_id</code> 连推两次，断言只落库一次</td><td>并使用 <code>msg_seq</code> 递增场景验证「允许重复回复」</td></tr>
+      <tr><td>错误映射</td><td>表驱动：错误码 → <code>AppError</code> → 文案</td><td>官方码有 200+ 条，先覆盖知识库第 10 章列出的高频项</td></tr>
+      <tr><td>Provider 组合</td><td><code>ProviderContainer</code> + <code>overrides</code> 替换 gateway/api</td><td>不需要起真连接即可测 Application 层</td></tr>
+    </tbody>
+  </table>
+</div>
+
+<h2 id="s6">6 · 项目目录结构</h2>
+
+<div class="tw" style="border:none;background:transparent">
+<div class="tree">lib/
+├── main.dart                          # 入口：初始化存储、拉起 active bot、启动连接
+│
+├── app/
+│   ├── app.dart                       # MaterialApp + ProviderScope 装配
+│   ├── router.dart                    # 路由（首个版本可用简单 Navigator，不引路由框架）
+│   ├── theme.dart
+│   └── platform/                      # 与 OS 打交道的胶水（唯一含平台判断的地方）
+│       ├── background_task_service.dart   # iOS BGTaskScheduler 注册 + 每次任务后重新提交
+│       └── foreground_service.dart        # Android 前台服务：N 条连接的汇总通知与批量断开
+│
+├── core/                              # 与业务无关的通用能力
+│   ├── constants/
+│   │   ├── qq_endpoints.dart          # api.bot.qq.com、/gateway/bot、/v2/... 全部路径
+│   │   ├── qq_limits.dart             # 频控、时效、超时（见 4.1）
+│   │   └── app_config.dart            # 可配置项：心跳超时倍数、重连退避、是否启用代理
+│   ├── error/
+│   │   ├── app_error.dart             # 语义化异常（sealed）
+│   │   └── error_mapper.dart          # 官方错误码 / 关闭码 → AppError + 中文文案
+│   ├── logging/
+│   │   └── app_logger.dart            # 分级日志；release 关闭网络细节；保留 trace_id
+│   └── utils/
+│       ├── qq_time.dart               # RFC3339 与 Unix 秒的容错解析
+│       ├── qq_json.dart               # list()/map() 安全取值助手
+│       └── result.dart                # Result&lt;T&gt; / QqApiResult&lt;T&gt;
+│
+├── gateway/                           # ★ WSS 通道（唯一允许用 web_socket_channel 的地方）
+│   ├── gateway_api.dart               # GET /gateway/bot
+│   ├── connection_registry.dart        # 多 Bot 连接注册表：并发上限、惰性转出、批量断开
+│   ├── gateway_socket.dart            # WebSocket 抽象接口（便于测试替换）
+│   ├── gateway_connection.dart        # 单连接状态机：生命周期编排
+│   ├── protocol_codec.dart            # GatewayFrame ⇄ JSON
+│   ├── heartbeat_scheduler.dart       # Op1 / Op11 / 超时判定
+│   ├── connection_recovery.dart       # 退避策略 + Resume/Identify 决策
+│   ├── session_store.dart             # session_id + seq（落库，落库后才推进）
+│   ├── event_decoder.dart             # t + d → QqEvent
+│   ├── event_dispatcher.dart          # 去重 → 落库 → 归一 → 广播
+│   ├── dedup_guard.dart               # msg_id + msg_seq 排重
+│   └── protocol/
+│       ├── qq_opcode.dart             # QqOpCode / QqWsCloseCode / QqIntents
+│       ├── gateway_frame.dart         # GatewayFrame / HelloData / IdentifyPayload /
+│       │                              #   ResumePayload / ReadyData
+│       ├── events/                    # 每事件一文件，与官方文档一一对应
+│       │   ├── qq_event.dart          #   sealed 基类 + decode 分派
+│       │   ├── unknown_event.dart
+│       │   ├── c2c_message_create.dart
+│       │   ├── group_at_message_create.dart
+│       │   ├── group_message_create.dart
+│       │   ├── group_lifecycle.dart   #   GROUP_ADD_ROBOT / DEL_ROBOT / MEMBER_* / JOIN_REQUEST
+│       │   ├── friend_events.dart     #   FRIEND_ADD / FRIEND_DEL
+│       │   ├── interaction_create.dart
+│       │   ├── subscribe_message_status.dart
+│       │   └── message_switch_events.dart  # C2C/GROUP_MSG_RECEIVE / REJECT
+│       └── models/
+│           ├── qq_user.dart
+│           ├── message_scene.dart
+│           ├── message_attachment.dart
+│           ├── ark_data.dart
+│           └── msg_element.dart
+│
+├── api/                               # ★ HTTP 通道（唯一允许用 http 的地方）
+│   ├── qq_http_client.dart            # 域名 / 鉴权头 / 超时 / trace_id 采集
+│   ├── token_api.dart                 # POST /app/getAppAccessToken
+│   ├── message_api.dart               # 发消息 / 流式消息 / 撤回
+│   ├── media_api.dart                 # files / upload_prepare / upload_part_finish
+│   ├── interaction_api.dart           # PUT /interactions/{id}
+│   ├── rate_limit_guard.dart          # QPS 与配额前置校验
+│   └── dto/
+│       ├── access_token_response.dart
+│       ├── send_message_request.dart
+│       ├── send_message_response.dart
+│       ├── upload_prepare_response.dart
+│       ├── media_file_info.dart
+│       └── qq_api_error_body.dart
+│
+├── data/
+│   ├── secure/
+│   │   ├── credential_store.dart      # flutter_secure_storage 封装
+│   │   └── credential_provider.dart   # ★ 凭证抽象（方案 A/B 切换点）
+│   ├── db/
+│   │   ├── app_database.dart          # drift：建库 + 迁移
+│   │   ├── tables/
+│   │   │   ├── bots.dart
+│   │   │   ├── messages.dart
+│   │   │   ├── bot_events.dart        # 进群/退群/@机器人 等事件日志
+│   │   │   ├── sessions.dart          # session_id + seq + 最后活跃时间
+│   │   │   ├── dedup_records.dart     # msg_id + msg_seq
+│   │   │   └── conversations.dart     # 会话列表（群/单聊元信息）
+│   │   └── daos/
+│   │       ├── bot_dao.dart
+│   │       ├── message_dao.dart
+│   │       ├── event_dao.dart
+│   │       └── session_dao.dart
+│   └── repository/
+│       ├── bot_repository.dart
+│       ├── message_repository.dart
+│       └── media_repository.dart
+│
+├── domain/                            # 纯 Dart，零 Flutter 依赖
+│   ├── models/
+│   │   ├── bot_profile.dart
+│   │   ├── bot_credential.dart
+│   │   ├── connection_status.dart     # idle/fetching/connecting/authenticating/online/backoff/blocked
+│   │   ├── qq_message.dart            # 领域消息（见 4.6）
+│   │   ├── actor_ref.dart
+│   │   ├── conversation.dart
+│   │   ├── bot_event.dart             # 领域事件日志模型
+│   │   └── group_role.dart
+│   └── command/
+│       ├── command.dart               # Command 定义与解析结果
+│       ├── command_context.dart        # 回复能力：被动窗口 + msg_seq + 去重
+│       ├── command_registry.dart
+│       └── commands/
+│           ├── help_command.dart      # #help
+│           ├── status_command.dart    # #status 连接与配额状态
+│           ├── ping_command.dart
+│           └── echo_command.dart      # 作为扩展样例
+│
+├── features/                          # 每个功能一个目录：presentation + application
+│   ├── bots/
+│   │   ├── application/bots_controller.dart
+│   │   └── presentation/bots_page.dart, bot_edit_sheet.dart
+│   ├── console/                       # 实时消息面板
+│   │   ├── application/console_controller.dart
+│   │   └── presentation/console_page.dart, message_bubble.dart, image_preview.dart
+│   ├── composer/                      # 发送面板
+│   │   ├── application/composer_controller.dart, upload_controller.dart
+│   │   └── presentation/composer_page.dart, target_picker.dart, keyboard_preview.dart
+│   ├── eventlog/                      # 事件日志
+│   │   ├── application/eventlog_controller.dart
+│   │   └── presentation/eventlog_page.dart
+│   └── settings/
+│       ├── application/settings_controller.dart
+│       └── presentation/settings_page.dart, proxy_config_tile.dart
+│
+└── shared/widgets/                    # 复用组件
+    ├── connection_badge.dart          # 连接状态徽标（含 blocked 终态提示）
+    ├── quota_hint.dart                # 剩余回复次数 / 频控提示
+    └── empty_state.dart
+
+test/
+├── gateway/
+│   ├── protocol_codec_test.dart       # 官方 JSON 样例回归
+│   ├── event_decoder_test.dart        # t 分派 + UnknownEvent 兜底
+│   ├── heartbeat_scheduler_test.dart  # 假时钟
+│   ├── connection_recovery_test.dart  # 错误码 → Resume/Identify/blocked
+│   └── dedup_guard_test.dart
+├── api/
+│   ├── send_message_request_test.dart # 字段互斥与 validate()
+│   └── error_mapper_test.dart         # 表驱动
+└── domain/
+    └── command_registry_test.dart</div>
+</div>
+
+<div class="info">
+  <span class="t">目录结构的三条设计原则</span>
+  <ul>
+    <li><strong>按技术职责与功能就近放置</strong>：<code>gateway/</code> 与 <code>api/</code> 各管一条协议通道；<code>features/</code> 内部自带 application + presentation，避免出现一个巨大的 <code>controllers/</code> 目录。</li>
+    <li><strong>协议模型按事件一文件</strong>：官方事件 24 个以上，全部堆在一个 <code>events.dart</code> 里会让任何一次字段调整都变成大 diff。一事件一文件同时让「官方文档页 ↔ 代码文件」形成直接映射。</li>
+    <li><strong><code>credential_provider.dart</code> 是唯一的方案切换点</strong>：<code>LocalSecretCredentialProvider</code> 与 <code>RemoteTokenCredentialProvider</code> 是同一抽象的两个实现，设置页多一个「代理地址」输入项即可切换，其余代码零改动。</li>
+  </ul>
+</div>
+
+<h2 id="s7">7 · 平台配置清单</h2>
+
+<h3>7.1 Android</h3>
+<div class="tw">
+  <table>
+    <thead><tr><th>项</th><th>内容</th><th>原因 / 注意</th></tr></thead>
+    <tbody>
+      <tr>
+        <td><code>minSdk</code></td><td><strong>24</strong></td>
+        <td><code>image_picker</code> 要求 Android SDK 24+；<code>flutter_secure_storage</code> 10+ 要求 23。取二者较高值。需覆盖 Flutter 模板默认值</td>
+      </tr>
+      <tr>
+        <td><code>INTERNET</code></td><td><code>&lt;uses-permission android:name="android.permission.INTERNET"/&gt;</code></td>
+        <td><strong>Flutter 模板只在 debug / profile 清单里加了这个权限</strong>，release 清单默认没有。必须显式加到 <code>android/app/src/main/AndroidManifest.xml</code>，否则打包后所有网络请求直接失败</td>
+      </tr>
+      <tr>
+        <td><code>ACCESS_NETWORK_STATE</code></td><td>同上传入</td><td><code>connectivity_plus</code> 需要</td>
+      </tr>
+      <tr>
+        <td>前台服务</td><td><code>FOREGROUND_SERVICE</code> + <code>FOREGROUND_SERVICE_DATA_SYNC</code>，并在 <code>&lt;service&gt;</code> 上声明 <code>android:foregroundServiceType="dataSync"</code></td>
+        <td>Android 14 起前台服务必须声明类型，否则启动即崩。用途是维持 WSS 长连接</td>
+      </tr>
+      <tr>
+        <td><code>POST_NOTIFICATIONS</code></td><td>同上传入</td><td>Android 13+ 运行时权限；前台服务的常驻通知需要它</td>
+      </tr>
+      <tr>
+        <td>关闭自动备份</td><td><code>android:allowBackup="false"</code>，并按需配置 <code>dataExtractionRules</code></td>
+        <td><strong>官方插件文档明确列出的坑</strong>：不关闭会导致云备份还原后 <code>flutter_secure_storage</code> 抛 <code>InvalidKeyException: Failed to unwrap key</code>，用户表现为「凭证突然读不出来」</td>
+      </tr>
+      <tr>
+        <td>构建工具链</td><td>Java 17（模板已是）、AGP ≥ 8.12.1、Gradle wrapper ≥ 8.13</td>
+        <td><code>connectivity_plus</code> 7.x 的硬性要求。<strong>需实测核对</strong>模板生成的 AGP / Gradle 版本是否达标</td>
+      </tr>
+      <tr>
+        <td>图片选择</td><td>无需额外权限；启动时调用 <code>retrieveLostData()</code></td>
+        <td>低内存时系统可能杀掉 MainActivity 导致选择结果丢失，官方要求启动时检查一次</td>
+      </tr>
+      <tr>
+        <td>屏幕安全</td><td>凭证输入页设 <code>FLAG_SECURE</code></td>
+        <td>防止 AppSecret 被截屏 / 录屏外泄</td>
+      </tr>
+    </tbody>
+  </table>
+</div>
+
+<h3>7.2 iOS</h3>
+<div class="tw">
+  <table>
+    <thead><tr><th>项</th><th>内容</th><th>原因 / 注意</th></tr></thead>
+    <tbody>
+      <tr>
+        <td><strong>ATS 配置</strong></td>
+        <td><span class="badge b-ok">不需要任何例外</span></td>
+        <td><strong>这里对你需求清单里的第 9 条做一个更正</strong>：<code>wss://</code> 本身就是 TLS 加密通道，ATS 默认就允许，<strong>不存在「wss 协议需要放行」这件事</strong>。真正需要 ATS 例外的是明文 <code>ws://</code>，而官方网关不使用明文。所以正确做法是不加任何 ATS 例外。<br>如果为了排查问题临时放开，必须使用 <code>NSExceptionDomains</code> <b>限定到具体域名</b>，绝不能使用 <code>NSAllowsArbitraryLoads</code> 全局放开，并且上架版本必须移除</td>
+      </tr>
+      <tr>
+        <td>相册权限</td><td><code>NSPhotoLibraryUsageDescription</code></td>
+        <td><code>image_picker</code> 官方要求。<strong>即使只用到读取、不上传原图元数据，这个 key 也必须写</strong>（App Store 政策要求）</td>
+      </tr>
+      <tr>
+        <td>相机权限</td><td><code>NSCameraUsageDescription</code>（如需拍照发送）</td>
+        <td>按实际功能决定是否加</td>
+      </tr>
+      <tr>
+        <td>麦克风权限</td><td><code>NSMicrophoneUsageDescription</code>（如需录制视频）</td>
+        <td>本项目只做图片，<strong>不建议加</strong>——无对应功能却声明权限会被审核追问</td>
+      </tr>
+      <tr>
+        <td>Keychain 能力</td><td>在 <code>Runner/DebugProfile.entitlements</code> 与 <code>Release.entitlements</code> 中加入 <code>keychain-access-groups</code> 空数组</td>
+        <td><strong>官方插件文档明确列出的坑</strong>：不配置时表现为「写入看似成功但实际从未落盘」，凭证读出来恒为 null，且不报错，排查极难</td>
+      </tr>
+      <tr>
+        <td><strong>后台模式</strong></td>
+        <td><code>UIBackgroundModes</code> = <code>fetch</code> + <code>processing</code>；<code>BGTaskSchedulerPermittedIdentifiers</code> 声明后台任务标识符</td>
+        <td><span class="badge b-ok">已确认采用</span> 配合 <code>BGAppRefreshTask</code> / <code>BGProcessingTask</code> 做「尽力而为」的周期唤醒。这两项属于 Apple 正式机制，与滥用 audio / voip / location 有本质区别，审核安全。但<strong>严禁</strong>为了保活去声明与业务不符的后台模式</td>
+      </tr>
+      <tr>
+        <td>最低版本</td><td>iOS 13+</td>
+        <td><code>image_picker</code> 与 <code>connectivity_plus</code> 均要求 iOS 13+；按 Flutter 3.44 模板默认值核对</td>
+      </tr>
+      <tr>
+        <td>构建环境</td><td>Xcode ≥ 26.1.1</td>
+        <td><code>connectivity_plus</code> 7.3.1 声明的要求。<strong>需实测核对</strong>构建机 Xcode 版本</td>
+      </tr>
+    </tbody>
+  </table>
+</div>
+
+<div class="warn">
+  <span class="t">构建前必须实测核对的三项（官方包声明与模板默认值可能不一致）</span>
+  <ul>
+    <li>Android 的 AGP / Gradle 版本是否满足 <code>connectivity_plus</code> 的 AGP ≥ 8.12.1、Gradle ≥ 8.13。</li>
+    <li>iOS 构建机的 Xcode 版本是否 ≥ 26.1.1。</li>
+    <li>iOS deployment target 是否 ≥ 13.0。</li>
+  </ul>
+  <p>这三项在首次 <code>flutter build</code> 时就会暴露，届时按报错调整即可，不影响架构。</p>
+</div>
+
+<h2 id="s8">8 · 异常处理矩阵</h2>
+
+<p>原则：<strong>官方错误码是唯一判据</strong>，界面文案由 <code>ErrorMapper</code> 统一生成，业务层不写散落的 if-else 文案。下表覆盖知识库第 10 章列出的高频项。</p>
+
+<div class="tw">
+  <table>
+    <thead><tr><th>场景</th><th>官方码</th><th>AppError</th><th>界面提示</th><th>自动动作</th></tr></thead>
+    <tbody>
+      <tr><td>凭证缺失 / 无效 / 已过期</td><td>HTTP 401；<code>11241</code> <code>11242</code> <code>11243</code> <code>100007</code> <code>100016</code> <code>10004</code></td><td><code>AuthError</code></td><td>「机器人凭证无效或已过期，请重新配置」</td><td>凭证失效 → 重新签发 → 单个请求重试一次；仍失败则引导到设置页</td></tr>
+      <tr><td>ACCESS_TOKEN 到期</td><td>本地依据 <code>expires_in</code> 预判</td><td>—</td><td>无感</td><td>过期前 60 秒窗口内静默换新（官方机制）</td></tr>
+      <tr><td>接口频率限制</td><td>HTTP 429；<code>22009</code> <code>40034100</code> <code>50002</code> <code>20028</code> <code>1100100</code></td><td><code>RateLimitedError</code></td><td>「触发平台频率限制，已自动排队重试」</td><td>按接口 QPS 令牌桶排队 + 指数退避；UI 显示剩余配额</td></tr>
+      <tr><td>被动回复窗口已关闭</td><td><code>40034128</code> <code>304103</code> <code>40034005</code> <code>40034026</code></td><td><code>ReplyWindowExpiredError</code></td><td>「回复窗口已关闭（群 5 分钟 / 单聊 60 分钟），需改用主动消息」</td><td>不自动重试；提示改用主动消息并说明配额约束</td></tr>
+      <tr><td>主动消息无权限 / 超额</td><td><code>40034105</code> <code>40034122</code> <code>40034123</code></td><td><code>ActiveMessageDeniedError</code></td><td>「用户已关闭主动消息，或召回配额已用完」</td><td>不重试；在会话页标注该用户/群不可主动触达</td></tr>
+      <tr><td>消息被去重</td><td><code>40054005</code></td><td><code>DuplicateMessageError</code></td><td>「该回复已发送过，已自动跳过」</td><td><code>msg_seq</code> 自动递增后重发一次</td></tr>
+      <tr><td>内容被平台拦截</td><td><code>40034006</code> <code>1100101</code> <code>40054010</code> <code>304003</code></td><td><code>ContentRejectedError</code> / <code>UrlNotRegisteredError</code></td><td>内容违规：「内容未通过平台审核，请修改后重试」；URL 未报备：「消息包含未报备链接，请先在开放平台后台配置」</td><td><strong>不自动重试</strong>（重试必然再失败）；发送前用本地校验提前拦截 URL 场景</td></tr>
+      <tr><td>富媒体处理失败</td><td><code>304080</code> <code>40034004</code> <code>304082</code> <code>304083</code> <code>850026</code> <code>850027</code></td><td><code>MediaTransferError</code></td><td>「文件转存失败，已重试 N 次」</td><td>可重试（官方建议重试）；上传超时按 ≥5 秒放宽</td></tr>
+      <tr><td>文件不合规</td><td><code>850019</code> <code>850031</code> <code>40093002</code> <code>40093001</code></td><td><code>MediaRejectedError</code></td><td>「格式不支持 / 超过大小限制 / 今日文件容量已用完」</td><td>发送前按 <code>QqMediaFileType</code> 的软硬限制本地拦截，超软限制自动降级为文件类型</td></tr>
+      <tr><td>机器人被禁言 / 非群成员</td><td><code>40054002</code> <code>850018</code> / <code>40034101</code> <code>40054003</code></td><td><code>MutedError</code> / <code>NotInGroupError</code></td><td>「机器人已被禁言，请等待解禁」/「机器人不在该群，请先邀请入群」</td><td>不重试；刷新群状态</td></tr>
+      <tr><td>机器人已下线</td><td><code>40054016</code></td><td><code>BotOfflineError</code></td><td>「机器人已下线，请检查开放平台后台状态」</td><td>不重试</td></tr>
+      <tr><td>WSS 会话失效</td><td><code>4006</code> <code>4007</code></td><td><code>SessionInvalidError</code></td><td>无感（仅日志）</td><td><strong>丢弃旧 session_id 重新 Identify</strong></td></tr>
+      <tr><td>WSS 连接过期</td><td><code>4009</code></td><td>—</td><td>无感</td><td>重连后重新发起 Resume（官方原文）</td></tr>
+      <tr><td>WSS 发送过快</td><td><code>4008</code></td><td>—</td><td>无感</td><td>拉长退避间隔，遵守连接后返回的频控信息</td></tr>
+      <tr><td>WSS 参数 / 权限错误</td><td><code>4001</code> <code>4002</code> <code>4010</code> <code>4011</code> <code>4012</code> <code>4013</code> <code>4014</code></td><td><code>ProtocolRejectedError</code></td><td>明确提示例如「事件订阅权限不足，请检查开放的 intents」</td><td>两个都不可重试 → 进入 <code>blocked</code>，需人工修正后手动重连；<code>4013/4014</code> 时提供「降级为默认 intents 重连」按钮</td></tr>
+      <tr><td>WSS 内部错误</td><td><code>4900~4913</code></td><td><code>TransientError</code></td><td>无感</td><td>可重连并重新 Identify</td></tr>
+      <tr><td>机器人已下架</td><td><code>4914</code></td><td><code>BotOfflineError</code></td><td>「机器人已下架，当前仅允许连接沙箱环境」</td><td>进入 <code>blocked</code>，停止重试</td></tr>
+      <tr><td>机器人已封禁</td><td><code>4915</code> <code>11265</code></td><td><code>BotBannedError</code></td><td>「机器人已被平台封禁，请断开连接并联系官方申请解封」</td><td>进入 <code>blocked</code>，停止重试；同时关闭前台服务</td></tr>
+      <tr><td>接口权限不足</td><td><code>11253</code> <code>11254</code></td><td><code>PermissionDeniedError</code></td><td>「该接口权限不足，请到开放平台检查是否已申请并开通对应接口权限」</td><td>不重试；<span class="badge b-warn">编码期修正</span> 官方把「接口被封」与「机器人被封」列为不同的码，原先归入 BotBanned 会让用户重填一个本来就正确的密钥</td></tr>
+      <tr><td>网络中断 / 切换</td><td>—</td><td><code>NetworkError</code></td><td>「网络不可用，恢复后将自动重连」</td><td>监听连通性变化 + 回前台检查；指数退避重连，并尝试 Resume</td></tr>
+      <tr><td>心跳超时（死链）</td><td>—</td><td>—</td><td>无感</td><td>主动断开并重连；阈值取 <code>heartbeat_interval</code> 的 2 倍（官方未提供阈值，做成可配置）</td></tr>
+      <tr><td>内容安全前置</td><td>—</td><td>—</td><td>—</td><td>按官方运营规范，发送前对文本做本地敏感词过滤，降低 <code>1100101</code> 与封禁风险</td></tr>
+    </tbody>
+  </table>
+</div>
+
+<div class="note">
+  <span class="t">可观测性：把 trace_id 打通</span>
+  <p>官方提供 <code>X-Tps-trace-ID</code> 响应头与 <code>trace_id</code> 响应体字段，用于找平台协助定位问题。所有 HTTP 失败都必须把 trace_id 落进本地日志与界面上的「复制诊断信息」按钮，否则线上问题无法溯源。连接层的每条状态迁移也带一个本地 trace，方便还原「什么时候断的、为什么断的」。</p>
+</div>
+
+<h2 id="s9">9 · 待实测确认清单</h2>
+
+<p>以下是官方文档<strong>确实没有写</strong>、但实现必须依赖的点（来自知识库第 11 章）。方案上全部做成可配置或可替换，编码阶段用真机一次性收敛。</p>
+
+<div class="tw">
+  <table>
+    <thead><tr><th>#</th><th>待确认项</th><th>当前处理方式</th><th>收敛时机</th></tr></thead>
+    <tbody>
+      <tr>
+        <td>1</td><td><strong>Identify 的 <code>token</code> 格式</strong>：官方两处给出 <code>QQBot {AccessToken}</code> 与 <code>Bot {appid}.{app_token}</code></td>
+        <td><code>BotCredential</code> 内保留 <code>tokenScheme</code> 字段，设置页可切换两种拼法；默认先用字段表口径</td>
+        <td>第一次真机连接</td>
+      </tr>
+      <tr><td>2</td><td><strong>心跳超时阈值</strong>与死链判定</td><td>默认 <code>heartbeat_interval × 2</code>，写入 <code>app_config.dart</code> 可调</td><td>弱网实测</td></tr>
+      <tr><td>3</td><td><code>session_id</code> 有效期、Resume 的时间窗口与次数上限</td><td>不设本地过期假设，一律先试 Resume，失败即 Identify（官方兜底逻辑）</td><td>断线场景实测</td></tr>
+      <tr><td>4</td><td>是否存在压缩传输（官方未出现 zlib/deflate/compress）</td><td>按纯 JSON 文本帧实现；若首帧无法解析则记原始字节并提示</td><td>第一次真机连接</td>
+      </tr>
+      <tr><td>5</td><td><code>GROUP_MESSAGE_CREATE</code> 与 <code>GROUP_MEMBER_EVENT (1&lt;&lt;24)</code> 的 intents 归属</td><td><code>defaultMask</code> 默认含 <code>1&lt;&lt;24</code>；若遇到 <code>4014</code> 则提供「降级重连」按钮</td><td>权限实测</td></tr>
+      <tr><td>6</td><td>实际收到的 <code>message_type</code> 值集合（官方 101/102 未给结构）</td><td>未知值一律降级为纯文本摘要展示，不崩不丢事件</td><td>长期观察</td></tr>
+      <tr><td>7</td><td>单聊被动回复次数（4 还是 5）与 <code>msg_id</code> 有效期（5 分钟还是 60 分钟）</td><td>取保守值：4 次、以本地 <code>replyDeadline</code> 计算并留安全余量</td><td>真实对话实测</td></tr>
+      <tr><td>8</td><td><code>upload_prepare</code> 响应的确切字段名与分片 PUT 的头部要求</td><td>DTO 中先按 <code>upload_id</code> / <code>block_size</code> / 预签名地址列表建模，字段名以真实响应为准调整</td><td>首次上传实测</td></tr>
+      <tr><td>9</td><td>移动端（Android / iOS）连接是否触发风控</td><td><code>properties</code> 先按官方示例填真实 <code>$os</code> / <code>$browser</code> / <code>$device</code></td><td>真机压测</td></tr>
+      <tr><td>10</td><td>沙箱环境域名与生产域名差异（api-v2 未给沙箱域名）</td><td>域名集中一处，便于切换；不引入旧版 <code>sandbox.api.sgroup.qq.com</code></td><td>需要沙箱时</td></tr>
+      <tr><td>11</td><td>官方对「短时间内重连」的定义</td><td>退避策略独立于 Resume 判定：先等网络稳定再决定 Resume / Identify</td><td>网络切换实测</td></tr>
+    </tbody>
+  </table>
+</div>
+
+<h2 id="s10">10 · 需求覆盖对照</h2>
+
+<div class="tw">
+  <table>
+    <thead><tr><th>#</th><th>你的需求</th><th>承担模块</th><th>对应章节</th><th>备注</th></tr></thead>
+    <tbody>
+      <tr><td>1</td><td>多机器人账号管理（AppID + Token 存本地安全存储、支持切换）</td><td><code>CredentialStore</code> / <code>BotRepository</code> / <code>features/bots</code></td><td>2.1 / 4.5 / 6</td><td>凭证策略见 D1；需补 AppSecret 才能自动续期 HTTP 凭证</td></tr>
+      <tr><td>2</td><td>Gateway WSS 核心模块（接入点 / 自动重连 / 心跳 / Identify / Resume / 错误码处理）</td><td><code>gateway/*</code> 全套</td><td>3.2 / 3.3 / 4.2</td><td>状态机与官方错误码表一一对应</td></tr>
+      <tr><td>3</td><td>事件分发模块（Op0 Dispatch → 分类 → 分发 UI）</td><td><code>EventDecoder</code> / <code>EventDispatcher</code></td><td>3.4 / 4.3</td><td>未知事件降级不中断</td></tr>
+      <tr><td>4</td><td>实时消息面板（私聊/群消息、发送人、群信息、图片预览）</td><td><code>features/console</code> + <code>messageRepository</code></td><td>6 / 4.6</td><td>图片直接预览附件 <code>url</code>；语音展示 <code>voice_wav_url</code> 与 ASR 文本</td></tr>
+      <tr><td>5</td><td>消息发送面板（选群/私聊，发文本与图片）</td><td><code>features/composer</code> + <code>MessageApi</code> / <code>MediaApi</code></td><td>1.2 链路 C / 7.4</td><td>本地图必须走分片上传三段式</td></tr>
+      <tr><td>6</td><td>事件日志（进群、退群、@机器人等）</td><td><code>features/eventlog</code> + <code>bot_events</code> 表</td><td>6</td><td>与消息表分开存，便于按类型筛选</td></tr>
+      <tr><td>7</td><td>指令引擎（内置 <code>#help</code>，可扩展）</td><td><code>domain/command/*</code></td><td>3.2 / 6</td><td>必须校验被动回复窗口与 <code>msg_seq</code></td></tr>
+      <tr><td>8</td><td>本地持久化（历史消息、session_id、seq）</td><td><code>AppDatabase</code>（drift）+ <code>SessionStore</code></td><td>3.4 / 4.6</td><td><strong>落库成功后才推进 seq</strong></td></tr>
+      <tr><td>9</td><td>双端适配（Android 网络权限、iOS ATS、相册读取）</td><td>平台清单</td><td>7.1 / 7.2</td><td><span class="badge b-warn">已更正</span> iOS 不需要 ATS 例外；Android release 清单必须补 INTERNET</td></tr>
+      <tr><td>10</td><td>异常处理（token 失效、网络中断、会话过期、限流友好提示）</td><td><code>ErrorMapper</code> + <code>RateLimitGuard</code></td><td>8</td><td>官方错误码为唯一判据，文案集中生成</td></tr>
+    </tbody>
+  </table>
+</div>
+
+<h3>10.1 我建议在本期一并纳入、但目前清单里没有的三项</h3>
+<div class="tw">
+  <table>
+    <thead><tr><th>项</th><th>为什么建议纳入</th></tr></thead>
+    <tbody>
+      <tr>
+        <td><strong>消息去重与回复配额管理</strong></td>
+        <td>不是可选项：官方明确「相同 <code>msg_id</code> 可能重复推送」，且被动回复窗口与次数有硬限制。不做会出现「用户收到两条一样的回复」和「明明能回却回不出去」两类问题，两者都会直接暴露给用户</td>
+      </tr>
+      <tr>
+        <td><strong>连接状态的显式终态（blocked）</strong></td>
+        <td>封禁、下架、intents 无权限这三类错误官方都标注「不可重试」。如果代码统一走「无限重连」，表现就是无休止地重连失败、耗电、日志刷屏，而用户看不到任何有效信息</td>
+      </tr>
+      <tr>
+        <td><strong>URL 报备前置校验</strong></td>
+        <td>官方要求消息内含 URL 需先在后台报备，否则发送失败（<code>304003</code> / <code>40054010</code>）。在发送面板做一次本地正则检测并给出明确指引，能省掉大量「为什么发不出去」的困惑</td>
+      </tr>
+    </tbody>
+  </table>
+</div>
+
+<div class="ft">
+  <p><strong>文档性质</strong>：架构设计稿，不含实现代码。所有协议行为、字段名、枚举值、限流数字与错误码均以 <code>docs/qq-bot/knowledge-base.html</code> 及其三份原始笔记为准，未引入任何非官方协议实现。</p>
+  <p><strong>依赖版本</strong>：web_socket_channel 3.0.3 ｜ flutter_riverpod 3.3.1 ｜ drift 2.35.0 ｜ flutter_secure_storage 11.0.0 ｜ image_picker 1.2.3 ｜ connectivity_plus 7.3.1（均于 2026-09-26 在 pub.dev 核对）。</p>
+  <p><strong>下一步</strong>：本文档确认后产出任务级实施计划（每个任务含确切文件路径、失败测试先行、可验证的实现步骤与提交点），再进入编码。</p>
+</div>
+
+</main>
+</div>
+</body>
+</html>

@@ -43,3 +43,6 @@ app.*.map.json
 /android/app/debug
 /android/app/profile
 /android/app/release
+
+# 工具生成的 HTML 分享包（每次打开预览都会重生成，不入库）
+.trae-html-share-packages/

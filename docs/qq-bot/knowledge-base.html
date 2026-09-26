@@ -1,0 +1,2871 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>QQ 开放平台机器人文档摘要知识库 · v2 API</title>
+<style>
+  :root{
+    --bg:#f6f8fb;
+    --panel:#ffffff;
+    --ink:#101828;
+    --ink-2:#344054;
+    --ink-3:#667085;
+    --line:#e4e7ec;
+    --line-2:#eaecf0;
+    --brand:#12b7f5;
+    --brand-ink:#0b7fb0;
+    --brand-soft:#e8f7fe;
+    --ok:#067647;
+    --ok-soft:#e7f6ee;
+    --warn:#b54708;
+    --warn-soft:#fef3e7;
+    --danger:#b42318;
+    --danger-soft:#fdeceb;
+    --code-bg:#0d1526;
+    --code-ink:#dfe7f3;
+    --radius:10px;
+    --mono:"JetBrains Mono","Cascadia Code","SFMono-Regular",Consolas,"Liberation Mono",Menlo,monospace;
+  }
+  *{box-sizing:border-box}
+  html{scroll-behavior:smooth}
+  body{
+    margin:0;
+    background:var(--bg);
+    color:var(--ink);
+    font-family:"PingFang SC","Noto Sans CJK SC","WenQuanYi Micro Hei","Microsoft YaHei",-apple-system,"Segoe UI",Roboto,system-ui,sans-serif;
+    font-size:15px;
+    line-height:1.75;
+    -webkit-font-smoothing:antialiased;
+  }
+  .layout{display:flex;align-items:flex-start;max-width:1500px;margin:0 auto}
+
+  /* ---------- sidebar ---------- */
+  .sidebar{
+    position:sticky;top:0;flex:0 0 288px;height:100vh;overflow-y:auto;
+    padding:26px 18px 60px 26px;border-right:1px solid var(--line);
+    background:var(--panel);
+  }
+  .sidebar .brandmark{
+    display:flex;align-items:center;gap:10px;margin-bottom:6px;
+  }
+  .sidebar .dot{width:11px;height:11px;border-radius:50%;background:var(--brand);box-shadow:0 0 0 4px var(--brand-soft)}
+  .sidebar .brand-title{font-size:16px;font-weight:700;letter-spacing:.2px}
+  .sidebar .brand-sub{font-size:12px;color:var(--ink-3);margin:0 0 18px 21px}
+  .toc{list-style:none;margin:0;padding:0;font-size:13.5px}
+  .toc li{margin:1px 0}
+  .toc a{
+    display:block;padding:6px 10px;border-radius:7px;color:var(--ink-2);
+    text-decoration:none;border-left:2px solid transparent;transition:.15s;
+  }
+  .toc a:hover{background:var(--brand-soft);color:var(--brand-ink)}
+  .toc .l1>a{font-weight:650;color:var(--ink);margin-top:8px}
+  .toc .l2>a{padding-left:22px;color:var(--ink-3);font-size:13px}
+  .toc .l2>a:hover{color:var(--brand-ink)}
+
+  /* ---------- main ---------- */
+  main{flex:1;min-width:0;padding:0 44px 120px;background:var(--bg)}
+  .hero{
+    background:linear-gradient(135deg,#0d1526 0%,#123a52 55%,#0b7fb0 100%);
+    color:#fff;border-radius:0 0 18px 18px;padding:44px 44px 38px;margin:0 -44px 34px;
+  }
+  .hero h1{margin:0 0 10px;font-size:31px;line-height:1.3;letter-spacing:.2px}
+  .hero p{margin:0;color:#c6d8e6;max-width:900px;font-size:14.5px}
+  .hero .chips{margin-top:20px;display:flex;flex-wrap:wrap;gap:8px}
+  .hero .chip{
+    background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.2);
+    padding:4px 11px;border-radius:999px;font-size:12.5px;color:#eaf4fb;
+  }
+  .hero .chip strong{color:#fff}
+
+  h2{
+    font-size:23px;margin:56px 0 14px;padding-bottom:10px;
+    border-bottom:2px solid var(--line);letter-spacing:.2px;
+  }
+  h2:first-of-type{margin-top:10px}
+  h3{font-size:17.5px;margin:34px 0 10px;color:var(--ink)}
+  h4{font-size:15px;margin:22px 0 8px;color:var(--ink-2)}
+  p{margin:10px 0}
+  ul,ol{margin:10px 0;padding-left:22px}
+  li{margin:5px 0}
+  a{color:var(--brand-ink)}
+  code{
+    font-family:var(--mono);font-size:12.8px;background:#eef1f6;
+    padding:1.5px 5px;border-radius:5px;color:#0f3f56;word-break:break-word;
+  }
+  pre{
+    background:var(--code-bg);color:var(--code-ink);border-radius:var(--radius);
+    padding:16px 18px;overflow-x:auto;margin:14px 0;border:1px solid #1d2b45;
+    font-size:12.6px;line-height:1.65;
+  }
+  pre code{background:none;color:inherit;padding:0;font-size:inherit}
+
+  /* ---------- tables ---------- */
+  .tw{overflow-x:auto;margin:14px 0;border:1px solid var(--line);border-radius:var(--radius);background:var(--panel)}
+  table{border-collapse:collapse;width:100%;font-size:13.2px;min-width:520px}
+  th,td{padding:9px 12px;text-align:left;vertical-align:top;border-bottom:1px solid var(--line-2)}
+  th{background:#f2f5f9;font-weight:650;color:var(--ink-2);white-space:nowrap;font-size:12.8px}
+  tbody tr:last-child td{border-bottom:none}
+  tbody tr:hover{background:#fafcfe}
+  td code{font-size:12.2px}
+  .nowrap{white-space:nowrap}
+
+  /* ---------- callouts ---------- */
+  .box{border-radius:var(--radius);padding:14px 16px 14px 46px;margin:16px 0;position:relative;font-size:14px;border:1px solid}
+  .box::before{position:absolute;left:15px;top:13px;font-size:16px;font-weight:700}
+  .box>p:first-child{margin-top:0}
+  .box>p:last-child{margin-bottom:0}
+  .box .t{font-weight:700;display:block;margin-bottom:3px}
+  .info{background:var(--brand-soft);border-color:#bfe6fa}.info::before{content:"i";color:var(--brand-ink);font-family:var(--mono)}
+  .ok{background:var(--ok-soft);border-color:#bfe6d2}.ok::before{content:"✓";color:var(--ok)}
+  .warn{background:var(--warn-soft);border-color:#f6dcbb}.warn::before{content:"!";color:var(--warn)}
+  .risk{background:var(--danger-soft);border-color:#f5c6c2}.risk::before{content:"×";color:var(--danger)}
+  .miss{background:#f4f5f7;border-color:#dde1e7}.miss::before{content:"?";color:var(--ink-3);font-family:var(--mono)}
+
+  .badge{
+    display:inline-block;padding:1.5px 8px;border-radius:999px;
+    font-size:11.5px;font-weight:650;line-height:1.7;white-space:nowrap;
+  }
+  .b-ok{background:var(--ok-soft);color:var(--ok);border:1px solid #bfe6d2}
+  .b-no{background:#f2f4f7;color:var(--ink-3);border:1px solid #e0e4ea}
+  .b-warn{background:var(--warn-soft);color:var(--warn);border:1px solid #f6dcbb}
+  .b-brand{background:var(--brand-soft);color:var(--brand-ink);border:1px solid #bfe6fa}
+  .b-risk{background:var(--danger-soft);color:var(--danger);border:1px solid #f5c6c2}
+
+  /* ---------- flow ---------- */
+  .flow{display:flex;flex-wrap:wrap;gap:0;margin:20px 0;counter-reset:step}
+  .step{
+    flex:1 1 150px;background:var(--panel);border:1px solid var(--line);
+    border-radius:var(--radius);padding:13px 14px 13px 16px;margin:0 10px 12px 0;position:relative;
+  }
+  .step::before{
+    counter-increment:step;content:counter(step);
+    position:absolute;top:-9px;left:12px;background:var(--brand);color:#fff;
+    width:21px;height:21px;border-radius:6px;font-size:12px;font-weight:700;
+    display:flex;align-items:center;justify-content:center;
+  }
+  .step .st{margin:8px 0 3px;font-weight:700;font-size:13.5px}
+  .step .sd{font-size:12.5px;color:var(--ink-3);line-height:1.55}
+  .step code{font-size:11.8px}
+
+  .seq{margin:18px 0;background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);padding:18px}
+  .seq svg{display:block;width:100%;height:auto;font-family:inherit}
+
+  .cols{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin:16px 0}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);padding:16px 18px}
+  .card h4{margin:0 0 8px;font-size:15px}
+  .card ul{margin:8px 0 0;padding-left:20px;font-size:13.5px}
+  .card.primary{border-color:#bfe6fa;box-shadow:0 0 0 3px var(--brand-soft)}
+  .tag{font-size:11.5px;padding:1px 7px;border-radius:5px;background:#eef1f6;color:var(--ink-3);font-weight:600}
+
+  .kv{font-size:13.2px}
+  .kv td:first-child{width:210px;color:var(--ink-2);font-weight:600}
+
+  .toc-note{font-size:12.5px;color:var(--ink-3);margin:18px 0 0;padding-top:14px;border-top:1px solid var(--line)}
+  .src{font-size:12.2px;color:var(--ink-3);margin:6px 0 0}
+  .src a{color:var(--ink-3);text-decoration:none;border-bottom:1px dotted #c3cad6}
+  .src a:hover{color:var(--brand-ink)}
+  .ft{margin-top:70px;padding-top:20px;border-top:1px solid var(--line);font-size:12.5px;color:var(--ink-3)}
+  @media (max-width:1080px){
+    .sidebar{display:none}
+    main{padding:0 20px 80px}
+    .hero{margin:0 -20px 24px;padding:30px 24px 26px;border-radius:0 0 14px 14px}
+    .hero h1{font-size:24px}
+    .cols{grid-template-columns:1fr}
+  }
+  @media print{
+    .sidebar{display:none} main{padding:0}
+    .hero{background:#0d1526}
+    h2{page-break-after:avoid} pre,.tw,.box{page-break-inside:avoid}
+  }
+</style>
+</head>
+<body>
+<div class="layout">
+
+<aside class="sidebar">
+  <div class="brandmark"><span class="dot"></span><span class="brand-title">QQ 机器人 v2</span></div>
+  <p class="brand-sub">文档摘要知识库 · Gateway WSS 优先</p>
+  <ul class="toc">
+    <li class="l1"><a href="#s0">0 · 阅读说明与文档范围</a></li>
+    <li class="l1"><a href="#s1">1 · 整体架构</a></li>
+    <li class="l2"><a href="#s1-1">双通道对比</a></li>
+    <li class="l2"><a href="#s1-2">移动端可行性结论</a></li>
+    <li class="l1"><a href="#s2">2 · 鉴权体系</a></li>
+    <li class="l2"><a href="#s2-1">接入票据</a></li>
+    <li class="l2"><a href="#s2-2">获取 AccessToken</a></li>
+    <li class="l2"><a href="#s2-3">有效期与刷新</a></li>
+    <li class="l2"><a href="#s2-4">请求头规范</a></li>
+    <li class="l1"><a href="#s3">3 · Gateway WSS 工作流程</a></li>
+    <li class="l2"><a href="#s3-1">接入点接口</a></li>
+    <li class="l2"><a href="#s3-2">六步生命周期</a></li>
+    <li class="l2"><a href="#s3-3">通用 Payload</a></li>
+    <li class="l2"><a href="#s3-4">OpCode 全集</a></li>
+    <li class="l2"><a href="#s3-5">Identify / Resume</a></li>
+    <li class="l2"><a href="#s3-6">心跳机制</a></li>
+    <li class="l2"><a href="#s3-7">Session / seq / 分片</a></li>
+    <li class="l1"><a href="#s4">4 · intents 事件掩码</a></li>
+    <li class="l1"><a href="#s5">5 · 全部事件列表</a></li>
+    <li class="l2"><a href="#s5-1">C2C_MESSAGE_CREATE</a></li>
+    <li class="l2"><a href="#s5-2">GROUP_AT_MESSAGE_CREATE</a></li>
+    <li class="l2"><a href="#s5-3">GROUP_MESSAGE_CREATE</a></li>
+    <li class="l2"><a href="#s5-4">群/好友事件</a></li>
+    <li class="l2"><a href="#s5-5">频道事件</a></li>
+    <li class="l2"><a href="#s5-6">互动与订阅</a></li>
+    <li class="l2"><a href="#s5-7">事件总表</a></li>
+    <li class="l1"><a href="#s6">6 · 消息元素 JSON 结构</a></li>
+    <li class="l1"><a href="#s7">7 · HTTP API 清单</a></li>
+    <li class="l2"><a href="#s7-1">发消息（单聊/群聊）</a></li>
+    <li class="l2"><a href="#s7-2">流式消息</a></li>
+    <li class="l2"><a href="#s7-3">撤回消息</a></li>
+    <li class="l2"><a href="#s7-4">富媒体上传</a></li>
+    <li class="l2"><a href="#s7-5">按钮 / 表情 / 互动</a></li>
+    <li class="l2"><a href="#s7-6">端点索引</a></li>
+    <li class="l1"><a href="#s8">8 · 重连 / Resume / 心跳策略</a></li>
+    <li class="l1"><a href="#s9">9 · 平台限制与移动端踩坑</a></li>
+    <li class="l1"><a href="#s10">10 · 错误码对照表</a></li>
+    <li class="l2"><a href="#s10-1">WSS 网关错误码</a></li>
+    <li class="l2"><a href="#s10-2">HTTP 状态码</a></li>
+    <li class="l2"><a href="#s10-3">公共错误码</a></li>
+    <li class="l2"><a href="#s10-4">接口专属错误码</a></li>
+    <li class="l1"><a href="#s11">11 · 官方文档未提供项清单</a></li>
+    <li class="l1"><a href="#s12">12 · 开发红线</a></li>
+  </ul>
+  <p class="toc-note">全部事实来自官方文档站 <code>bot.q.qq.com/wiki</code> 正文，抓取日期 2026-09-26。</p>
+</aside>
+
+<main>
+
+<div class="hero">
+  <h1>QQ 开放平台机器人文档摘要知识库</h1>
+  <p>面向移动端（Flutter / Android / iOS）直连场景整理。以 <strong>Gateway WebSocket(WSS)</strong> 为主线，覆盖鉴权、OpCode、心跳、Resume、分片、intents 掩码、全部事件 JSON、消息类 HTTP API、频率限制、错误码与平台红线。所有内容逐字取自官方文档，官方未写明的部分一律显式标注，不做推测补全。</p>
+  <div class="chips">
+    <span class="chip">来源：<strong>bot.q.qq.com/wiki</strong></span>
+    <span class="chip">文档站页面：<strong>422</strong> 个</span>
+    <span class="chip">v2 相关页面：<strong>约 190</strong> 个</span>
+    <span class="chip">统一域名：<strong>api.bot.qq.com</strong></span>
+    <span class="chip">抓取日期：<strong>2026-09-26</strong></span>
+  </div>
+</div>
+
+<h2 id="s0">0 · 阅读说明与文档范围</h2>
+
+<h3>0.1 本文档的定位</h3>
+<p>这是<strong>文档理解产物</strong>，不是代码实现方案。目的是把官方文档中的接口、字段、枚举、限流与错误码结构化固化，作为后续架构设计与编码的唯一事实基准。原文细节笔记保存在同目录 <code>raw/</code> 下，共三份。</p>
+
+<div class="tw">
+  <table>
+    <thead><tr><th>文件</th><th>覆盖范围</th><th>规模</th></tr></thead>
+    <tbody>
+      <tr><td><code>raw/gateway-wss.md</code></td><td>WSS 接入点、OpCode、生命周期、心跳、Session/seq、分片、关闭码、intents 清单</td><td>1301 行</td></tr>
+      <tr><td><code>raw/http-api-auth.md</code></td><td>鉴权体系、API 规范、消息收发、流式、撤回、富媒体上传、富文本类型、频率限制、错误码</td><td>4081 行</td></tr>
+      <tr><td><code>raw/events-intents.md</code></td><td>intents 掩码、事件逐条（含完整 JSON 与字段表）、消息元素结构、双通道对比、平台限制、风控、沙箱</td><td>3966 行</td></tr>
+    </tbody>
+  </table>
+</div>
+
+<h3>0.2 标记约定</h3>
+<ul>
+  <li><span class="badge b-ok">官方原文</span> 直接来自官方文档的表格、字段或 JSON 样例。</li>
+  <li><span class="badge b-brand">换算</span> 依据官方给出的表达式（如 <code>1 &lt;&lt; 25</code>）做的算术换算，<strong>不是官方原文给出的数字</strong>。</li>
+  <li><span class="badge b-no">官方文档未提供</span> 官方页面中确实不存在该内容，已逐条归入第 11 章，禁止在实现时凭经验补全。</li>
+  <li><span class="badge b-warn">官方口径冲突</span> 官方不同页面之间存在不一致，本文并列呈现，不擅自裁定。</li>
+</ul>
+
+<div class="warn">
+  <span class="t">关于「v1 旧文档」的提醒</span>
+  <p>官方文档站同时存在 <code>develop/api/</code>（旧版）与 <code>develop/api-v2/</code> 两套体系。本文只采用 <strong>api-v2</strong>；出现旧版域名（如 <code>sandbox.api.sgroup.qq.com</code>）时仅作标注，不作为实现依据。</p>
+</div>
+
+<h2 id="s1">1 · 整体架构</h2>
+
+<p>官方对「事件」的定义是：当用户在 QQ 平台内产生行为操作，或某些接口存在异步返回通知确认机制时，QQ 会通过事件的方式通知开发者，开发者据此进行下一步响应。典型场景包括用户给机器人发消息、用户添加机器人为好友、机器人被拉入群聊等。</p>
+<p class="src">来源：<a href="https://bot.q.qq.com/wiki/develop/api-v2/dev-prepare/interface-framework/event-emit.html">事件订阅与通知</a></p>
+
+<p>事件接收有<strong>两条完全不同的通道</strong>，官方在管理端「事件订阅与回调地址」中提供切换，且<strong>切换后立刻生效</strong>。本项目选定 <strong>Gateway WSS</strong>。</p>
+
+<h3 id="s1-1">1.1 双通道对比</h3>
+
+<div class="cols">
+  <div class="card primary">
+    <h4>Gateway WSS <span class="tag">本项目选用</span></h4>
+    <p style="font-size:13.5px;margin:6px 0 0">官方原文定位：<strong>不依赖公网服务器部署，适合个人单机使用，需维护长连接。</strong>如果你是想用于连接 OpenClaw 等类似 AI Agent 服务，在 AI 服务提供方没有明确说明和指引的前提下，选用 WebSocket 即可。</p>
+    <ul>
+      <li>客户端<strong>主动</strong>连接腾讯网关 <code>wss://api.bot.qq.com/websocket/</code></li>
+      <li>专有 OpCode：1 / 2 / 6 / 7 / 9 / 10 / 11</li>
+      <li>有心跳、有分片、有断线补发（Resume）</li>
+    </ul>
+  </div>
+  <div class="card">
+    <h4>Webhook 回调</h4>
+    <p style="font-size:13.5px;margin:6px 0 0">官方原文定位：<strong>事件推送至你配置的 HTTPS 服务上，适合提供公开服务的机器人使用，运维更可靠。</strong></p>
+    <ul>
+      <li>腾讯<strong>主动</strong>推送到开发者公网后端</li>
+      <li>专有 OpCode：12（HTTP Callback ACK）、13（回调地址验证）</li>
+      <li>回调地址允许端口：<strong>80、443、8080、8443</strong></li>
+      <li>鉴权靠 Ed25519 签名（<code>X-Signature-Ed25519</code> + <code>X-Signature-Timestamp</code> + Body）</li>
+    </ul>
+  </div>
+</div>
+
+<div class="tw">
+  <table>
+    <thead><tr><th>维度</th><th>Gateway WSS</th><th>Webhook 回调</th></tr></thead>
+    <tbody>
+      <tr><td>连接发起方向</td><td>客户端主动连腾讯网关</td><td>腾讯推送到你的 HTTPS 服务</td></tr>
+      <tr><td>是否需公网服务器</td><td><span class="badge b-ok">不需要</span></td><td><span class="badge b-risk">必须</span></td></tr>
+      <tr><td>心跳机制</td><td>需要（Op1，周期由 Op10 Hello 给出）</td><td><span class="badge b-no">官方文档未提供</span></td></tr>
+      <tr><td>鉴权报文</td><td>需要（Op2 Identify）</td><td>回调地址验证 + Ed25519 验签</td></tr>
+      <tr><td>断线补发</td><td>有（Op6 Resume + <code>seq</code> 续传）</td><td><span class="badge b-no">官方文档未提供</span></td></tr>
+      <tr><td>分片 Shard</td><td>支持，含哈希规则</td><td><span class="badge b-no">官方文档未提供</span></td></tr>
+      <tr><td>事件类型覆盖差异</td><td colspan="2">官方<strong>未</strong>给出「某事件仅单通道可用」的表述</td></tr>
+    </tbody>
+  </table>
+</div>
+
+<h3 id="s1-2">1.2 移动端可行性结论</h3>
+
+<div class="ok">
+  <span class="t">结论：Flutter / Android / iOS 客户端可以直接建立 WSS 长连接并监听事件</span>
+  <p>官方对 WebSocket 的原文定位即为「不依赖公网服务器部署，适合个人单机使用」，因此「获取接入点 → 建连 → Identify → 持续接收 Dispatch 事件」这一整条链路在移动端本地即可完成，事件监听能力无需公网后端中转。</p>
+</div>
+
+<div class="risk">
+  <span class="t">但必须正视一处官方硬性要求（移动端最大风险点）</span>
+  <p>官方在鉴权章节明确写着：<strong>「为了安全考虑，请勿在应用前端使用访问凭证。请在应用服务端发起 API 访问请求。」</strong> 这意味着把 <code>AppSecret</code> 打进 App 包内去换取 <code>access_token</code>，与官方安全要求直接冲突，且 AppSecret 一经反编译即泄露，可被他人完全接管机器人。</p>
+  <p>正确解法（在进入架构设计时需专门讨论）：<strong>事件接收走移动端本地 WSS，而 access_token 的获取与刷新交由一个极薄的代理服务完成</strong>，App 只持有短期 token；或使用官方推荐的云函数/服务器中转。这一点不能靠「把 secret 混淆进代码」蒙过去。</p>
+</div>
+
+<div class="info">
+  <span class="t">另一处需要提前知晓的限制</span>
+  <p>官方在消息发送章节写明：<strong>「发送消息接口要求机器人接口需要连接到 WebSocket 上保持在线状态」</strong>（文字子频道章节原文）。即 WSS 连接是否在线，会影响部分发送能力，这决定了移动端 App 的「保活」不是可选优化，而是功能前提。</p>
+</div>
+
+<h2 id="s2">2 · 鉴权体系</h2>
+
+<h3 id="s2-1">2.1 接入票据：AppID / AppSecret / Token（已弃用）</h3>
+
+<p>注册创建机器人后，在开放平台管理端获得以下接入票据。官方建议使用更安全的 Access Token 方式。</p>
+
+<div class="tw">
+  <table class="kv">
+    <thead><tr><th>名称</th><th>描述</th><th>备注（官方原文）</th></tr></thead>
+    <tbody>
+      <tr><td>AppID</td><td>机器人 ID</td><td>必须使用</td></tr>
+      <tr><td>AppSecret</td><td>机器人密钥</td><td>用于在 <code>oauth</code> 场景进行请求签名的密钥</td></tr>
+      <tr><td>Token（已弃用）</td><td>机器人 Token</td><td>可用于调用开放接口的鉴权。<strong>Token 的鉴权方式已废弃，请使用更安全的 Access Token 鉴权方式。</strong></td></tr>
+    </tbody>
+  </table>
+</div>
+<p class="src">来源：<a href="https://bot.q.qq.com/wiki/develop/api-v2/">启动接入</a></p>
+
+<h3 id="s2-2">2.2 获取 AccessToken</h3>
+
+<div class="tw">
+  <table class="kv">
+    <tbody>
+      <tr><td>HTTP URL</td><td><code>https://api.bot.qq.com/app/getAppAccessToken</code></td></tr>
+      <tr><td>HTTP Method</td><td><code>POST</code> <span class="badge b-warn">注意不是 GET</span></td></tr>
+      <tr><td>Content-Type</td><td><code>application/json</code></td></tr>
+    </tbody>
+  </table>
+</div>
+
+<h4>请求参数</h4>
+<div class="tw">
+  <table>
+    <thead><tr><th>属性</th><th>类型</th><th>必填</th><th>说明</th></tr></thead>
+    <tbody>
+      <tr><td><code>appId</code></td><td>string</td><td><span class="badge b-risk">是</span></td><td>在开放平台管理端上获得</td></tr>
+      <tr><td><code>clientSecret</code></td><td>string</td><td><span class="badge b-risk">是</span></td><td>在开放平台管理端上获得</td></tr>
+    </tbody>
+  </table>
+</div>
+
+<h4>响应参数</h4>
+<div class="tw">
+  <table>
+    <thead><tr><th>属性</th><th>类型</th><th>说明</th></tr></thead>
+    <tbody>
+      <tr><td><code>access_token</code></td><td>string</td><td>获取到的凭证</td></tr>
+      <tr><td><code>expires_in</code></td><td>number</td><td>凭证有效时间，单位秒。目前是 7200 秒之内的值</td></tr>
+    </tbody>
+  </table>
+</div>
+
+<div class="warn">
+  <span class="t">该接口的失败响应仍返回 HTTP 200</span>
+  <p>官方原文：该接口的业务错误通过响应体的 <code>code</code> 返回，<strong>即使调用失败，HTTP 返回码仍为 200</strong>。请优先依据 <code>code</code> 判断请求是否成功，不要只依赖 HTTP 返回码，也不要依据 <code>message</code> 判定错误类型。<code>message</code> 仅用于人工排查，内容可能随时调整。</p>
+</div>
+
+<h4>调用与响应示例（官方原文）</h4>
+<pre><code>curl --location 'https://api.bot.qq.com/app/getAppAccessToken' \
+--header 'Content-Type: application/json' \
+--data '{
+  "appId": "APPID",
+  "clientSecret": "CLIENTSECRET"
+}'</code></pre>
+<pre><code>// 成功
+{
+  "access_token": "ACCESS_TOKEN",
+  "expires_in": "7200"
+}
+
+// 失败
+{
+  "code": 100007,
+  "message": "appid invalid"
+}</code></pre>
+
+<h4>业务错误码</h4>
+<div class="tw">
+  <table>
+    <thead><tr><th>错误码</th><th>错误信息</th><th>排查指南</th></tr></thead>
+    <tbody>
+      <tr><td>100001</td><td>Too many requests</td><td>请求过于频繁，请降低调用频率后重试</td></tr>
+      <tr><td>100007</td><td>appid invalid</td><td>AppID 无效，或机器人状态不正常（被封禁或已删除），请检查 AppID 是否正确以及机器人状态</td></tr>
+      <tr><td>100016</td><td>invalid appid or secret</td><td>AppID 或 ClientSecret 不正确，请检查与开放平台管理端是否一致</td></tr>
+      <tr><td>10004</td><td>机器人不存在</td><td>AppID 对应的机器人不存在，请确认 AppID 是否正确</td></tr>
+    </tbody>
+  </table>
+</div>
+<p class="src">来源：<a href="https://bot.q.qq.com/wiki/develop/api-v2/dev-prepare/access-token.html">获取访问凭证</a></p>
+
+<h3 id="s2-3">2.3 有效期与刷新策略</h3>
+<ul>
+  <li>生命周期默认 <strong>7200 秒（2 小时）</strong>，过期后需自行刷新。</li>
+  <li>有效期内重复获取会返回<strong>相同的值</strong>，不会刷新出新 token。</li>
+  <li>在上一个 token <strong>接近过期 60 秒内</strong>获取时，会得到一个新的 token；老 token 在这 60 秒内仍然有效。</li>
+  <li>官方建议：在服务端设置定时刷新凭证的业务逻辑，以防过期。</li>
+</ul>
+
+<h3 id="s2-4">2.4 请求头规范</h3>
+<div class="tw">
+  <table>
+    <thead><tr><th>名称</th><th>类型</th><th>必填</th><th>描述</th></tr></thead>
+    <tbody>
+      <tr><td><code>Authorization</code></td><td>string</td><td><span class="badge b-risk">是</span></td><td>格式值：<code>QQBot ACCESS_TOKEN</code></td></tr>
+    </tbody>
+  </table>
+</div>
+<pre><code>curl --location 'https://api.bot.qq.com/users/@me' \
+--header 'Authorization: QQBot ACCESS_TOKEN'</code></pre>
+
+<div class="info">
+  <span class="t">前缀拼写已六处交叉核对</span>
+  <p>官方六处原文（<code>access-token.html</code> 表与示例、<code>api-call-guide.html</code> 鉴权与示例、<code>api-use.html</code> 表与示例）全部为 <strong><code>QQBot</code></strong> + 一个空格 + token。大写 Q、大写 B、其余小写。</p>
+</div>
+
+<div class="warn">
+  <span class="t">WSS Identify 的 token 格式存在官方口径冲突</span>
+  <p>WSS 建连时报文里的 <code>token</code> 字段，官方有两种写法：一为 <code>格式为 "QQBot {AccessToken}"</code>（<code>event-emit.html</code> / <code>websocket.html</code> 的字段表），二为 <code>格式为 Bot {appid}.{app_token}</code>（<code>reference.html</code> 正文）。官方未指明以哪个为准 —— 需要以真机连通性测试为准，这点必须写进架构设计的验证清单。</p>
+</div>
+
+<h2 id="s3">3 · Gateway WSS 工作流程</h2>
+
+<h3 id="s3-1">3.1 接入点接口</h3>
+
+<h4>3.1.1 <code>GET /gateway</code> —— 获取通用 WSS 接入点</h4>
+<div class="tw">
+  <table class="kv">
+    <tbody>
+      <tr><td>接口</td><td><code>GET /gateway</code></td></tr>
+      <tr><td>功能描述</td><td>用于获取 WSS 接入地址，通过该地址可建立 <code>websocket</code> 长连接</td></tr>
+      <tr><td>Content-Type</td><td><code>application/json</code></td></tr>
+      <tr><td>接口频率限制</td><td><strong>2 QPM / 10 QPM burst</strong>（来源 <code>autogen/api/gateway.get.html</code>）</td></tr>
+      <tr><td>返回字段</td><td><code>url</code> (string) —— WebSocket 连接地址</td></tr>
+    </tbody>
+  </table>
+</div>
+<pre><code>// 响应示例（url_get.html 原文）
+{
+  "url": "wss://api.bot.qq.com/websocket/"
+}</code></pre>
+
+<h4>3.1.2 <code>GET /gateway/bot</code> —— 获取带分片 WSS 接入点</h4>
+<div class="tw">
+  <table class="kv">
+    <tbody>
+      <tr><td>接口</td><td><code>GET /gateway/bot</code></td></tr>
+      <tr><td>功能描述</td><td>获取 WSS 接入地址及相关信息：<strong>建议的分片数</strong>、<strong>目前连接数使用情况</strong></td></tr>
+      <tr><td>Content-Type</td><td><code>application/json</code></td></tr>
+      <tr><td>鉴权</td><td>官方两个页面均未在该页内说明鉴权方式；按通用规范使用 <code>Authorization: QQBot {ACCESS_TOKEN}</code></td></tr>
+    </tbody>
+  </table>
+</div>
+
+<div class="tw">
+  <table>
+    <thead><tr><th>字段名</th><th>类型</th><th>描述</th></tr></thead>
+    <tbody>
+      <tr><td><code>url</code></td><td>string</td><td>WebSocket 的连接地址</td></tr>
+      <tr><td><code>shards</code></td><td>int</td><td>建议的 shard 数</td></tr>
+      <tr><td><code>session_start_limit</code></td><td>SessionStartLimit</td><td>创建 Session 限制信息</td></tr>
+    </tbody>
+  </table>
+</div>
+
+<h4>SessionStartLimit 子字段</h4>
+<div class="tw">
+  <table>
+    <thead><tr><th>字段名</th><th>类型</th><th>描述</th></tr></thead>
+    <tbody>
+      <tr><td><code>total</code></td><td>int</td><td>每 24 小时可创建 Session 数</td></tr>
+      <tr><td><code>remaining</code></td><td>int</td><td>目前还可以创建的 Session 数</td></tr>
+      <tr><td><code>reset_after</code></td><td>int</td><td>重置计数的剩余时间（ms）</td></tr>
+      <tr><td><code>max_concurrency</code></td><td>int</td><td>每 5s 可以创建的 Session 数</td></tr>
+    </tbody>
+  </table>
+</div>
+
+<pre><code>// 官方原文示例一（shard_url_get.html，原文即缺少 "url": 字段名，此处按原文照录）
+{
+  "wss://api.bot.qq.com/websocket/",
+  "shards": 9,
+  "session_start_limit": {
+    "total": 1000,
+    "remaining": 999,
+    "reset_after": 14400000,
+    "max_concurrency": 1
+  } }
+
+// 官方原文示例二（event-emit.html「获得合适的分片数」）
+{
+  "url": "wss://api.bot.qq.com/websocket",
+  "shards": 1,
+  "session_start_limit": {
+    "total": 1000,
+    "remaining": 1000,
+    "reset_after": 86400000,
+    "max_concurrency": 1
+  }
+}</code></pre>
+
+<div class="warn">
+  <span class="t">官方口径冲突：<code>reset_after</code> 示例值不一致</span>
+  <p>同一官方文档中两处示例分别给出 <code>14400000</code>（4 小时）与 <code>86400000</code>（24 小时）。字段语义为「重置计数的剩余时间(ms)」，实现时<strong>不应把它当作固定常量</strong>，必须以接口实时返回值为准。</p>
+</div>
+
+<h3 id="s3-2">3.2 六步生命周期</h3>
+
+<div class="flow">
+  <div class="step"><div class="st">获取接入点</div><div class="sd">调用 <code>GET /gateway</code> 或 <code>/gateway/bot</code> 拿到 wss 地址</div></div>
+  <div class="step"><div class="st">建立连接</div><div class="sd">与网关建立 websocket 长连接</div></div>
+  <div class="step"><div class="st">接收 Hello</div><div class="sd">网关下发 Op10，含 <code>heartbeat_interval</code></div></div>
+  <div class="step"><div class="st">Identify 鉴权</div><div class="sd">发送 Op2，成功后获得 <code>session_id</code> 并收到 READY</div></div>
+  <div class="step"><div class="st">按周期心跳</div><div class="sd">发送 Op1，收到 Op11 ACK</div></div>
+  <div class="step"><div class="st">断线 Resume</div><div class="sd">重连后发送 Op6，补发遗漏事件后收到 RESUMED</div></div>
+</div>
+
+<div class="seq">
+<svg viewBox="0 0 1000 830" role="img" aria-label="Gateway WSS 时序图">
+  <defs>
+    <marker id="ar" markerWidth="9" markerHeight="9" refX="8" refY="4.5" orient="auto">
+      <path d="M0,0 L9,4.5 L0,9 z" fill="#0b7fb0"/>
+    </marker>
+    <marker id="ar2" markerWidth="9" markerHeight="9" refX="8" refY="4.5" orient="auto">
+      <path d="M0,0 L9,4.5 L0,9 z" fill="#b54708"/>
+    </marker>
+  </defs>
+
+  <rect x="90" y="16" width="200" height="42" rx="9" fill="#e8f7fe" stroke="#bfe6fa"/>
+  <text x="190" y="42" text-anchor="middle" font-size="14.5" font-weight="700" fill="#0b7fb0">移动端 App / Flutter</text>
+  <rect x="700" y="16" width="200" height="42" rx="9" fill="#0d1526"/>
+  <text x="800" y="42" text-anchor="middle" font-size="14.5" font-weight="700" fill="#dfe7f3">QQ 机器人网关</text>
+
+  <line x1="190" y1="58" x2="190" y2="800" stroke="#c3cad6" stroke-dasharray="5 5"/>
+  <line x1="800" y1="58" x2="800" y2="800" stroke="#c3cad6" stroke-dasharray="5 5"/>
+
+  <text x="120" y="92" font-size="12.5" fill="#667085">① HTTP</text>
+  <line x1="190" y1="102" x2="792" y2="102" stroke="#0b7fb0" stroke-width="1.6" marker-end="url(#ar)"/>
+  <text x="240" y="96" font-size="12.6" fill="#344054">GET /gateway 或 /gateway/bot（取 wss 地址）</text>
+
+  <text x="120" y="146" font-size="12.5" fill="#667085">② WS</text>
+  <line x1="190" y1="156" x2="792" y2="156" stroke="#0b7fb0" stroke-width="1.6" marker-end="url(#ar)"/>
+  <text x="240" y="150" font-size="12.6" fill="#344054">建立 websocket 长连接</text>
+
+  <text x="120" y="200" font-size="12.5" fill="#667085">③</text>
+  <line x1="800" y1="210" x2="198" y2="210" stroke="#0b7fb0" stroke-width="1.6" marker-end="url(#ar)"/>
+  <text x="240" y="204" font-size="12.6" fill="#344054">Op10 Hello：{"d":{"heartbeat_interval":45000}}</text>
+
+  <text x="120" y="254" font-size="12.5" fill="#667085">④</text>
+  <line x1="190" y1="264" x2="792" y2="264" stroke="#0b7fb0" stroke-width="1.6" marker-end="url(#ar)"/>
+  <text x="240" y="258" font-size="12.6" fill="#344054">Op2 Identify：{token, intents, shard, properties}</text>
+
+  <text x="120" y="308" font-size="12.5" fill="#667085">⑤</text>
+  <line x1="800" y1="318" x2="198" y2="318" stroke="#0b7fb0" stroke-width="1.6" marker-end="url(#ar)"/>
+  <text x="240" y="312" font-size="12.6" fill="#344054">Op0 Dispatch t=READY（s=1，d.session_id）</text>
+
+  <text x="120" y="362" font-size="12.5" fill="#667085">⑥ 循环</text>
+  <line x1="190" y1="372" x2="792" y2="372" stroke="#0b7fb0" stroke-width="1.6" marker-end="url(#ar)"/>
+  <text x="240" y="366" font-size="12.6" fill="#344054">Op1 Heartbeat：{"op":1,"d":&lt;最新 s&gt;}</text>
+
+  <text x="120" y="416" font-size="12.5" fill="#667085">⑦</text>
+  <line x1="800" y1="426" x2="198" y2="426" stroke="#0b7fb0" stroke-width="1.6" marker-end="url(#ar)"/>
+  <text x="240" y="420" font-size="12.6" fill="#344054">Op11 Heartbeat ACK</text>
+
+  <text x="120" y="470" font-size="12.5" fill="#667085">⑧</text>
+  <line x1="800" y1="480" x2="198" y2="480" stroke="#0b7fb0" stroke-width="1.6" marker-end="url(#ar)"/>
+  <text x="240" y="474" font-size="12.6" fill="#344054">Op0 Dispatch 业务事件（C2C / GROUP_AT …），s 持续自增</text>
+
+  <rect x="90" y="506" width="820" height="34" rx="8" fill="#fef3e7" stroke="#f6dcbb"/>
+  <text x="110" y="528" font-size="12.6" fill="#b54708">⑨ 连接断开（网络切换 / 后台挂起 / 网关主动断开 / 收到 Op7 Reconnect）</text>
+
+  <text x="120" y="576" font-size="12.5" fill="#667085">⑩</text>
+  <line x1="190" y1="586" x2="792" y2="586" stroke="#0b7fb0" stroke-width="1.6" marker-end="url(#ar)"/>
+  <text x="240" y="580" font-size="12.6" fill="#344054">重连后 Op6 Resume：{token, session_id, seq=最后处理的 s}</text>
+
+  <text x="120" y="630" font-size="12.5" fill="#667085">⑪</text>
+  <line x1="800" y1="640" x2="198" y2="640" stroke="#b54708" stroke-width="1.6" marker-end="url(#ar2)"/>
+  <text x="240" y="634" font-size="12.6" fill="#b54708">自动补发 seq 之后遗漏的事件</text>
+
+  <text x="120" y="684" font-size="12.5" fill="#667085">⑫</text>
+  <line x1="800" y1="694" x2="198" y2="694" stroke="#0b7fb0" stroke-width="1.6" marker-end="url(#ar)"/>
+  <text x="240" y="688" font-size="12.6" fill="#344054">Op0 Dispatch t=RESUMED（d为空串）</text>
+
+  <rect x="90" y="722" width="820" height="72" rx="8" fill="#f4f5f7" stroke="#dde1e7"/>
+  <text x="110" y="746" font-size="12.6" fill="#667085">降级路径：若 Resume 失败（4006 / 4007），按官方错误码表须改为重新 Identify；</text>
+  <text x="110" y="768" font-size="12.6" fill="#667085">若 4008 / 4009 则可重试 Resume；4914 / 4915 不可连接，需联系官方解封。</text>
+</svg>
+</div>
+
+<h3 id="s3-3">3.3 通用 Payload 结构</h3>
+
+<p>官方原文：<code>payload</code> 指的是在 <code>webhook</code> 或 <code>websocket</code> 连接上传输的数据，<strong>网关的上下行消息采用的都是同一个结构</strong>。</p>
+
+<pre><code>{
+  "id": "event_id",
+  "op": 0,
+  "d": {},
+  "s": 42,
+  "t": "GATEWAY_EVENT_NAME"
+}</code></pre>
+
+<div class="tw">
+  <table>
+    <thead><tr><th>字段</th><th>描述（官方原文）</th></tr></thead>
+    <tbody>
+      <tr><td><code>id</code></td><td>事件 id</td></tr>
+      <tr><td><code>op</code></td><td>指的是 opcode，参考连接维护</td></tr>
+      <tr><td><code>s</code></td><td>下行消息都会有一个序列号，标识消息的唯一性，客户端需要在发送心跳的时候，携带客户端收到的最新的 <code>s</code></td></tr>
+      <tr><td><code>t</code></td><td>代表事件类型。主要用在 <code>op</code> 为 0 Dispatch 的时候</td></tr>
+      <tr><td><code>d</code></td><td>代表事件内容，不同事件类型的事件内容格式都不同，请注意识别。主要用在 <code>op</code> 为 0 Dispatch 的时候</td></tr>
+    </tbody>
+  </table>
+</div>
+
+<div class="warn">
+  <span class="t">压缩传输：官方文档未提供</span>
+  <p>官方全部相关页面中<strong>未出现</strong> <code>zlib</code>、<code>deflate</code>、<code>compress</code>、<code>inflate</code> 等任何压缩相关表述，payload 示例中也没有 <code>compress</code> 字段。<strong>不要按其他平台的经验假设存在压缩协商</strong>，实现时按「纯 JSON 文本帧」处理，并在真机验证中确认。</p>
+</div>
+
+<h3 id="s3-4">3.4 OpCode 全集</h3>
+
+<div class="tw">
+  <table>
+    <thead><tr><th>CODE</th><th>名称</th><th>接入方式</th><th>客户端行为</th><th>描述</th></tr></thead>
+    <tbody>
+      <tr><td>0</td><td>Dispatch</td><td>webhook/websocket</td><td>Receive</td><td>服务端进行消息推送</td></tr>
+      <tr><td>1</td><td>Heartbeat</td><td>websocket</td><td>Send/Receive</td><td>客户端或服务端发送心跳</td></tr>
+      <tr><td>2</td><td>Identify</td><td>websocket</td><td>Send</td><td>客户端发送鉴权</td></tr>
+      <tr><td>6</td><td>Resume</td><td>websocket</td><td>Send</td><td>客户端恢复连接</td></tr>
+      <tr><td>7</td><td>Reconnect</td><td>websocket</td><td>Receive</td><td>服务端通知客户端重新连接</td></tr>
+      <tr><td>9</td><td>Invalid Session</td><td>websocket</td><td>Receive</td><td>当 identify 或 resume 的时候，如果参数有错，服务端会返回该消息</td></tr>
+      <tr><td>10</td><td>Hello</td><td>websocket</td><td>Receive</td><td>当客户端与网关建立 ws 连接之后，网关下发的第一条消息</td></tr>
+      <tr><td>11</td><td>Heartbeat ACK</td><td>websocket</td><td>Receive/Reply</td><td>当发送心跳成功之后，就会收到该消息</td></tr>
+      <tr><td>12</td><td>HTTP Callback ACK</td><td>webhook</td><td>Reply</td><td>仅用于 http 回调模式的回包，代表机器人收到了平台推送的数据</td></tr>
+      <tr><td>13</td><td>回调地址验证</td><td>webhook</td><td>Receive</td><td>开放平台对机器人服务端进行验证</td></tr>
+    </tbody>
+  </table>
+</div>
+
+<p>客户端行为含义：<code>Receive</code> 客户端接收到服务端 push 的消息；<code>Send</code> 客户端发送消息；<code>Reply</code> 客户端接收到服务端发送的消息之后的回包（HTTP 回调模式）。</p>
+
+<div class="tw">
+  <table>
+    <thead><tr><th>OpCode</th><th>官方文档提供的细节程度</th></tr></thead>
+    <tbody>
+      <tr><td>0 Dispatch</td><td>表格定义 + 通用 payload + READY / RESUMED 示例</td></tr>
+      <tr><td>1 Heartbeat</td><td>表格定义 + 示例 <code>{"op":1,"d":251}</code> + <code>d</code> 语义说明</td></tr>
+      <tr><td>2 Identify</td><td>表格定义 + 完整 <code>d</code> 示例 + <code>d</code> 字段表</td></tr>
+      <tr><td>6 Resume</td><td>表格定义 + 完整 <code>d</code> 示例 + <code>seq</code> 说明</td></tr>
+      <tr><td>7 Reconnect</td><td><span class="badge b-no">仅一句表格定义</span>，<code>d</code> 结构、触发条件、客户端后续动作均未提供</td></tr>
+      <tr><td>9 Invalid Session</td><td><span class="badge b-no">仅一句表格定义</span>，<code>d</code> 结构与重试判定未提供</td></tr>
+      <tr><td>10 Hello</td><td>表格定义 + 示例 <code>{"op":10,"d":{"heartbeat_interval":45000}}</code></td></tr>
+      <tr><td>11 Heartbeat ACK</td><td>表格定义 + 示例 <code>{"op":11}</code></td></tr>
+      <tr><td>3 / 4 / 5 / 8</td><td><span class="badge b-no">官方文档未定义</span>，不要自行赋予含义</td></tr>
+    </tbody>
+  </table>
+</div>
+
+<h3 id="s3-5">3.5 Identify 与 Resume 报文</h3>
+
+<h4>3.5.1 OpCode 2 Identify</h4>
+<pre><code>{
+  "op": 2,
+  "d": {
+    "token": "token string",
+    "intents": 513,
+    "shard": [0, 4],
+    "properties": {
+      "$os": "linux",
+      "$browser": "my_library",
+      "$device": "my_library"
+    }
+  }
+}</code></pre>
+
+<div class="tw">
+  <table>
+    <thead><tr><th>字段</th><th>描述（官方原文）</th><th>必填</th></tr></thead>
+    <tbody>
+      <tr><td><code>token</code></td><td>格式为 <code>"QQBot {AccessToken}"</code>（字段表原文）；<code>reference.html</code> 正文另表述为 <code>Bot {appid}.{app_token}</code> <span class="badge b-warn">口径冲突</span></td><td><span class="badge b-no">未标注</span></td></tr>
+      <tr><td><code>intents</code></td><td>是此次连接所需要接收的事件，具体可参考「事件订阅 Intents」</td><td><span class="badge b-no">未标注</span></td></tr>
+      <tr><td><code>shard</code></td><td>拥有两个元素的数组，例如 <code>[0,4]</code> 代表分为四个片、当前是第 0 个片；<strong>若无需分片，使用 <code>[0, 1]</code> 即可</strong></td><td><span class="badge b-no">未标注</span></td></tr>
+      <tr><td><code>properties</code></td><td>目前无实际作用，可以按照自己的实际情况填写，<strong>也可以留空</strong></td><td>可留空</td></tr>
+      <tr><td><code>properties.$os</code> / <code>$browser</code> / <code>$device</code></td><td>官方未单独说明三个子字段的含义、类型约束与取值范围</td><td><span class="badge b-no">未标注</span></td></tr>
+    </tbody>
+  </table>
+</div>
+
+<p>鉴权成功后网关下发 READY 事件：</p>
+<pre><code>{
+  "op": 0,
+  "s": 1,
+  "t": "READY",
+  "d": {
+    "version": 1,
+    "session_id": "082ee18c-0be3-491b-9d8b-fbd95c51673a",
+    "user": {
+      "id": "6158788878435714165",
+      "username": "群pro测试机器人",
+      "bot": true
+    },
+    "shard": [0, 0]
+  }
+}</code></pre>
+<div class="miss">
+  <span class="t">READY 的 <code>d</code> 字段级表格：官方文档未提供</span>
+  <p>官方只给出上述 JSON 示例，未给出 <code>version</code> / <code>session_id</code> / <code>user</code> / <code>shard</code> 的字段说明表。<code>session_id</code> 从该事件中获取这一点是确定的。</p>
+</div>
+
+<h4>3.5.2 OpCode 6 Resume</h4>
+<pre><code>{
+  "op": 6,
+  "d": {
+    "token": "my_token",
+    "session_id": "session_id_i_stored",
+    "seq": 1337
+  }
+}</code></pre>
+<p>官方原文：其中 <code>seq</code> 指的是在接收事件时候的 <code>s</code> 字段，我们推荐开发者在处理过事件之后记录下 <code>s</code>，这样可以在 <code>resume</code> 的时候传递给 <code>websocket</code>，<code>websocket</code> 会自动补发这个 seq 之后的事件。</p>
+<p>恢复成功、遗漏事件补发完成后，网关下发：</p>
+<pre><code>{
+  "op": 0,
+  "s": 2002,
+  "t": "RESUMED",
+  "d": ""
+}</code></pre>
+<div class="miss">
+  <span class="t">Resume <code>d</code> 的字段级表格与必填标注：官方文档未提供</span>
+  <p>官方只给出上述 JSON 结构与 <code>seq</code> 的文字说明，未提供 <code>token</code> / <code>session_id</code> / <code>seq</code> 的独立字段表，也无「必填」字样。</p>
+</div>
+
+<h3 id="s3-6">3.6 心跳机制</h3>
+
+<div class="tw">
+  <table>
+    <thead><tr><th>要素</th><th>官方规定</th></tr></thead>
+    <tbody>
+      <tr><td>周期来源</td><td>连接成功后收到的 <code>Op10 Hello</code> 消息「主要的内容是心跳周期，<strong>单位毫秒(milliseconds)</strong>」，官方示例值 <code>45000</code></td></tr>
+      <tr><td>发送时机</td><td>「鉴权成功之后，就需要按照周期进行心跳发送」——即收到 READY 之后开始</td></tr>
+      <tr><td>报文内容</td><td><code>op = 1</code>，<code>d</code> 为客户端收到的最新的消息的 <code>s</code>；<strong>如果是首次连接，<code>d</code> 传 <code>null</code></strong></td></tr>
+      <tr><td>确认报文</td><td><code>{"op": 11}</code> Heartbeat ACK</td></tr>
+      <tr><td>seq 联动</td><td>心跳的 <code>d</code> ＝ 最近一次收到的下行消息的 <code>s</code></td></tr>
+    </tbody>
+  </table>
+</div>
+
+<pre><code>// 客户端发心跳（官方示例）
+{ "op": 1, "d": 251 }
+
+// 网关回 ACK
+{ "op": 11 }</code></pre>
+
+<div class="miss">
+  <span class="t">心跳超时判定与 zombie connection 处理：官方文档未提供</span>
+  <p>官方页面中<strong>未出现</strong>「zombie connection」一词，也没有「多少毫秒未收到 ACK 判定为断线」的阈值说明。官方只提供了 <code>4009 连接过期，请重连并执行 resume 进行重新连接</code> 这类错误码，但未说明它与心跳丢失的对应关系。心跳丢失去抖阈值需要自行设计（建议按 <code>heartbeat_interval</code> 的 1～2 倍做判据），并纳入真机验证。</p>
+</div>
+
+<div class="miss">
+  <span class="t">服务端主动发心跳时客户端如何应对：官方文档未提供</span>
+  <p>OpCode 1 的官方定义是「客户端<strong>或服务端</strong>发送心跳」（Send/Receive），但服务端主动发送心跳的触发条件、<code>d</code> 内容与客户端回包方式均未说明。</p>
+</div>
+
+<h3 id="s3-7">3.7 Session、seq 与分片</h3>
+
+<h4>Session 与 seq</h4>
+<ul>
+  <li><code>session_id</code> 通过 Op2 Identify 登录鉴权成功后获得，出现在 <strong>READY 事件的 <code>d.session_id</code></strong>。</li>
+  <li>只有登录成功后，QQ 后台才会下发事件通知。</li>
+  <li><code>seq</code> 即事件流中的 <code>s</code>；Resume 时把最后处理过的 <code>s</code> 传回，网关自动补发其后的所有事件。</li>
+  <li>官方示例中 READY 的 <code>s = 1</code>、RESUMED 的 <code>s = 2002</code>。</li>
+</ul>
+<div class="miss">
+  <span class="t">官方文档未提供</span>
+  <p><code>s</code> 是否严格从 1 开始并严格 +1 递增、是否与 shard 相关、断线期间是否连续；<code>session_id</code> 的有效期；「短时间内重连」的具体时限；同一 <code>session_id</code> 可 Resume 的次数上限。<strong>实现上不得依赖 <code>s</code> 连续递增这一假设</strong>，只能把它当作「最后已处理位置的水位标记」。</p>
+</div>
+
+<h4>Session 创建限额</h4>
+<p>官方原文：<strong>每个机器人创建的连接数不能超过 <code>remaining</code> 剩余连接数。</strong> 限额信息来自 <code>/gateway/bot</code> 的 <code>session_start_limit</code>（<code>total</code> / <code>remaining</code> / <code>reset_after</code> / <code>max_concurrency</code>）。</p>
+
+<h4>分片机制</h4>
+<p>官方原文：随着 bot 的增长并被添加到越来越多的频道中，事件越来越多，业务有必要对事件进行水平分割，实现负载均衡。机器人网关实现了一种用户可控制的分片方法，该方法允许跨多个网关连接拆分事件。<strong>分片完全由用户控制，并且不需要在单独的连接之间进行状态共享。</strong></p>
+<p>分片哈希规则（官方原文）：</p>
+<pre><code>shard_id = (guild_id >> 22) % num_shards</code></pre>
+<p>即：分片按<strong>频道 id</strong> 哈希，同一个频道的信息会固定从同一个连接推送。</p>
+
+<div class="info">
+  <span class="t">移动端实操建议</span>
+  <p>官方明确「若无需分片，使用 <code>[0, 1]</code> 即可」。以单机 App 运行机器人时，<code>shard</code> 传 <code>[0, 1]</code> 即可完整接收事件；分片是给多连接水平扩展用的，移动端场景通常不需要。</p>
+</div>
+
+<div class="miss">
+  <span class="t">官方文档未提供</span>
+  <p><code>max_concurrency</code>（每 5s 可创建的 Session 数）的具体节流实现方式；<code>shard</code> 第二个元素是否必须等于 <code>/gateway/bot</code> 返回的建议 <code>shards</code>；分片与 intents 的关系、每个分片是否独立 <code>session_id</code>。</p>
+</div>
+
+<h2 id="s4">4 · intents 事件掩码对照表</h2>
+
+<p>官方原文：事件的 <code>intents</code> 是一个标记位，每一位都代表不同的事件，如果需要接收某类事件，就将该位置为 <code>1</code>。每个 <code>intents</code> 位代表的是一类事件，可以使用 websocket 传输的数据中的 <code>t</code> 字段的值来区分。</p>
+<p class="src">唯一来源：<a href="https://bot.q.qq.com/wiki/develop/api-v2/dev-prepare/interface-framework/event-emit.html">事件订阅与通知 · 事件订阅 Intents</a>（全站唯一给出 intents 位定义的页面）</p>
+
+<div class="warn">
+  <span class="t">重要：官方从未给出十进制/十六进制数值表</span>
+  <p>官方只给出<strong>位移表达式</strong>（如 <code>GUILDS (1 &lt;&lt; 0)</code>）与该位对应的事件名清单。<strong>下表的「数值」列是依据官方表达式做的算术换算，不是官方原文数字。</strong>编码时应直接写 <code>1 &lt;&lt; 25</code> 这样的表达式，不要硬编码换算结果。</p>
+</div>
+
+<div class="tw">
+  <table>
+    <thead><tr><th>intent 名称</th><th>位值（官方原文表达式）</th><th>数值 <span class="badge b-brand">换算</span></th><th>对应事件（官方原文清单）</th><th>备注</th></tr></thead>
+    <tbody>
+      <tr>
+        <td><code>GUILDS</code></td><td><code>1 &lt;&lt; 0</code></td><td>1</td>
+        <td><code>GUILD_CREATE</code>、<code>GUILD_UPDATE</code>、<code>GUILD_DELETE</code>、<code>CHANNEL_CREATE</code>、<code>CHANNEL_UPDATE</code>、<code>CHANNEL_DELETE</code></td>
+        <td><span class="badge b-ok">基础事件，默认有权限</span></td>
+      </tr>
+      <tr>
+        <td><code>GUILD_MEMBERS</code></td><td><code>1 &lt;&lt; 1</code></td><td>2</td>
+        <td><code>GUILD_MEMBER_ADD</code>、<code>GUILD_MEMBER_UPDATE</code>、<code>GUILD_MEMBER_REMOVE</code></td>
+        <td><span class="badge b-ok">基础事件，默认有权限</span></td>
+      </tr>
+      <tr>
+        <td><code>GUILD_MESSAGES</code></td><td><code>1 &lt;&lt; 9</code></td><td>512</td>
+        <td><code>MESSAGE_CREATE</code>（频道内全部消息，内容与 AT_MESSAGE_CREATE 相同）、<code>MESSAGE_DELETE</code></td>
+        <td><span class="badge b-warn">仅私域机器人可设置</span></td>
+      </tr>
+      <tr>
+        <td><code>GUILD_MESSAGE_REACTIONS</code></td><td><code>1 &lt;&lt; 10</code></td><td>1024</td>
+        <td><code>MESSAGE_REACTION_ADD</code>、<code>MESSAGE_REACTION_REMOVE</code></td><td></td>
+      </tr>
+      <tr>
+        <td><code>DIRECT_MESSAGE</code></td><td><code>1 &lt;&lt; 12</code></td><td>4096</td>
+        <td><code>DIRECT_MESSAGE_CREATE</code>、<code>DIRECT_MESSAGE_DELETE</code></td><td></td>
+      </tr>
+      <tr style="background:#f3fbfe">
+        <td><code>GROUP_AND_C2C_EVENT</code></td><td><code>1 &lt;&lt; 25</code></td><td>33554432</td>
+        <td><code>C2C_MESSAGE_CREATE</code>、<code>FRIEND_ADD</code>、<code>FRIEND_DEL</code>、<code>C2C_MSG_REJECT</code>、<code>C2C_MSG_RECEIVE</code>、<code>GROUP_AT_MESSAGE_CREATE</code>、<code>GROUP_ADD_ROBOT</code>、<code>GROUP_DEL_ROBOT</code>、<code>GROUP_MSG_REJECT</code>、<code>GROUP_MSG_RECEIVE</code></td>
+        <td><span class="badge b-brand">本项目核心位</span></td>
+      </tr>
+      <tr>
+        <td><code>INTERACTION</code></td><td><code>1 &lt;&lt; 26</code></td><td>67108864</td>
+        <td><code>INTERACTION_CREATE</code></td><td></td>
+      </tr>
+      <tr>
+        <td><code>MESSAGE_AUDIT</code></td><td><code>1 &lt;&lt; 27</code></td><td>134217728</td>
+        <td><code>MESSAGE_AUDIT_PASS</code>、<code>MESSAGE_AUDIT_REJECT</code></td><td></td>
+      </tr>
+      <tr>
+        <td><code>FORUMS_EVENT</code></td><td><code>1 &lt;&lt; 28</code></td><td>268435456</td>
+        <td><code>FORUM_THREAD_CREATE/UPDATE/DELETE</code>、<code>FORUM_POST_CREATE/DELETE</code>、<code>FORUM_REPLY_CREATE/DELETE</code>、<code>FORUM_PUBLISH_AUDIT_RESULT</code></td>
+        <td><span class="badge b-warn">仅私域机器人可设置</span></td>
+      </tr>
+      <tr>
+        <td><code>AUDIO_ACTION</code></td><td><code>1 &lt;&lt; 29</code></td><td>536870912</td>
+        <td><code>AUDIO_START</code>、<code>AUDIO_FINISH</code>、<code>AUDIO_ON_MIC</code>、<code>AUDIO_OFF_MIC</code></td><td></td>
+      </tr>
+      <tr>
+        <td><code>PUBLIC_GUILD_MESSAGES</code></td><td><code>1 &lt;&lt; 30</code></td><td>1073741824</td>
+        <td><code>AT_MESSAGE_CREATE</code>、<code>PUBLIC_MESSAGE_DELETE</code></td>
+        <td><span class="badge b-ok">基础事件，默认有权限</span></td>
+      </tr>
+      <tr style="background:#fdf6f0">
+        <td><code>GROUP_MEMBER_EVENT</code></td><td><code>1 &lt;&lt; 24</code></td><td>16777216</td>
+        <td><code>GROUP_MEMBER_ADD</code>、<code>GROUP_MEMBER_REMOVE</code>、<code>GROUP_JOIN_REQUEST</code></td>
+        <td><span class="badge b-warn">官方内部不一致：该位<strong>未</strong>出现在 intents 清单中，只出现在各群成员事件页的 Intent 字段里</span></td>
+      </tr>
+    </tbody>
+  </table>
+</div>
+
+<h3>4.1 位运算规则与官方组合示例</h3>
+<p>官方原文：如开发者需要接收用户 at 机器人的消息，那么就需要在 <code>intents</code> 中设置接收 <code>PUBLIC_GUILD_MESSAGES</code>。则需要先计算 <code>1 &lt;&lt; 30</code> 的值。然后与 <code>0</code> 做位或操作，得到最终需要传递的 <code>intents</code>。如果涉及到多个事件类型的接收，则需要将多个结果做位或操作，如：<code>0|1&lt;&lt;30|1&lt;&lt;1</code> 代表订阅 <code>PUBLIC_GUILD_MESSAGES</code> 和 <code>GUILD_MEMBERS</code> 这两类事件。</p>
+
+<div class="miss">
+  <span class="t">官方文档未提供</span>
+  <p>「群聊 + 单聊 + 频道」的推荐 intents 组合值；<code>1 &lt;&lt; 2</code> ～ <code>1 &lt;&lt; 8</code>、<code>1 &lt;&lt; 11</code>、<code>1 &lt;&lt; 13</code> ～ <code>1 &lt;&lt; 23</code>、<code>1 &lt;&lt; 31</code> 及以上各位的含义；Identify 示例中 <code>"intents": 513</code> 具体对应哪些 intent（按表达式可换算为 <code>1&lt;&lt;9 | 1&lt;&lt;0</code>，但这属于换算推断，非官方原文）。</p>
+</div>
+
+<h3>4.2 intents 权限规则</h3>
+<div class="tw">
+  <table class="kv">
+    <tbody>
+      <tr><td>默认有权限（基础事件）</td><td><code>GUILDS</code>、<code>PUBLIC_GUILD_MESSAGES</code>、<code>GUILD_MEMBERS</code></td></tr>
+      <tr><td>其他特殊事件</td><td>都需要<strong>经过申请</strong>才能够使用</td></tr>
+      <tr><td>传了无权限 intents</td><td>websocket <strong>会报错，并直接关闭连接</strong>（相关错误码 <code>4013 无效的 intent</code>、<code>4014 intent 无权限</code>）</td></tr>
+      <tr><td>权限被取消后的行为</td><td>当前连接上<strong>不会报错</strong>，但收不到对应事件类型；<strong>重新连接则报错</strong>，所以权限被取消后需及时调整监听代码，避免无法连接</td></tr>
+    </tbody>
+  </table>
+</div>
+<p>官方提醒原文：请开发者注意订阅事件的范围需要控制在自己所需要的范围之内。</p>
+
+<div class="info">
+  <span class="t">本项目的最小 intents 建议</span>
+  <p>移动端只做单聊与群聊时，最小必需位为 <code>GROUP_AND_C2C_EVENT (1 &lt;&lt; 25)</code>；若还要处理按钮点击回调，需叠加 <code>INTERACTION (1 &lt;&lt; 26)</code>；若还要处理群成员进出与加群申请，需叠加 <code>GROUP_MEMBER_EVENT (1 &lt;&lt; 24)</code>（该位未被官方列入 intents 清单，属于需实测确认项）。<strong>切勿为了省事而订阅全量 intents</strong>，无权限位会直接导致连接被关闭。</p>
+</div>
+
+<h2 id="s5">5 · 全部事件列表</h2>
+
+<p>官方共有三类事件域：<strong>单聊/群聊（C2C &amp; Group）</strong>、<strong>频道（Guild）</strong>、<strong>互动与订阅</strong>。下文先给出重点事件的完整结构与 JSON，再给出全部事件的触发时机与样例。</p>
+
+<div class="tw">
+  <table>
+    <thead><tr><th>概览</th><th>说明</th></tr></thead>
+    <tbody>
+      <tr><td>事件名称字段</td><td>外层 payload 的 <code>t</code></td></tr>
+      <tr><td>事件内容字段</td><td>外层 payload 的 <code>d</code>（<strong>各事件结构完全不同</strong>）</td></tr>
+      <tr><td>被动回复用 id</td><td>单聊/群聊消息事件的 <code>d.id</code>（另有事件用<strong>最外层</strong> <code>id</code>，见 5.4 / 5.6）</td></tr>
+    </tbody>
+  </table>
+</div>
+
+<h3 id="s5-1">5.1 C2C_MESSAGE_CREATE · 单聊消息事件 <span class="badge b-brand">重点</span></h3>
+
+<p><strong>触发时机（官方原文）</strong>：用户给机器人发送单聊消息时触发。为确保消息可达，相同 <code>msg_id</code> 可能重复推送，开发者需结合 <code>msg_seq</code> 做去重。需结合 <code>message_scene.ext</code> 中的 <code>msg_idx</code> 做去重。<code>message_type</code> 决定消息结构：0=纯文本，3=ARK卡片（<code>ark_data</code> 有值），103=引用消息（<code>msg_elements</code> 有值，<code>message_scene.ext</code> 含 <code>ref_msg_idx</code>）。</p>
+
+<div class="tw">
+  <table class="kv">
+    <tbody>
+      <tr><td>事件名</td><td><code>C2C_MESSAGE_CREATE</code></td></tr>
+      <tr><td>Intent</td><td><code>GROUP_AND_C2C_EVENT (1&lt;&lt;25)</code></td></tr>
+      <tr><td>被动回复</td><td>取 <code>d.id</code> 作为 <code>msg_id</code>，调 <code>POST /v2/users/{openid}/messages</code></td></tr>
+    </tbody>
+  </table>
+</div>
+
+<h4>事件体字段</h4>
+<div class="tw">
+  <table>
+    <thead><tr><th>名称</th><th>类型</th><th>描述</th></tr></thead>
+    <tbody>
+      <tr><td><code>id</code></td><td>string</td><td>消息 ID，可用于被动回复和撤回</td></tr>
+      <tr><td><code>author</code></td><td>User</td><td>发送者（<code>user_openid</code> 有值）</td></tr>
+      <tr><td><code>content</code></td><td>string</td><td>消息文本内容</td></tr>
+      <tr><td><code>timestamp</code></td><td>string</td><td>消息发送时间，RFC3339 格式</td></tr>
+      <tr><td><code>message_type</code></td><td>integer</td><td>消息内容类型：0=普通文本，3=结构化卡片，101=并行消息，102=聊天记录，103=引用消息</td></tr>
+      <tr><td><code>message_scene</code></td><td>MessageScene</td><td>消息场景上下文（含消息索引、鉴权令牌等）</td></tr>
+      <tr><td><code>attachments</code></td><td>[]MessageAttachment</td><td>消息附件（图片、文件、语音等）</td></tr>
+      <tr><td><code>ark_data</code></td><td>ARKData</td><td>结构化卡片消息数据（<code>message_type=3</code> 时有值）</td></tr>
+      <tr><td><code>msg_elements</code></td><td>[]MsgElement</td><td>消息元素列表（<code>message_type=103</code> 引用消息时包含被引用内容）</td></tr>
+    </tbody>
+  </table>
+</div>
+
+<h4>User</h4>
+<div class="tw">
+  <table>
+    <thead><tr><th>名称</th><th>类型</th><th>描述</th></tr></thead>
+    <tbody>
+      <tr><td><code>id</code></td><td>string</td><td>用户唯一标识（OpenID 格式）</td></tr>
+      <tr><td><code>username</code></td><td>string</td><td>用户昵称</td></tr>
+      <tr><td><code>bot</code></td><td>boolean</td><td>是否为机器人</td></tr>
+      <tr><td><code>union_openid</code></td><td>string</td><td>跨应用统一用户 OpenID（可能为空）</td></tr>
+      <tr><td><code>union_user_account</code></td><td>string</td><td>跨应用统一用户账号（可能为空）</td></tr>
+      <tr><td><code>user_openid</code></td><td>string</td><td>用户 OpenID（<strong>单聊场景使用</strong>）</td></tr>
+      <tr><td><code>member_openid</code></td><td>string</td><td>群成员 OpenID（<strong>群聊场景使用</strong>）</td></tr>
+      <tr><td><code>member_role</code></td><td>string</td><td>群内角色。<code>member</code>=普通成员，<code>admin</code>=管理员，<code>owner</code>=群主</td></tr>
+    </tbody>
+  </table>
+</div>
+
+<h4>MessageScene</h4>
+<div class="tw">
+  <table>
+    <thead><tr><th>名称</th><th>类型</th><th>描述</th></tr></thead>
+    <tbody>
+      <tr><td><code>source</code></td><td>string</td><td>场景来源。<code>default</code>=默认聊天窗口</td></tr>
+      <tr><td><code>ext</code></td><td>[]string</td><td>扩展数据列表，<code>key=value</code> 格式：<code>msg_idx</code>=消息索引（用于引用场景）、<code>ref_msg_idx</code>=引用的消息索引、<code>auth_token</code>=鉴权令牌</td></tr>
+    </tbody>
+  </table>
+</div>
+
+<h4>MessageAttachment</h4>
+<div class="tw">
+  <table>
+    <thead><tr><th>名称</th><th>类型</th><th>描述</th></tr></thead>
+    <tbody>
+      <tr><td><code>url</code></td><td>string</td><td>附件下载 URL</td></tr>
+      <tr><td><code>filename</code></td><td>string</td><td>文件名</td></tr>
+      <tr><td><code>width</code></td><td>integer</td><td>图片宽度（像素），非图片附件无此字段</td></tr>
+      <tr><td><code>height</code></td><td>integer</td><td>图片高度（像素），非图片附件无此字段</td></tr>
+      <tr><td><code>size</code></td><td>integer</td><td>文件大小（字节）</td></tr>
+      <tr><td><code>content_type</code></td><td>string</td><td>附件内容类型（MIME）：<code>voice</code>=语音，<code>image/jpeg</code>，<code>image/png</code>，<code>image/gif</code>，<code>video/mp4</code>，<code>file</code>=群文件</td></tr>
+      <tr><td><code>voice_wav_url</code></td><td>string</td><td>语音消息 SILK 等转换后的 WAV 文件 URL</td></tr>
+      <tr><td><code>asr_refer_text</code></td><td>string</td><td>语音消息 ASR 参考结果</td></tr>
+    </tbody>
+  </table>
+</div>
+
+<h4>ARKData</h4>
+<div class="tw">
+  <table>
+    <thead><tr><th>名称</th><th>类型</th><th>描述</th></tr></thead>
+    <tbody>
+      <tr><td><code>prompt</code></td><td>string</td><td>卡片消息中的用户操作提示文本</td></tr>
+      <tr><td><code>ark_type</code></td><td>string</td><td>卡片类型标识：<code>tuwen</code>=图文 H5，<code>feed</code>=图文卡片，<code>miniapp</code>=小程序，<code>map</code>=位置卡片，<code>contact_card</code>=好友名片，<code>video_share</code>=视频分享，<code>music_together</code>=一起听歌，<code>picture</code>=图片</td></tr>
+      <tr><td><code>ark_name</code></td><td>string</td><td>卡片类型的中文名称，如「图文 H5」「小程序」「图文卡片」</td></tr>
+      <tr><td><code>fields</code></td><td>object</td><td>卡片字段，常见键：<code>tag</code>/<code>tags</code>、<code>title</code>、<code>desc</code>、<code>jump_url</code>、<code>preview</code>、<code>source</code>、<code>source_logo</code>、<code>tag_icon</code>、<code>nickname</code>、<code>avatar</code>、<code>address</code></td></tr>
+    </tbody>
+  </table>
+</div>
+
+<h4>MsgElement</h4>
+<div class="tw">
+  <table>
+    <thead><tr><th>名称</th><th>类型</th><th>描述</th></tr></thead>
+    <tbody>
+      <tr><td><code>msg_idx</code></td><td>string</td><td>消息元素在列表中的引用消息索引</td></tr>
+      <tr><td><code>author</code></td><td>User</td><td>该元素对应的消息发送者</td></tr>
+      <tr><td><code>message_type</code></td><td>integer</td><td>消息内容类型（同上）</td></tr>
+      <tr><td><code>content</code></td><td>string</td><td>消息正文内容</td></tr>
+      <tr><td><code>attachments</code></td><td>[]MessageAttachment</td><td>该元素携带的附件</td></tr>
+      <tr><td><code>ark_data</code></td><td>ARKData</td><td>结构化卡片消息数据</td></tr>
+      <tr><td><code>msg_elements</code></td><td>[]MsgElement</td><td>嵌套消息元素列表（<strong>递归结构</strong>）</td></tr>
+    </tbody>
+  </table>
+</div>
+
+<h4>官方事件示例（三例，逐字）</h4>
+<pre><code>// 示例1：纯文本
+{
+  "id": "ROBOT1.0_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+  "author": {
+    "id": "A1B2C3D4E5F6A1B2C3D4E5F6A1B2C3D4",
+    "user_openid": "A1B2C3D4E5F6A1B2C3D4E5F6A1B2C3D4",
+    "union_openid": "",
+    "username": "",
+    "bot": false
+  },
+  "content": "你好，今天有什么推荐的活动吗？",
+  "message_type": 0,
+  "message_scene": {
+    "source": "default",
+    "ext": ["msg_idx=REFIDX_xxxxxxxxxxxxxxx=="]
+  },
+  "timestamp": "2026-07-21T10:00:00+08:00"
+}</code></pre>
+
+<pre><code>// 示例2：结构化卡片（message_type=3）
+{
+  "id": "ROBOT1.0_yyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyy",
+  "author": {
+    "id": "B2C3D4E5F6A1B2C3D4E5F6A1B2C3D4E5",
+    "user_openid": "B2C3D4E5F6A1B2C3D4E5F6A1B2C3D4E5",
+    "union_openid": "B2C3D4E5F6A1B2C3D4E5F6A1B2C3D4E5",
+    "username": "",
+    "bot": false
+  },
+  "content": "[卡片消息] 小程序\n摘要: [每日打卡]快来完成今日学习打卡",
+  "message_type": 3,
+  "ark_data": {
+    "ark_type": "miniapp",
+    "ark_name": "小程序",
+    "prompt": "[每日打卡]快来完成今日学习打卡",
+    "fields": {
+      "title": "快来完成今日学习打卡",
+      "source": "学习助手",
+      "tag": "微信小程序",
+      "preview": "https://pubminishare-30161.picsz.qpic.cn/preview_a1b2c3d4",
+      "source_logo": "https://miniapp.gtimg.cn/generated-icon/app_a1b2c3d4.png",
+      "tag_icon": "https://miniapp.gtimg.cn/public/miniwx.png"
+    }
+  },
+  "message_scene": {
+    "source": "default",
+    "ext": ["msg_idx=REFIDX_yyyyyyyyyyyyyyy=="]
+  },
+  "timestamp": "2026-07-21T10:01:00+08:00"
+}</code></pre>
+
+<pre><code>// 示例3：引用消息（message_type=103）
+{
+  "id": "ROBOT1.0_zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz",
+  "author": {
+    "id": "C3D4E5F6A1B2C3D4E5F6A1B2C3D4E5F6",
+    "user_openid": "C3D4E5F6A1B2C3D4E5F6A1B2C3D4E5F6",
+    "union_openid": "",
+    "username": "",
+    "bot": false
+  },
+  "content": "这个建议很有帮助，谢谢你！",
+  "message_type": 103,
+  "msg_elements": [
+    {
+      "msg_idx": "REFIDX_aaaaaaaaaaaaaaa==",
+      "message_type": 103,
+      "content": "每天坚持阅读半小时，一个月后你会发现自己的变化"
+    }
+  ],
+  "message_scene": {
+    "source": "default",
+    "ext": [
+      "ref_msg_idx=REFIDX_aaaaaaaaaaaaaaa==",
+      "msg_idx=REFIDX_zzzzzzzzzzzzzzz=="
+    ]
+  },
+  "timestamp": "2026-07-21T10:02:00+08:00"
+}</code></pre>
+
+<div class="info">
+  <span class="t">去重机制（官方原文）</span>
+  <p>为了确保消息可到达，极端情况下，相同的 <code>msg_id</code> 的消息会有概率重复推送。如果开发者不对 <code>msg_id</code> 的回复做存储排重，很可能会回复两条相同的消息给用户。官方因此引入 <code>msg_seq</code> 字段，便于过滤重复消息响应。<strong>移动端实现必须落地 msg_id 级别的去重表</strong>（本地 SQLite / 内存 LRU 均可，注意 App 重启后的持久化）。</p>
+</div>
+
+<h3 id="s5-2">5.2 GROUP_AT_MESSAGE_CREATE · 群@机器人消息 <span class="badge b-brand">重点</span></h3>
+
+<p><strong>触发时机（官方原文）</strong>：用户在群里@机器人发送消息时触发。<strong>这是机器人最常接收的事件。</strong> <code>content</code> 字段已自动去除@机器人的前缀。为确保消息可达，相同 <code>msg_id</code> 可能重复推送，开发者需结合 <code>msg_seq</code> 做去重。</p>
+
+<div class="tw">
+  <table class="kv">
+    <tbody>
+      <tr><td>事件名</td><td><code>GROUP_AT_MESSAGE_CREATE</code></td></tr>
+      <tr><td>Intent</td><td><code>GROUP_AND_C2C_EVENT (1&lt;&lt;25)</code></td></tr>
+    </tbody>
+  </table>
+</div>
+
+<h4>事件体字段</h4>
+<div class="tw">
+  <table>
+    <thead><tr><th>名称</th><th>类型</th><th>描述</th></tr></thead>
+    <tbody>
+      <tr><td><code>id</code></td><td>string</td><td>消息 ID，可用于被动回复和撤回</td></tr>
+      <tr><td><code>author</code></td><td>User</td><td>发送者（<strong><code>member_openid</code> 有值</strong>）</td></tr>
+      <tr><td><code>content</code></td><td>string</td><td>消息文本内容（<strong>已去除@机器人的前缀</strong>）</td></tr>
+      <tr><td><code>group_openid</code></td><td>string</td><td>群 OpenID</td></tr>
+      <tr><td><code>timestamp</code></td><td>string</td><td>消息发送时间，RFC3339 格式</td></tr>
+      <tr><td><code>message_type</code></td><td>integer</td><td>消息内容类型（同 C2C_MESSAGE_CREATE）</td></tr>
+      <tr><td><code>message_scene</code></td><td>MessageScene</td><td>消息场景上下文</td></tr>
+      <tr><td><code>attachments</code></td><td>[]MessageAttachment</td><td>消息附件</td></tr>
+      <tr><td><code>mentions</code></td><td>[]User</td><td>消息中@的用户列表（<strong>不含@机器人自身</strong>）</td></tr>
+      <tr><td><code>ark_data</code></td><td>ARKData</td><td>结构化卡片消息数据</td></tr>
+      <tr><td><code>msg_elements</code></td><td>[]MsgElement</td><td>消息元素列表</td></tr>
+    </tbody>
+  </table>
+</div>
+<p>其中 <code>User</code> / <code>MessageScene</code> / <code>MessageAttachment</code> / <code>ARKData</code> / <code>MsgElement</code> 的字段表与 5.1 节完全相同（官方页面重复给出，内容一致）。</p>
+
+<h4>官方事件示例（三例，逐字）</h4>
+<pre><code>// 示例1：纯文本（含 auth_token）
+{
+  "id": "ROBOT1.0_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+  "author": {
+    "id": "A1B2C3D4E5F6A1B2C3D4E5F6A1B2C3D4",
+    "member_openid": "A1B2C3D4E5F6A1B2C3D4E5F6A1B2C3D4",
+    "member_role": "member",
+    "username": "小明",
+    "bot": false
+  },
+  "content": " /今日天气 ",
+  "group_openid": "B2C3D4E5F6A1B2C3D4E5F6A1B2C3D4E5",
+  "message_type": 0,
+  "timestamp": "2026-07-21T10:00:00+08:00",
+  "message_scene": {
+    "source": "default",
+    "ext": [
+      "msg_idx=REFIDX_xxxxxxxxxxxxxxx==",
+      "auth_token=xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+    ]
+  }
+}</code></pre>
+
+<pre><code>// 示例2：带图片附件
+{
+  "id": "ROBOT1.0_yyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyy",
+  "author": {
+    "id": "C3D4E5F6A1B2C3D4E5F6A1B2C3D4E5F6",
+    "member_openid": "C3D4E5F6A1B2C3D4E5F6A1B2C3D4E5F6",
+    "member_role": "member",
+    "username": "小红",
+    "bot": false
+  },
+  "content": " 看看这张风景照 ",
+  "group_openid": "B2C3D4E5F6A1B2C3D4E5F6A1B2C3D4E5",
+  "message_type": 0,
+  "timestamp": "2026-07-21T10:05:00+08:00",
+  "attachments": [
+    {
+      "content_type": "image/jpeg",
+      "filename": "photo.jpg",
+      "url": "https://multimedia.nt.qq.com.cn/download?appid=xxx&fileid=xxx&rkey=xxx&spec=0",
+      "width": 1920,
+      "height": 1080,
+      "size": 256000
+    }
+  ],
+  "message_scene": {
+    "source": "default",
+    "ext": [
+      "msg_idx=REFIDX_yyyyyyyyyyyyyyy==",
+      "auth_token=yyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyy"
+    ]
+  }
+}</code></pre>
+
+<pre><code>// 示例3：引用消息（message_type=103，群主）
+{
+  "id": "ROBOT1.0_zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz",
+  "author": {
+    "id": "D4E5F6A1B2C3D4E5F6A1B2C3D4E5F6A1",
+    "member_openid": "D4E5F6A1B2C3D4E5F6A1B2C3D4E5F6A1",
+    "member_role": "owner",
+    "username": "小华",
+    "bot": false
+  },
+  "content": " ",
+  "group_openid": "B2C3D4E5F6A1B2C3D4E5F6A1B2C3D4E5",
+  "message_type": 103,
+  "timestamp": "2026-07-21T10:10:00+08:00",
+  "msg_elements": [
+    {
+      "content": "=== 消息 1 ===\n[消息内容] 今天的学习计划已完成\n\n=== 消息 2 ===\n[消息内容] 很棒！继续保持，明天继续加油\n\n=== 消息 3 ===\n[消息内容] 好的，一起进步！"
+    }
+  ],
+  "message_scene": {
+    "source": "default",
+    "ext": [
+      "msg_idx=REFIDX_zzzzzzzzzzzzzzz==",
+      "auth_token=zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz",
+      "ref_msg_idx=TMP_xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
+    ]
+  }
+}</code></pre>
+
+<div class="info">
+  <span class="t">另一处官方口径（精简版字段表，来源 send-receive/event.html）</span>
+  <p><code>author</code> 对象仅列出 <code>member_openid</code>（用户在本群的 member_openid）、<code>member_role</code>（枚举：owner、admin、member）、<code>bot</code>（bool）。该页给出去掉 <code>auth_token</code> 的极简示例：<code>{"author":{"member_openid":"E4F4AEA33253A2797FB897C50B81D7ED"},"content":" 123","id":"ROBOT1.0_.b6nx...","timestamp":"2023-11-06T13:37:18+08:00"}</code>。两处口径并存，实现时应以实际收到的事件字段为准做容错解析。</p>
+</div>
+
+<h3 id="s5-3">5.3 GROUP_MESSAGE_CREATE · 群消息（全量模式）</h3>
+<p><strong>触发时机（官方原文）</strong>：当机器人开启了「接收所有消息」功能后，群里的每一条消息（不限于@机器人）都会推送此事件。<strong>各字段含义与 GROUP_AT_MESSAGE_CREATE 完全一致。</strong> 字段表同样包含 <code>mentions</code>（消息中@的用户列表）。</p>
+<p>另有官方表述（<code>send-receive/event.html</code>）：当群主设定允许该机器人接收群内全部消息时，机器人可接收到群内所有成员在群内的发言消息。</p>
+<div class="warn">
+  <span class="t">该事件不在 GROUP_AND_C2C_EVENT 的官方 intents 清单中</span>
+  <p>官方 intents 清单里 <code>GROUP_AND_C2C_EVENT (1&lt;&lt;25)</code> 只列出了 <code>GROUP_AT_MESSAGE_CREATE</code>，<strong>未列 <code>GROUP_MESSAGE_CREATE</code></strong>。该事件的 intent 归属需要以真机实测确认（属于「官方文档未提供明确归属」项）。</p>
+</div>
+
+<h3 id="s5-4">5.4 群与好友类事件</h3>
+
+<h4>5.4.1 C2C_MSG_RECEIVE · 单聊消息接收开启</h4>
+<p><strong>触发时机</strong>：用户在机器人资料卡手动开启「主动消息」推送开关时触发。开启后机器人可向该用户发送主动消息。</p>
+<p>intent：<code>GROUP_AND_C2C_EVENT (1&lt;&lt;25)</code>。该事件可作为被动回复的 <code>event_id</code>（见 7.1）。</p>
+
+<h4>5.4.2 C2C_MSG_REJECT · 单聊消息接收关闭</h4>
+<p><strong>触发时机</strong>：用户在机器人资料卡手动关闭「主动消息」推送时触发。关闭后机器人无法向该用户发送主动消息。intent：<code>GROUP_AND_C2C_EVENT (1&lt;&lt;25)</code>。</p>
+
+<h4>5.4.3 GROUP_MSG_RECEIVE · 群聊消息接收开启</h4>
+<p><strong>触发时机</strong>：群管理员在机器人资料页操作开启通知时触发。intent：<code>GROUP_AND_C2C_EVENT (1&lt;&lt;25)</code>。可作为被动回复的 <code>event_id</code>。</p>
+
+<h4>5.4.4 GROUP_MSG_REJECT · 群聊消息接收关闭</h4>
+<p><strong>触发时机</strong>：群管理员在机器人资料页操作关闭通知时触发。intent：<code>GROUP_AND_C2C_EVENT (1&lt;&lt;25)</code>。</p>
+
+<h4>5.4.5 GROUP_ADD_ROBOT · 机器人加入群聊</h4>
+<p><strong>触发时机</strong>：机器人被添加到群聊时触发。intent：<code>GROUP_AND_C2C_EVENT (1&lt;&lt;25)</code>。可作为被动回复的 <code>event_id</code>。</p>
+<div class="tw">
+  <table>
+    <thead><tr><th>名称</th><th>类型</th><th>描述</th></tr></thead>
+    <tbody>
+      <tr><td><code>timestamp</code></td><td>integer</td><td>加入时间戳（Unix 秒）</td></tr>
+      <tr><td><code>group_openid</code></td><td>string</td><td>群 OpenID</td></tr>
+      <tr><td><code>op_member_openid</code></td><td>string</td><td>操作添加机器人进群的群成员 OpenID</td></tr>
+    </tbody>
+  </table>
+</div>
+<pre><code>{
+  "group_openid": "A1B2C3D4E5F6A1B2C3D4E5F6A1B2C3D4",
+  "op_member_openid": "A1B2C3D4E5F6A1B2C3D4E5F6A1B2C3D4",
+  "timestamp": 1784570534
+}</code></pre>
+
+<h4>5.4.6 GROUP_DEL_ROBOT · 机器人退出群聊</h4>
+<p><strong>触发时机</strong>：机器人被移出群聊时触发。intent：<code>GROUP_AND_C2C_EVENT (1&lt;&lt;25)</code>。</p>
+<pre><code>{
+  "group_openid": "A1B2C3D4E5F6A1B2C3D4E5F6A1B2C3D4",
+  "op_member_openid": "A1B2C3D4E5F6A1B2C3D4E5F6A1B2C3D4",
+  "timestamp": 1784570535
+}</code></pre>
+<p>字段表与 GROUP_ADD_ROBOT 相同（<code>timestamp</code> / <code>group_openid</code> / <code>op_member_openid</code>，其中 timestamp 描述为「移除时间戳」）。</p>
+
+<h4>5.4.7 GROUP_MEMBER_ADD · 群成员加入</h4>
+<p><strong>触发时机</strong>：有新成员加入群聊时触发。intent：<code>GROUP_MEMBER_EVENT (1&lt;&lt;24)</code> <span class="badge b-warn">该位未列入官方 intents 清单</span></p>
+<div class="tw">
+  <table>
+    <thead><tr><th>名称</th><th>类型</th><th>描述</th></tr></thead>
+    <tbody>
+      <tr><td><code>timestamp</code></td><td>integer</td><td>事件时间戳（Unix 秒）</td></tr>
+      <tr><td><code>group_openid</code></td><td>string</td><td>群 OpenID</td></tr>
+      <tr><td><code>member_openid</code></td><td>string</td><td>新加入成员的 OpenID</td></tr>
+      <tr><td><code>user_openid</code></td><td>string</td><td>新成员的用户 OpenID（跨应用统一标识，可能为空）</td></tr>
+    </tbody>
+  </table>
+</div>
+<pre><code>{
+  "timestamp": 1784276757,
+  "group_openid": "B2C3D4E5F6A1B2C3D4E5F6A1B2C3D4E5",
+  "member_openid": "C3D4E5F6A1B2C3D4E5F6A1B2C3D4E5F6",
+  "user_openid": "C3D4E5F6A1B2C3D4E5F6A1B2C3D4E5F6"
+}</code></pre>
+
+<h4>5.4.8 GROUP_MEMBER_REMOVE · 群成员退出</h4>
+<p><strong>触发时机</strong>：群成员退出或被移出群聊时触发。intent：<code>GROUP_MEMBER_EVENT (1&lt;&lt;24)</code>。字段结构同 GROUP_MEMBER_ADD（<code>member_openid</code> 描述为「退出成员的 OpenID」，<code>user_openid</code> 描述为「退出成员的用户 OpenID（可能为空）」），官方示例 <code>timestamp</code> 为 <code>1784276759</code>。</p>
+
+<h4>5.4.9 GROUP_JOIN_REQUEST · 用户申请加群</h4>
+<p><strong>触发时机（官方原文）</strong>：用户申请加群请求触发此事件。<strong>1. 只有当机器人是群管理员时才可以收到此事件。</strong> intent：<code>GROUP_MEMBER_EVENT (1&lt;&lt;24)</code>。</p>
+<div class="tw">
+  <table>
+    <thead><tr><th>名称</th><th>类型</th><th>描述</th></tr></thead>
+    <tbody>
+      <tr><td><code>group_openid</code></td><td>string</td><td>群 OpenID</td></tr>
+      <tr><td><code>join_request_id</code></td><td>string</td><td>申请 ID，需要在申请接口回传</td></tr>
+      <tr><td><code>risk_tips</code></td><td>string</td><td>安全提示语；可疑消息直接返回 warning_tips；普通消息命中 sec_risk_rules 时返回 top_tips</td></tr>
+      <tr><td><code>union_openid</code></td><td>string</td><td>用户在应用/开放平台下的统一标识（如有）</td></tr>
+      <tr><td><code>member_openid</code></td><td>string</td><td>申请人 openid</td></tr>
+      <tr><td><code>username</code></td><td>string</td><td>申请人昵称</td></tr>
+      <tr><td><code>apply_at</code></td><td>string</td><td>申请时间戳（RFC3339 格式）</td></tr>
+      <tr><td><code>apply_source</code></td><td>string</td><td>申请来源：<code>self_apply</code> 主动申请，<code>invited</code> 被邀请</td></tr>
+      <tr><td><code>invited_by</code></td><td>string</td><td>邀请人 openid（<code>apply_source=invited</code> 时有效）</td></tr>
+      <tr><td><code>bot</code></td><td>boolean</td><td>是否为机器人账号</td></tr>
+      <tr><td><code>verify_info</code></td><td>VerifyInfo</td><td>用户入群验证方式</td></tr>
+      <tr><td><code>auto_approved</code></td><td>AutoAppproved</td><td>自动审批通过的扩展信息，只有在下行事件中会携带</td></tr>
+    </tbody>
+  </table>
+</div>
+<div class="tw">
+  <table>
+    <thead><tr><th>VerifyInfo</th><th>类型</th><th>描述</th></tr></thead>
+    <tbody>
+      <tr><td><code>method</code></td><td>string</td><td>入群验证方式：<code>verify_message</code> / <code>admin_review_qa</code></td></tr>
+      <tr><td><code>verify_message</code></td><td>string</td><td>验证消息内容；仅 <code>auth_type=verify_message</code> 时可能携带</td></tr>
+      <tr><td><code>review_qa_list</code></td><td>[]ReviewQA</td><td>问答列表；仅 <code>auth_type=admin_review_qa</code> 时可能携带（<code>question</code> 管理员设置的问题、<code>answer</code> 申请人填写的答案）</td></tr>
+    </tbody>
+  </table>
+</div>
+<p><code>AutoAppproved</code>：<code>strategy_id</code>（string，自动审批通过的策略 ID）。官方另提供完整示例（用户申请入群、自动审批通过等三例），逐字内容见 <code>raw/events-intents.md</code> 3.12 节。</p>
+
+<h4>5.4.10 FRIEND_ADD · 用户添加好友</h4>
+<p><strong>触发时机（官方原文）</strong>：通过传 <code>scene_param</code> 中的 <code>callback_data</code> 可区分不同来源的添加好友场景。intent：<code>GROUP_AND_C2C_EVENT (1&lt;&lt;25)</code>。可作为被动回复的 <code>event_id</code>。</p>
+<div class="tw">
+  <table>
+    <thead><tr><th>名称</th><th>类型</th><th>描述</th></tr></thead>
+    <tbody>
+      <tr><td><code>timestamp</code></td><td>integer</td><td>添加时间戳（Unix 秒）</td></tr>
+      <tr><td><code>openid</code></td><td>string</td><td>用户 OpenID</td></tr>
+      <tr><td><code>scene</code></td><td>integer</td><td>加好友场景值：1000=缺省默认，1001=网络搜索（全部 tab），1002=网络搜索（机器人 tab），1003=群场景，1004=空间场景，2001=站内分享资料页，2002=站外分享资料页，2003=开发者生成的分享链接（站内），2004=开发者生成的分享链接（站外）</td></tr>
+      <tr><td><code>scene_param</code></td><td>string</td><td>开发者自定义的回调数据（callback_data），用于区分不同来源</td></tr>
+      <tr><td><code>author</code></td><td>FriendAuthor</td><td>用户信息（<code>union_openid</code>：用户统一 OpenID）</td></tr>
+      <tr><td><code>short_code</code></td><td>string</td><td>机器人分享链接的短链 code</td></tr>
+    </tbody>
+  </table>
+</div>
+<pre><code>// 官方示例1（网络搜索场景）
+{
+  "openid": "A1B2C3D4E5F6A1B2C3D4E5F6A1B2C3D4",
+  "timestamp": 1784570523,
+  "scene": 1001,
+  "scene_param": "",
+  "author": { "union_openid": "DB85A74E07BA08B5B44CD9ED332FCBD2" }
+}
+
+// 官方示例2（开发者分享链接）
+{
+  "openid": "A1B2C3D4E5F6A1B2C3D4E5F6A1B2C3D4",
+  "timestamp": 1784570600,
+  "scene": 2003,
+  "scene_param": "callback_abc123",
+  "author": { "union_openid": "DB85A74E07BA08B5B44CD9ED332FCBD2" }
+}</code></pre>
+
+<h4>5.4.11 FRIEND_DEL · 用户删除好友</h4>
+<p><strong>触发时机</strong>：用户删除机器人好友时触发。intent：<code>GROUP_AND_C2C_EVENT (1&lt;&lt;25)</code>。字段：<code>timestamp</code>（删除时间戳）、<code>openid</code>、<code>author</code>（FriendAuthor）。</p>
+<pre><code>{
+  "openid": "A1B2C3D4E5F6A1B2C3D4E5F6A1B2C3D4",
+  "timestamp": 1784570524
+}</code></pre>
+
+<h3 id="s5-5">5.5 频道（Guild）类事件</h3>
+
+<div class="warn">
+  <span class="t">频道体系与本项目的关系</span>
+  <p>频道（QQ频道）事件与单聊/群聊事件是<strong>两套独立的数据模型</strong>：<code>MessageAttachment</code> 在频道体系只有 <code>url</code> 一个字段，而 C2C/群聊体系有 8 个字段；频道的 id 是数字型 <code>guild_id</code>/<code>channel_id</code>，单聊/群聊是 <code>openid</code> 字符串。实现时必须按 <code>t</code> 分派到不同的解析器，不能共用模型。</p>
+</div>
+
+<h4>5.5.1 GUILD_CREATE / GUILD_UPDATE / GUILD_DELETE</h4>
+<p>intent：<code>GUILDS (1&lt;&lt;0)</code>（基础事件，默认有权限）。</p>
+<ul>
+  <li><code>GUILD_CREATE</code>：机器人被加入到某个频道时触发。</li>
+  <li><code>GUILD_UPDATE</code>：频道信息变更时触发。<strong>事件内容为变更后的数据。</strong></li>
+  <li><code>GUILD_DELETE</code>：频道被解散或机器人被移除时触发。<strong>事件内容为变更前的数据。</strong></li>
+</ul>
+<div class="tw">
+  <table>
+    <thead><tr><th>名称</th><th>类型</th><th>描述</th></tr></thead>
+    <tbody>
+      <tr><td><code>id</code></td><td>string</td><td>频道 ID</td></tr>
+      <tr><td><code>name</code></td><td>string</td><td>频道名称</td></tr>
+      <tr><td><code>icon</code></td><td>string</td><td>频道头像 URL</td></tr>
+      <tr><td><code>owner_id</code></td><td>string</td><td>频道创建者 ID</td></tr>
+      <tr><td><code>member_count</code></td><td>integer</td><td>频道成员数</td></tr>
+      <tr><td><code>max_members</code></td><td>integer</td><td>频道成员上限</td></tr>
+      <tr><td><code>description</code></td><td>string</td><td>频道简介</td></tr>
+      <tr><td><code>joined_at</code></td><td>string</td><td>加入时间，ISO8601 格式</td></tr>
+      <tr><td><code>op_user_id</code></td><td>string</td><td>操作人 ID</td></tr>
+    </tbody>
+  </table>
+</div>
+<pre><code>// GUILD_CREATE 官方示例
+{
+  "id": "123456789012345678",
+  "name": "技术交流频道",
+  "icon": "https://thirdqq.qlogo.cn/0",
+  "owner_id": "123456789012345678",
+  "member_count": 100,
+  "max_members": 1000,
+  "description": "专注于技术分享与交流的频道",
+  "joined_at": "2026-01-01T00:00:00+08:00",
+  "op_user_id": "123456789012345678"
+}</code></pre>
+
+<h4>5.5.2 CHANNEL_CREATE / CHANNEL_UPDATE / CHANNEL_DELETE</h4>
+<p>intent：<code>GUILDS (1&lt;&lt;0)</code>。触发时机分别为：子频道被创建时、子频道信息变更时、子频道被删除时。</p>
+<div class="tw">
+  <table>
+    <thead><tr><th>名称</th><th>类型</th><th>描述</th></tr></thead>
+    <tbody>
+      <tr><td><code>id</code></td><td>string</td><td>子频道 ID</td></tr>
+      <tr><td><code>guild_id</code></td><td>string</td><td>所属频道 ID</td></tr>
+      <tr><td><code>name</code></td><td>string</td><td>子频道名称</td></tr>
+      <tr><td><code>type</code></td><td>integer</td><td>子频道类型：0=文字，2=语音，4=分组，10005=直播，10006=应用，10007=论坛</td></tr>
+      <tr><td><code>sub_type</code></td><td>integer</td><td>子频道子类型</td></tr>
+      <tr><td><code>owner_id</code></td><td>string</td><td>创建者 ID</td></tr>
+      <tr><td><code>op_user_id</code></td><td>string</td><td>操作人 ID</td></tr>
+    </tbody>
+  </table>
+</div>
+<pre><code>// CHANNEL_CREATE 官方示例
+{
+  "id": "123456",
+  "guild_id": "123456789012345678",
+  "name": "新子频道",
+  "type": 0,
+  "sub_type": 0,
+  "position": 1,
+  "owner_id": "123456789012345678"
+}</code></pre>
+<p class="src"><span class="badge b-warn">官方口径冲突</span> 官方「事件体」字段表<strong>未列出</strong> <code>position</code>，但官方示例 JSON 中包含 <code>position</code>。已按原文如实保留该差异。</p>
+
+<h4>5.5.3 频道消息事件</h4>
+<div class="tw">
+  <table>
+    <thead><tr><th>事件名</th><th>intent</th><th>官方触发时机原文</th></tr></thead>
+    <tbody>
+      <tr><td><code>AT_MESSAGE_CREATE</code></td><td><code>PUBLIC_GUILD_MESSAGES (1&lt;&lt;30)</code></td><td>用户发送消息，@当前机器人或回复机器人消息时。为保障消息投递的速度，消息顺序我们虽然会尽量有序，但是并不保证是严格有序的，如开发者对消息顺序有严格有序的需求，可以自行缓冲消息事件之后，基于 <code>Message.seq</code> 进行排序</td></tr>
+      <tr><td><code>MESSAGE_CREATE</code></td><td><code>GUILD_MESSAGES (1&lt;&lt;9)</code>（仅私域）</td><td>代表频道内的全部消息，而不只是 at 机器人的消息。内容与 AT_MESSAGE_CREATE 相同</td></tr>
+      <tr><td><code>DIRECT_MESSAGE_CREATE</code></td><td><code>DIRECT_MESSAGE (1&lt;&lt;12)</code></td><td>当收到用户发给机器人的私信消息时</td></tr>
+      <tr><td><code>MESSAGE_REACTION_ADD</code> / <code>MESSAGE_REACTION_REMOVE</code></td><td><code>GUILD_MESSAGE_REACTIONS (1&lt;&lt;10)</code></td><td>为消息添加 / 删除表情表态</td></tr>
+      <tr><td><code>MESSAGE_DELETE</code> / <code>PUBLIC_MESSAGE_DELETE</code></td><td>分别对应 <code>GUILD_MESSAGES</code> / <code>PUBLIC_GUILD_MESSAGES</code></td><td>删除（撤回）消息事件 / 频道的消息被删除时</td></tr>
+      <tr><td><code>MESSAGE_AUDIT_PASS</code> / <code>MESSAGE_AUDIT_REJECT</code></td><td><code>MESSAGE_AUDIT (1&lt;&lt;27)</code></td><td>消息审核通过 / 不通过，返回 <code>MessageAudited</code> 对象</td></tr>
+    </tbody>
+  </table>
+</div>
+<p>频道消息事件的 <code>d</code> 为 <code>Message</code> 对象（字段表见 6.5），官方在 <code>server-inter/channel/message/event.html</code> 给出精简字段说明与示例（<code>AT_MESSAGE_CREATE</code> 示例中 <code>content</code> 为 <code>"ndnnd"</code>，无 @ 前缀）。</p>
+
+<h3 id="s5-6">5.6 互动与订阅事件</h3>
+
+<h4>5.6.1 INTERACTION_CREATE · 互动事件</h4>
+<p><strong>触发时机（官方原文）</strong>：用户与机器人的互动操作触发此事件，包括消息按钮点击、快捷菜单回调、消息反馈、清空会话、进出故事集、切换模型、用户/群授权等。<strong>收到事件后需调用 <code>PUT /interactions/{interaction_id}</code> 接口回应，否则客户端会一直 loading 直到超时。</strong></p>
+<p>官方补充：<strong>仅 <code>type=11</code>（消息按钮）和 <code>type=12</code>（快捷菜单）需要调用 <code>PUT /interactions/{interaction_id}</code> 回应</strong>；其他类型（消息反馈、清空会话、进出故事集、切换模型、授权等）无需回应。同一 <code>interaction_id</code> 只能回应一次，超时后失效。</p>
+<p>intent：<code>INTERACTION (1&lt;&lt;26)</code>。<strong>被动回复时 <code>event_id</code> 取最外层 payload 的 <code>id</code>。</strong></p>
+<div class="tw">
+  <table>
+    <thead><tr><th>名称</th><th>类型</th><th>描述</th></tr></thead>
+    <tbody>
+      <tr><td><code>id</code></td><td>string</td><td>事件 ID，用于被动消息发送和互动回调</td></tr>
+      <tr><td><code>type</code></td><td>integer</td><td>11=消息按钮回调（INLINE_KEYBOARD），12=单聊快捷菜单回调（CALLBACK_COMMAND），13=消息反馈（MESSAGE_FEEDBACK），14=清空会话（CLEAR_SESSION），15=进出故事集（IN_OUT_STORY），16=切换模型（SWITCH_MODEL），18=用户授权（USER_AUTHORIZE），19=群授权（GROUP_AUTHORIZE），20=群授权状态变更（GROUP_AUTHORIZE_STATUS）</td></tr>
+      <tr><td><code>scene</code></td><td>string</td><td>事件发生场景。<code>c2c</code>=单聊，<code>group</code>=群聊，<code>guild</code>=频道</td></tr>
+      <tr><td><code>chat_type</code></td><td>integer</td><td>聊天场景。0=频道，1=群聊，2=单聊</td></tr>
+      <tr><td><code>timestamp</code></td><td>string</td><td>触发时间，RFC3339 格式</td></tr>
+      <tr><td><code>guild_id</code> / <code>channel_id</code></td><td>string</td><td>频道 OpenID / 子频道 OpenID（仅频道场景有值）</td></tr>
+      <tr><td><code>user_openid</code></td><td>string</td><td>用户 OpenID（仅单聊场景有值）</td></tr>
+      <tr><td><code>group_openid</code> / <code>group_member_openid</code></td><td>string</td><td>群 OpenID / 群成员 OpenID（仅群聊场景有值）</td></tr>
+      <tr><td><code>data</code></td><td>InteractionData</td><td>互动数据（<code>type</code> + <code>resolved</code>）</td></tr>
+      <tr><td><code>version</code></td><td>integer</td><td>版本号，默认 1</td></tr>
+      <tr><td><code>application_id</code></td><td>string</td><td>机器人 AppID</td></tr>
+    </tbody>
+  </table>
+</div>
+<p><strong>InteractionData.resolved（InteractionResolved）</strong>：<code>button_data</code>（按钮的 data 值；消息反馈场景下为回调数据）、<code>button_id</code>、<code>user_id</code>（仅频道）、<code>feature_id</code>（仅快捷菜单，管理端设置）、<code>message_id</code>、<code>feedback_opt</code>（<code>LIKE</code>/<code>UNLIKE</code>，仅 type=13）、<code>checked</code>（仅 type=13）、<code>action</code>（type=15 为 <code>ENTER_STORY</code>/<code>QUIT_STORY</code>）、<code>message_scene</code>（<code>ext</code>：如 <code>disable_net_search=1</code> 表示关闭联网搜索）、<code>authorize_data</code>（<code>opt_scene</code>：<code>setting</code>=资料页设置 / <code>dialog</code>=弹窗授权；<code>scope</code>：<code>c2c_push</code>=C2C 主动消息推送 / <code>group_push</code>=群主动消息推送）。</p>
+<pre><code>// 官方示例1：单聊消息按钮
+{
+  "application_id": "1904842048",
+  "chat_type": 2,
+  "data": { "resolved": { "button_data": "confirm:once", "button_id": "allow-once" }, "type": 11 },
+  "id": "1b13d569-4610-4ab9-bc51-feecc5def6d4",
+  "scene": "c2c",
+  "timestamp": "2026-07-20T21:53:54+08:00",
+  "type": 11,
+  "user_openid": "A1B2C3D4E5F6A1B2C3D4E5F6A1B2C3D4",
+  "version": 1
+}
+
+// 官方示例2：群聊消息按钮
+{
+  "application_id": "101984245",
+  "chat_type": 1,
+  "data": { "resolved": { "button_data": "eyJjb21tYW5kIjogInNhbXBsZSJ9" }, "type": 11 },
+  "group_member_openid": "A1B2C3D4E5F6A1B2C3D4E5F6A1B2C3D4",
+  "group_openid": "B2C3D4E5F6A1B2C3D4E5F6A1B2C3D4E5",
+  "id": "06915133-7aef-46ed-94f7-c50939e285ae",
+  "scene": "group",
+  "timestamp": "2026-07-20T21:53:54+08:00",
+  "type": 11,
+  "version": 1
+}
+
+// 官方示例3：用户授权
+{
+  "application_id": "102057050",
+  "data": { "resolved": { "authorize_data": { "opt_scene": "setting", "scope": "c2c_push" } } },
+  "id": "c30c003e-9454-4450-8e5e-665267c088c4",
+  "scene": "c2c",
+  "timestamp": "2026-07-20T21:54:38+08:00",
+  "type": 18,
+  "user_openid": "A1B2C3D4E5F6A1B2C3D4E5F6A1B2C3D4",
+  "version": 1
+}</code></pre>
+<p>官方关于按钮与互动的关联原文：用户点击回调按钮会触发 <code>INTERACTION_CREATE</code> 事件，机器人收到事件后需调用 <code>PUT /interactions/{interaction_id}</code> 进行回应，否则客户端会一直处于 loading 状态直到超时。</p>
+
+<h4>5.6.2 SUBSCRIBE_MESSAGE_STATUS · 订阅消息授权状态变更</h4>
+<p><strong>触发时机（官方原文）</strong>：用户对订阅消息模板的授权状态发生变化时触发。可用于判断用户是否允许/拒绝接收某个订阅消息模板。intent：<code>GROUP_AND_C2C_EVENT (1&lt;&lt;25)</code>。</p>
+<div class="tw">
+  <table>
+    <thead><tr><th>名称</th><th>类型</th><th>描述</th></tr></thead>
+    <tbody>
+      <tr><td><code>group_openid</code></td><td>string</td><td>群 OpenID（群订阅场景时有值）</td></tr>
+      <tr><td><code>openid</code></td><td>string</td><td>用户 OpenID（个人订阅场景时有值）</td></tr>
+      <tr><td><code>result</code></td><td>[]SubscribeMsgTemplateResult</td><td>各模板的授权结果列表</td></tr>
+    </tbody>
+  </table>
+</div>
+<p><strong>SubscribeMsgTemplateResult</strong>：<code>template_id</code>（平台提供的订阅模板 ID）、<code>custom_template_id</code>（自定义订阅模板 ID）、<code>op</code>（1=允许订阅，2=拒绝订阅）、<code>subscribe_id</code>（订阅 ID，发送订阅消息时需使用）、<code>subscribe_ts</code>、<code>update_ts</code>（Unix 秒）。</p>
+<pre><code>{
+  "openid": "A1B2C3D4E5F6A1B2C3D4E5F6A1B2C3D4",
+  "result": [
+    {
+      "template_id": 10001,
+      "custom_template_id": "tpl_abc123",
+      "op": 1,
+      "subscribe_id": "sub_def456",
+      "subscribe_ts": 1784276820,
+      "update_ts": 1784276820
+    },
+    {
+      "template_id": 10002,
+      "custom_template_id": "tpl_xyz789",
+      "op": 2,
+      "subscribe_id": "sub_ghi012",
+      "subscribe_ts": 1784276815,
+      "update_ts": 1784276820
+    }
+  ]
+}</code></pre>
+
+<h3 id="s5-7">5.7 事件总表</h3>
+<div class="tw">
+  <table>
+    <thead><tr><th>事件名</th><th>intent</th><th>触发时机</th><th>本项目关注度</th></tr></thead>
+    <tbody>
+      <tr><td><code>C2C_MESSAGE_CREATE</code></td><td><code>1&lt;&lt;25</code></td><td>用户给机器人发送单聊消息时</td><td><span class="badge b-brand">核心</span></td></tr>
+      <tr><td><code>GROUP_AT_MESSAGE_CREATE</code></td><td><code>1&lt;&lt;25</code></td><td>用户在群里@机器人发送消息时</td><td><span class="badge b-brand">核心</span></td></tr>
+      <tr><td><code>GROUP_MESSAGE_CREATE</code></td><td>未列入官方清单</td><td>机器人开启「接收所有消息」后，群内每条消息</td><td><span class="badge b-warn">需实测确认</span></td></tr>
+      <tr><td><code>C2C_MSG_RECEIVE</code></td><td><code>1&lt;&lt;25</code></td><td>用户开启「主动消息」推送开关时</td><td><span class="badge b-brand">核心</span></td></tr>
+      <tr><td><code>C2C_MSG_REJECT</code></td><td><code>1&lt;&lt;25</code></td><td>用户关闭「主动消息」推送时</td><td>高</td></tr>
+      <tr><td><code>GROUP_MSG_RECEIVE</code></td><td><code>1&lt;&lt;25</code></td><td>群管理员开启通知时</td><td>高</td></tr>
+      <tr><td><code>GROUP_MSG_REJECT</code></td><td><code>1&lt;&lt;25</code></td><td>群管理员关闭通知时</td><td>高</td></tr>
+      <tr><td><code>GROUP_ADD_ROBOT</code></td><td><code>1&lt;&lt;25</code></td><td>机器人被添加到群聊时</td><td><span class="badge b-brand">核心</span></td></tr>
+      <tr><td><code>GROUP_DEL_ROBOT</code></td><td><code>1&lt;&lt;25</code></td><td>机器人被移出群聊时</td><td>高</td></tr>
+      <tr><td><code>GROUP_MEMBER_ADD</code></td><td><code>1&lt;&lt;24</code></td><td>有新成员加入群聊时</td><td>中</td></tr>
+      <tr><td><code>GROUP_MEMBER_REMOVE</code></td><td><code>1&lt;&lt;24</code></td><td>群成员退出或被移出群聊时</td><td>中</td></tr>
+      <tr><td><code>GROUP_JOIN_REQUEST</code></td><td><code>1&lt;&lt;24</code></td><td>用户申请加群请求；<strong>仅当机器人是群管理员时</strong>才收到</td><td>中</td></tr>
+      <tr><td><code>FRIEND_ADD</code></td><td><code>1&lt;&lt;25</code></td><td>用户添加机器人好友时</td><td>高</td></tr>
+      <tr><td><code>FRIEND_DEL</code></td><td><code>1&lt;&lt;25</code></td><td>用户删除机器人好友时</td><td>中</td></tr>
+      <tr><td><code>INTERACTION_CREATE</code></td><td><code>1&lt;&lt;26</code></td><td>用户与机器人的互动操作（按钮点击、快捷菜单、反馈、授权等）</td><td><span class="badge b-brand">核心</span></td></tr>
+      <tr><td><code>SUBSCRIBE_MESSAGE_STATUS</code></td><td><code>1&lt;&lt;25</code></td><td>用户对订阅消息模板的授权状态变化时</td><td>中</td></tr>
+      <tr><td><code>GUILD_CREATE</code></td><td><code>1&lt;&lt;0</code></td><td>机器人被加入到某个频道时</td><td>低</td></tr>
+      <tr><td><code>GUILD_UPDATE</code></td><td><code>1&lt;&lt;0</code></td><td>频道信息变更时（变更后数据）</td><td>低</td></tr>
+      <tr><td><code>GUILD_DELETE</code></td><td><code>1&lt;&lt;0</code></td><td>频道被解散或机器人被移除时（变更前数据）</td><td>低</td></tr>
+      <tr><td><code>CHANNEL_CREATE</code></td><td><code>1&lt;&lt;0</code></td><td>子频道被创建时</td><td>低</td></tr>
+      <tr><td><code>CHANNEL_UPDATE</code></td><td><code>1&lt;&lt;0</code></td><td>子频道信息变更时</td><td>低</td></tr>
+      <tr><td><code>CHANNEL_DELETE</code></td><td><code>1&lt;&lt;0</code></td><td>子频道被删除时</td><td>低</td></tr>
+      <tr><td><code>AT_MESSAGE_CREATE</code></td><td><code>1&lt;&lt;30</code></td><td>用户发送消息@机器人或回复机器人消息时</td><td>低</td></tr>
+      <tr><td><code>MESSAGE_CREATE</code></td><td><code>1&lt;&lt;9</code></td><td>频道内全部消息（仅私域机器人）</td><td>低</td></tr>
+      <tr><td><code>DIRECT_MESSAGE_CREATE</code></td><td><code>1&lt;&lt;12</code></td><td>收到用户发给机器人的私信消息时</td><td>低</td></tr>
+      <tr><td><code>MESSAGE_REACTION_ADD</code> / <code>MESSAGE_REACTION_REMOVE</code></td><td><code>1&lt;&lt;10</code></td><td>为消息添加 / 删除表情表态</td><td>低</td></tr>
+      <tr><td><code>MESSAGE_DELETE</code> / <code>PUBLIC_MESSAGE_DELETE</code></td><td><code>1&lt;&lt;9</code> / <code>1&lt;&lt;30</code></td><td>消息被删除（撤回）时</td><td>低</td></tr>
+      <tr><td><code>MESSAGE_AUDIT_PASS</code> / <code>MESSAGE_AUDIT_REJECT</code></td><td><code>1&lt;&lt;27</code></td><td>消息审核通过 / 不通过</td><td>低</td></tr>
+      <tr><td><code>GUILD_MEMBER_ADD</code> / <code>GUILD_MEMBER_UPDATE</code> / <code>GUILD_MEMBER_REMOVE</code></td><td><code>1&lt;&lt;1</code></td><td>成员加入 / 资料变更 / 被移除</td><td>低</td></tr>
+      <tr><td><code>AUDIO_START</code> / <code>AUDIO_FINISH</code> / <code>AUDIO_ON_MIC</code> / <code>AUDIO_OFF_MIC</code></td><td><code>1&lt;&lt;29</code></td><td>音频开始/结束播放、上麦、下麦</td><td>低</td></tr>
+      <tr><td><code>FORUM_*</code>（8 个）</td><td><code>1&lt;&lt;28</code></td><td>论坛主题/帖子/回复的创建、更新、删除与审核（仅私域机器人）</td><td>低</td></tr>
+    </tbody>
+  </table>
+</div>
+
+<h2 id="s6">6 · 消息元素 JSON 结构</h2>
+
+<h3>6.1 发送侧 <code>msg_type</code> 与接收侧 <code>message_type</code></h3>
+
+<div class="cols">
+  <div class="card">
+    <h4>发送：<code>msg_type</code></h4>
+    <div class="tw" style="margin:8px 0 0;border:none">
+      <table style="min-width:auto">
+        <thead><tr><th>值</th><th>类型</th><th>内容字段</th></tr></thead>
+        <tbody>
+          <tr><td>0</td><td>文本</td><td><code>content</code></td></tr>
+          <tr><td>2</td><td>Markdown</td><td><code>markdown</code></td></tr>
+          <tr><td>6</td><td>输入中状态</td><td><code>input_notify</code></td></tr>
+          <tr><td>7</td><td>富媒体</td><td><code>media</code></td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+  <div class="card">
+    <h4>接收：<code>message_type</code></h4>
+    <div class="tw" style="margin:8px 0 0;border:none">
+      <table style="min-width:auto">
+        <thead><tr><th>值</th><th>含义</th><th>内容字段</th></tr></thead>
+        <tbody>
+          <tr><td>0</td><td>普通文本</td><td><code>content</code></td></tr>
+          <tr><td>3</td><td>结构化卡片</td><td><code>ark_data</code></td></tr>
+          <tr><td>101</td><td>并行消息</td><td>官方未提供结构</td></tr>
+          <tr><td>102</td><td>聊天记录</td><td>官方未提供结构</td></tr>
+          <tr><td>103</td><td>引用消息</td><td><code>msg_elements</code></td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<div class="warn">
+  <span class="t">官方口径冲突：<code>msg_type</code> 枚举</span>
+  <p><code>type/overview.html</code> 只列出 <strong>0 / 2 / 7</strong>；而单聊与群聊发消息接口的请求体说明写为 <strong>0 文本、2 markdown、3 ark、4 embed、7 media 富媒体</strong>；单聊接口实务上还接受 <strong>6 = 输入中状态</strong>。<code>type/overview.html</code> 的接收表也<strong>未列出 101 / 102</strong>，而 C2C / 群聊事件页的 <code>message_type</code> 字段说明中列出了它们。三处口径并列，实现时应以接口页字段说明为准并做容错。</p>
+</div>
+
+<h4>各场景支持情况（官方表格）</h4>
+<div class="tw">
+  <table>
+    <thead><tr><th>类型</th><th>单聊</th><th>群聊</th><th>频道</th></tr></thead>
+    <tbody>
+      <tr><td>文本</td><td>收发 ✅</td><td>收发 ✅</td><td>收发 ✅</td></tr>
+      <tr><td>Markdown</td><td>发 ✅ / 收 ❌</td><td><strong>收发 ✅</strong></td><td>发 ✅ / 收 ❌</td></tr>
+      <tr><td>图片</td><td>收发 ✅</td><td>收发 ✅</td><td>收发 ✅</td></tr>
+      <tr><td>视频</td><td>收发 ✅</td><td>收发 ✅</td><td>收发 ✅</td></tr>
+      <tr><td>语音</td><td>收发 ✅</td><td>收发 ✅</td><td>收发 ✅</td></tr>
+      <tr><td>文件</td><td>收发 ✅</td><td>收发 ✅</td><td>❌</td></tr>
+      <tr><td>结构化卡片（Ark）</td><td>发 ❌ / 收 ✅</td><td>发 ❌ / 收 ✅</td><td>❌</td></tr>
+      <tr><td>Embed</td><td>❌</td><td>❌</td><td>发 ✅ / 收 ❌</td></tr>
+      <tr><td>表情表态</td><td>❌</td><td>❌</td><td>收发 ✅</td></tr>
+      <tr><td>引用消息</td><td>收 ✅</td><td>收 ✅</td><td>收 ✅</td></tr>
+    </tbody>
+  </table>
+</div>
+<p>官方补充：图片、视频、语音、文件等附加内容通过 <code>attachments</code> 字段携带（<code>content_type</code> 区分具体类型），<strong>不通过 <code>message_type</code> 单独表示</strong>。发送侧只有 <code>msg_type=0/2/3/7</code> 四种。</p>
+
+<h3>6.2 各元素在事件 JSON 中的位置</h3>
+<div class="tw">
+  <table>
+    <thead><tr><th>元素</th><th>在事件 JSON 中的载体</th><th>结构要点</th></tr></thead>
+    <tbody>
+      <tr><td><strong>text 文本</strong></td><td>顶层 <code>content</code>（string）</td><td><code>message_type=0</code> 时 <code>content</code> 携带文本</td></tr>
+      <tr><td><strong>image 图片</strong></td><td><code>attachments[]</code> 元素</td><td><code>content_type</code> 为 <code>image/jpeg</code>、<code>image/png</code>、<code>image/gif</code>；带 <code>width</code>/<code>height</code>/<code>size</code>/<code>url</code>/<code>filename</code></td></tr>
+      <tr><td><strong>file 文件</strong></td><td><code>attachments[]</code> 元素</td><td><code>content_type</code> = <code>file</code>（官方注释写「群文件」）</td></tr>
+      <tr><td><strong>voice 语音</strong></td><td><code>attachments[]</code> 元素</td><td><code>content_type</code> = <code>voice</code>；另有 <code>voice_wav_url</code> 与 <code>asr_refer_text</code>（ASR 参考结果）</td></tr>
+      <tr><td><strong>video 视频</strong></td><td><code>attachments[]</code> 元素</td><td><code>content_type</code> = <code>video/mp4</code></td></tr>
+      <tr><td><strong>ark 结构化卡片</strong></td><td>顶层 <code>ark_data</code>（<code>message_type=3</code>）</td><td>含 <code>prompt</code>/<code>ark_type</code>/<code>ark_name</code>/<code>fields</code></td></tr>
+      <tr><td><strong>引用消息</strong></td><td>顶层 <code>msg_elements[]</code> + <code>message_scene.ext</code> 的 <code>ref_msg_idx</code></td><td><code>message_type=103</code>，<code>msg_elements</code> 为递归结构</td></tr>
+      <tr><td><strong>emoji 表情</strong></td><td><strong>无独立事件字段</strong></td><td>「表情表态」仅频道支持，事件为 <code>MESSAGE_REACTION_ADD</code> / <code>MESSAGE_REACTION_REMOVE</code>，内容为 <code>MessageReaction</code>（含 <code>emoji.id</code>、<code>emoji.type</code>）</td></tr>
+      <tr><td><strong>button 按钮</strong></td><td>接收侧为 <code>INTERACTION_CREATE</code>；发送侧为 <code>keyboard</code></td><td>见 7.5</td></tr>
+      <tr><td><strong>markdown</strong></td><td>事件侧<strong>无</strong> <code>markdown</code> 字段</td><td>官方收发表：单聊「发 ✅ / 收 ❌」、群聊「收发 ✅」；<strong>群聊接收 Markdown 时的 JSON 字段形态官方未提供</strong></td></tr>
+      <tr><td><strong>embed</strong></td><td>事件侧仅频道 <code>Message.embeds</code></td><td><code>MessageEmbed</code> 对象数组，含 <code>title</code>/<code>prompt</code>/<code>thumbnail</code>/<code>fields</code></td></tr>
+    </tbody>
+  </table>
+</div>
+
+<h3>6.3 <code>attachments</code> 的三套结构（不是同一个模型）</h3>
+
+<div class="tw">
+  <table>
+    <thead><tr><th>字段</th><th>C2C / 群聊事件体系</th><th><code>send-receive/event.html</code></th><th>频道体系</th></tr></thead>
+    <tbody>
+      <tr><td><code>url</code></td><td>string，附件下载 URL</td><td>string，文件链接</td><td>string，下载地址</td></tr>
+      <tr><td><code>filename</code></td><td>string，文件名</td><td>string，文件名称</td><td>—</td></tr>
+      <tr><td><code>width</code></td><td>integer，图片宽度（非图片无此字段）</td><td>int，图片宽度</td><td>—</td></tr>
+      <tr><td><code>height</code></td><td>integer，图片高度（非图片无此字段）</td><td>int，图片高度</td><td>—</td></tr>
+      <tr><td><code>size</code></td><td>integer，文件大小（字节）</td><td>int，文件大小</td><td>—</td></tr>
+      <tr><td><code>content_type</code></td><td>string，MIME：<code>voice</code> / <code>image/jpeg</code> / <code>image/png</code> / <code>image/gif</code> / <code>video/mp4</code> / <code>file</code></td><td>string，同上</td><td>—</td></tr>
+      <tr><td><code>voice_wav_url</code></td><td>string，SILK 等转换后的 WAV URL</td><td>string，语音文件链接（wav 格式）</td><td>—</td></tr>
+      <tr><td><code>asr_refer_text</code></td><td>string，语音 ASR 参考结果</td><td>string，语音 asr 参考结果</td><td>—</td></tr>
+    </tbody>
+  </table>
+</div>
+
+<div class="risk">
+  <span class="t">必须按事件域分派解析器</span>
+  <p>频道体系的 <code>MessageAttachment</code> 官方<strong>只列出 <code>url</code> 一个字段</strong>，与 C2C/群聊体系的 8 字段结构完全不同。若在 Flutter 侧写一个共用模型，会在频道事件上出现字段全空的情况。同理 <code>content_type</code> 的取值里 <code>voice</code> 和 <code>file</code> 不是标准 MIME，解析时不能只按 MIME 规则切分类型。</p>
+</div>
+
+<div class="miss">
+  <span class="t">官方文档未提供</span>
+  <p>仅提供 <code>image/jpeg</code> 的 <code>attachments</code> 样例；<code>file</code> / <code>voice</code> / <code>video</code> 的完整 JSON 样例未提供。另有 <code>message_type=101/102</code>（并行消息 / 聊天记录）的 <code>msg_elements</code> 完整递归结构、<code>emoji</code> 在消息事件体中的独立字段、群聊接收 Markdown 的 JSON 形态，均未提供。</p>
+</div>
+
+<h3 id="s6-4">6.4 @ 机器人的消息结构</h3>
+<div class="tw">
+  <table>
+    <thead><tr><th>场景</th><th>官方规定</th></tr></thead>
+    <tbody>
+      <tr><td>群聊 <code>GROUP_AT_MESSAGE_CREATE</code></td><td><code>content</code>「<strong>已自动去除@机器人的前缀</strong>」，开发者无需自行剥离；另提供 <code>mentions</code>：「消息中@的用户列表（<strong>不含@机器人自身</strong>）」，元素类型为 <code>User</code></td></tr>
+      <tr><td>群全量 <code>GROUP_MESSAGE_CREATE</code></td><td>字段表同样给出 <code>mentions</code>：「消息中@的用户列表」</td></tr>
+      <tr><td>频道 <code>AT_MESSAGE_CREATE</code></td><td><code>Message</code> 对象含 <code>mentions</code>（「消息中@的人」，<code>User</code> 数组）与 <code>mention_everyone</code>（「是否是@全员消息」）</td></tr>
+    </tbody>
+  </table>
+</div>
+<div class="miss">
+  <span class="t">官方文档未提供</span>
+  <p>群聊 <code>mentions</code> 的 JSON 样例；<code>content</code> 中出现 <code>&lt;@!id&gt;</code> 形式的说明（该表示法在全部抓取到的官方页面中<strong>未出现</strong>）；<code>&lt;@!id&gt;</code> 的具体替换/清洗规则；<code>mentions</code> 与 <code>content</code> 中占位符的对应关系；频道 <code>AT_MESSAGE_CREATE</code> 的 <code>content</code> 是否去除 @ 前缀。实现时应按「群聊直接使用 <code>content</code>，不要自己做正则剥离」处理，并对 <code>mentions</code> 缺失做容错。</p>
+</div>
+
+<h3>6.5 频道 <code>Message</code> 与 <code>MessageAudited</code> 模型</h3>
+<div class="tw">
+  <table>
+    <thead><tr><th>字段名</th><th>类型</th><th>描述</th></tr></thead>
+    <tbody>
+      <tr><td><code>id</code></td><td>string</td><td>消息 id</td></tr>
+      <tr><td><code>channel_id</code> / <code>guild_id</code></td><td>string</td><td>子频道 id / 频道 id</td></tr>
+      <tr><td><code>content</code></td><td>string</td><td>消息内容</td></tr>
+      <tr><td><code>timestamp</code> / <code>edited_timestamp</code></td><td>ISO8601</td><td>消息创建时间 / 消息编辑时间</td></tr>
+      <tr><td><code>mention_everyone</code></td><td>bool</td><td>是否是@全员消息</td></tr>
+      <tr><td><code>author</code></td><td>User</td><td>消息创建者</td></tr>
+      <tr><td><code>attachments</code></td><td>MessageAttachment[]</td><td>附件（频道体系仅 <code>url</code>）</td></tr>
+      <tr><td><code>embeds</code></td><td>MessageEmbed[]</td><td>embed（<code>title</code>/<code>prompt</code>/<code>thumbnail.url</code>/<code>fields[].name</code>）</td></tr>
+      <tr><td><code>mentions</code></td><td>User[]</td><td>消息中@的人</td></tr>
+      <tr><td><code>member</code></td><td>Member</td><td>消息创建者的 member 信息</td></tr>
+      <tr><td><code>ark</code></td><td>MessageArk</td><td>ark 消息（<code>template_id</code>、<code>kv[]</code>）</td></tr>
+      <tr><td><code>seq</code></td><td>int</td><td>用于消息间排序，同一子频道内递增；<strong>2022年8月1日 后续废弃</strong></td></tr>
+      <tr><td><code>seq_in_channel</code></td><td>string</td><td>子频道消息 seq，用于消息间排序</td></tr>
+      <tr><td><code>message_reference</code></td><td>MessageReference</td><td>引用消息对象（<code>message_id</code>、<code>ignore_get_message_error</code>）</td></tr>
+    </tbody>
+  </table>
+</div>
+<p><strong>MessageAudited</strong>：<code>audit_id</code>、<code>message_id</code>（只有审核通过事件才会有值）、<code>guild_id</code>、<code>channel_id</code>、<code>audit_time</code>、<code>create_time</code>、<code>seq_in_channel</code>。</p>
+<p><strong>MessageMarkdown</strong>（频道发送侧）：<code>template_id</code>（int，markdown 模板 id）、<code>params</code>（<code>key</code> + <code>values</code> 数组）、<code>content</code>（原生 markdown 内容，<strong>与 <code>template_id</code>/<code>params</code> 互斥，都传值将报错</strong>）。</p>
+
+<h2 id="s7">7 · HTTP API 清单</h2>
+
+<p>统一请求地址 <code>https://api.bot.qq.com</code>；统一鉴权头 <code>Authorization: QQBot {ACCESS_TOKEN}</code>；<code>Content-Type: application/json; charset=utf-8</code>。</p>
+
+<div class="info">
+  <span class="t">官方建议</span>
+  <p>调用发消息 http 接口的 timeout <strong>建议设置最低为 5 秒</strong>，避免出现实际消息已发送成功、但没接收到同步结果返回。上传接口超时建议同样 ≥ 5 秒。移动端网络抖动更明显，建议在此基础上再放宽。</p>
+</div>
+
+<h3 id="s7-1">7.1 发消息（单聊 / 群聊）</h3>
+
+<div class="tw">
+  <table>
+    <thead><tr><th>场景</th><th>方法</th><th>路径</th><th>频率限制</th></tr></thead>
+    <tbody>
+      <tr><td>发送单聊消息</td><td>POST</td><td><code>/v2/users/{user_openid}/messages</code></td><td><strong>100 QPS</strong>（含主动、被动等所有消息类型）</td></tr>
+      <tr><td>发送群聊消息</td><td>POST</td><td><code>/v2/groups/{group_openid}/messages</code></td><td><strong>100 QPS</strong></td></tr>
+    </tbody>
+  </table>
+</div>
+
+<h4>请求体（单聊 / 群聊字段结构一致）</h4>
+<div class="tw">
+  <table>
+    <thead><tr><th>名称</th><th>类型</th><th>必填</th><th>描述</th></tr></thead>
+    <tbody>
+      <tr><td><code>msg_type</code></td><td>integer</td><td>否</td><td>消息类型，决定哪个内容字段生效：0=纯文本（<code>content</code>），2=Markdown（<code>markdown</code>），6=输入中状态（<code>input_notify</code>，仅单聊），7=富媒体（<code>media</code>）</td></tr>
+      <tr><td><code>content</code></td><td>string</td><td>否</td><td>文本内容。<code>msg_type=0</code> 时为全文。<strong>注意：传了 <code>markdown</code> 后此字段必须为空</strong></td></tr>
+      <tr><td><code>markdown</code></td><td>MessageMarkdown</td><td>否</td><td><code>msg_type=2</code> 时必填。<strong>填写此字段后 content/ark 必须全为空</strong></td></tr>
+      <tr><td><code>keyboard</code></td><td>Keyboard</td><td>否</td><td>内嵌键盘。短形式只传 <code>id</code>，长形式传 <code>content.rows</code></td></tr>
+      <tr><td><code>msg_id</code></td><td>string</td><td>否</td><td>被动回复的消息 ID。从事件（C2C_MESSAGE_CREATE / GROUP_AT_MESSAGE_CREATE 等）的 <code>d.id</code> 获取，<strong>5 分钟内有效</strong></td></tr>
+      <tr><td><code>event_id</code></td><td>string</td><td>否</td><td>被动回复的事件 ID，从<strong>事件最外层的 <code>id</code></strong> 获取。与 <code>msg_id</code> 二选一</td></tr>
+      <tr><td><code>msg_seq</code></td><td>integer</td><td>否</td><td>回复消息的序号，与 <code>msg_id</code> 联合使用，避免相同消息 id 回复重复发送，<strong>不填默认是 1</strong>。相同的 <code>msg_id + msg_seq</code> 重复发送会失败</td></tr>
+      <tr><td><code>media</code></td><td>MediaInfo</td><td>否</td><td>富媒体消息。<code>msg_type=7</code> 时填写，<code>file_info</code> 来自对应的 files 上传接口</td></tr>
+      <tr><td><code>message_reference</code></td><td>MessageReference</td><td>否</td><td>引用回复，填写后以引用形式展示</td></tr>
+      <tr><td><code>is_wakeup</code></td><td>boolean</td><td>否</td><td>指明发送消息为互动召回消息，与 <code>msg_id</code>、<code>event_id</code> 互斥使用</td></tr>
+      <tr><td><code>input_notify</code></td><td>InputNotify</td><td>否</td><td>输入中状态，<code>msg_type=6</code> 时使用（<code>input_type</code> 填 1；<code>input_second</code> 状态持续时间，最长 60s）</td></tr>
+    </tbody>
+  </table>
+</div>
+
+<div class="warn">
+  <span class="t"><code>event_id</code> 支持的事件不同（官方原文）</span>
+  <p><strong>单聊</strong>支持：<code>INTERACTION_CREATE</code>、<code>C2C_MSG_RECEIVE</code>、<code>FRIEND_ADD</code>。<br>
+  <strong>群聊</strong>支持：<code>INTERACTION_CREATE</code>、<code>GROUP_ADD_ROBOT</code>、<code>GROUP_MSG_RECEIVE</code>。</p>
+</div>
+
+<h4>嵌套结构</h4>
+<div class="tw">
+  <table>
+    <thead><tr><th>结构</th><th>字段</th></tr></thead>
+    <tbody>
+      <tr><td><strong>MessageMarkdown</strong></td><td><code>content</code>（Markdown 内容）；<code>template_id</code> 与 <code>custom_template_id</code> 均标注为<strong>【已废弃】</strong>；<code>force_verify_image_resource</code>（bool，是否校验图片转存结果，默认 false）</td></tr>
+      <tr><td><strong>Keyboard</strong></td><td><code>id</code>（平台预设模板 ID）与 <code>content</code>（KeyboardContent，与 id 互斥）</td></tr>
+      <tr><td><strong>KeyboardContent</strong></td><td><code>rows</code>（Row 数组）</td></tr>
+      <tr><td><strong>Row</strong></td><td><code>buttons</code>（Button 数组，从左到右排列）</td></tr>
+      <tr><td><strong>Button</strong></td><td><code>id</code>（同一键盘内唯一）、<code>render_data</code>、<code>action</code>、<code>group_id</code>（同一分组内有一个按钮操作后其它按钮变灰，<strong>仅当 <code>action.type=1</code> 时有效</strong>）</td></tr>
+      <tr><td><strong>RenderData</strong></td><td><code>label</code>（最多 10 字符）、<code>visited_label</code>、<code>style</code>（0 灰色线框 / 1 蓝色线框 / 3 白底红字 / 4 蓝底白字）</td></tr>
+      <tr><td><strong>Action</strong></td><td><code>type</code>（0 跳转按钮 http 或小程序 / 1 回调按钮 / 2 指令按钮）、<code>permission</code>、<code>data</code>（type=1/2 时必填）、<code>unsupport_tips</code>、<code>enter</code>、<code>reply</code>、<code>anchor</code>（仅指令按钮，置 1 时点击按钮自动唤起手Q选图器；<strong>仅支持手机端版本 8983+ 的单聊场景，桌面端不支持</strong>）、<code>modal</code>；<code>click_limit</code> 标注为【已废弃】</td></tr>
+      <tr><td><strong>Permission</strong></td><td><code>type</code>（0 指定用户 / 1 管理员 / 2 所有人）、<code>specify_user_ids</code>、<code>specify_role_ids</code>（仅频道可用）</td></tr>
+      <tr><td><strong>Modal</strong></td><td><code>content</code>（最多 40 字符，不能有 URL）、<code>confirm_text</code>（最多 4 字符，默认「确认」）、<code>cancel_text</code>（最多 4 字符，默认「取消」）</td></tr>
+      <tr><td><strong>MediaInfo</strong></td><td><code>file_info</code>（来自文件上传接口返回值）</td></tr>
+      <tr><td><strong>MessageReference</strong></td><td><code>message_id</code>：被引用消息 ID，如 <code>REFIDX_xxxxxx</code>。非机器人发的消息从消息事件的 <code>MessageScene.ext</code> 的 <code>msg_idx</code> 获取；机器人自己发的消息从发消息请求响应 <code>ext_info.ref_idx</code> 获取</td></tr>
+    </tbody>
+  </table>
+</div>
+
+<h4>响应体</h4>
+<div class="tw">
+  <table>
+    <thead><tr><th>名称</th><th>类型</th><th>描述</th></tr></thead>
+    <tbody>
+      <tr><td><code>id</code></td><td>string</td><td>消息 ID，可用于后续撤回</td></tr>
+      <tr><td><code>timestamp</code></td><td>string</td><td>发送时间，RFC3339 东八区</td></tr>
+      <tr><td><code>ext_info</code></td><td>MessageExtInfo</td><td>扩展信息，其中 <code>ref_idx</code> 为引用消息索引（对应消息事件 ext 里的 <code>msg_idx</code> 与 <code>ref_msg_idx</code>）</td></tr>
+    </tbody>
+  </table>
+</div>
+
+<h4>请求示例（官方原文）</h4>
+<pre><code>// 单聊 · 文本消息（msg_type=0）
+POST /v2/users/A1B2C3D4E5F6A1B2C3D4E5F6A1B2C3D4/messages
+{
+  "content": "你好，欢迎使用机器人助手！",
+  "msg_type": 0,
+  "msg_id": "ROBOT1.0_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+  "msg_seq": 1
+}
+
+// 单聊 · Markdown（msg_type=2）
+POST /v2/users/A1B2C3D4E5F6A1B2C3D4E5F6A1B2C3D4/messages
+{
+  "msg_type": 2,
+  "markdown": {
+    "content": "# 今日推荐\n\n**精选文章**\n> 知识就是力量，学习永无止境\n\n[点击查看详情](https://example.com)"
+  },
+  "keyboard": { "id": "1070001" },
+  "msg_id": "ROBOT1.0_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+  "msg_seq": 1
+}
+
+// 单聊 · 输入中状态（msg_type=6）
+POST /v2/users/A1B2C3D4E5F6A1B2C3D4E5F6A1B2C3D4/messages
+{
+  "msg_type": 6,
+  "input_notify": { "input_type": 1, "input_second": 60 },
+  "msg_id": "ROBOT1.0_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+  "msg_seq": 1
+}
+
+// 单聊 · 富媒体（msg_type=7）
+POST /v2/users/A1B2C3D4E5F6A1B2C3D4E5F6A1B2C3D4/messages
+{
+  "msg_type": 7,
+  "media": { "file_info": "AE86C5D3F0E14B238C656C0F6DD1D0479C" },
+  "msg_id": "ROBOT1.0_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+  "msg_seq": 1
+}</code></pre>
+
+<pre><code>// 群聊 · Markdown + 自定义键盘
+POST /v2/groups/B2C3D4E5F6A1B2C3D4E5F6A1B2C3D4E5/messages
+{
+  "msg_type": 2,
+  "markdown": { "content": "## 每日签到\n\n今日签到成功！获得 **50** 积分\n连续签到 **7** 天" },
+  "keyboard": {
+    "content": {
+      "rows": [
+        { "buttons": [
+          {
+            "id": "btn_signin",
+            "render_data": { "label": "签到", "style": 1 },
+            "action": {
+              "type": 2,
+              "permission": { "type": 2 },
+              "data": "/签到",
+              "enter": true
+            }
+          }
+        ] }
+      ]
+    }
+  },
+  "msg_id": "ROBOT1.0_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+  "msg_seq": 1
+}</code></pre>
+
+<pre><code>// 发送成功响应
+{
+  "id": "ROBOT1.0_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+  "timestamp": "2026-07-21T10:30:00+08:00",
+  "ext_info": { "ref_idx": "REFIDX_xxxxxxxxxxxxxxxxxxxx==" }
+}</code></pre>
+
+<div class="miss">
+  <span class="t">官方文档未提供</span>
+  <p>「<code>content</code> 为 JSON 字符串、内含 text/attachments/ark/markdown/embed/media/image/emoji 子字段」这种复合结构 —— 官方请求体是<strong>平铺字段</strong>（<code>content</code> + <code>markdown</code> + <code>media</code> + <code>keyboard</code>）。不要按其他平台的经验构造复合 content。频道体系的 ark / embed 见 7.5。</p>
+</div>
+
+<h3 id="s7-2">7.2 流式消息（单聊）</h3>
+<p>官方原文：流式分批发送单聊消息。每个分片使用相同 <code>stream_msg_id</code>，<code>index</code> 从 0 递增。支持 markdown 内容格式。</p>
+<div class="tw">
+  <table class="kv">
+    <tbody>
+      <tr><td>接口</td><td><code>POST /v2/users/{user_openid}/stream_messages</code></td></tr>
+      <tr><td>频率限制</td><td><strong>50 QPS</strong></td></tr>
+    </tbody>
+  </table>
+</div>
+<div class="tw">
+  <table>
+    <thead><tr><th>名称</th><th>类型</th><th>描述</th></tr></thead>
+    <tbody>
+      <tr><td><code>input_mode</code></td><td>string</td><td>输入模式。<code>append</code>（默认）：ContentRaw 拼接到 Pending；<code>replace</code>：ContentRaw 为当前全量正文，<strong>须以上游已下发前缀 SentContent 开头</strong>；合并后 Pending 仅存未下发后缀</td></tr>
+      <tr><td><code>input_state</code></td><td>integer</td><td>输入状态。<strong>1 = 生成中，10 = 生成结束</strong></td></tr>
+      <tr><td><code>index</code></td><td>integer</td><td>分片序号，从 0 递增</td></tr>
+      <tr><td><code>content_type</code></td><td>string</td><td>内容格式类型：<code>text</code>=文本消息，<code>markdown</code>=MarkDown 消息</td></tr>
+      <tr><td><code>content_raw</code></td><td>string</td><td>Markdown 格式的文本内容</td></tr>
+      <tr><td><code>event_id</code> / <code>msg_id</code></td><td>string</td><td>被动回复事件 ID / 消息 ID（二者二选一）</td></tr>
+      <tr><td><code>stream_msg_id</code></td><td>string</td><td>流式消息 ID。<strong>第一条由服务端生成并返回</strong>，后续分片需携带上一分片返回的 id</td></tr>
+      <tr><td><code>msg_seq</code></td><td>integer</td><td>消息序号，用于去重</td></tr>
+      <tr><td><code>is_wakeup</code></td><td>boolean</td><td>是否为召回消息。<strong>true 时不校验 msg_id/event_id 有效期</strong></td></tr>
+    </tbody>
+  </table>
+</div>
+<div class="tw">
+  <table>
+    <thead><tr><th>响应字段</th><th>类型</th><th>描述</th></tr></thead>
+    <tbody>
+      <tr><td><code>id</code></td><td>string</td><td>消息 ID。<strong>首条返回 <code>stream_msg_id</code></strong>，用于后续分片</td></tr>
+      <tr><td><code>timestamp</code></td><td>string</td><td>消息发送时间，RFC3339 格式</td></tr>
+      <tr><td><code>ext_info</code></td><td>MessageExtInfo</td><td>扩展信息（<code>ref_idx</code>）</td></tr>
+      <tr><td><code>remain_msg_len</code></td><td>integer</td><td>流式消息剩余长度（字符数）</td></tr>
+    </tbody>
+  </table>
+</div>
+<pre><code>// 首片（input_state=1, index=0）—— 不传 stream_msg_id
+POST /v2/users/A1B2C3D4E5F6A1B2C3D4E5F6A1B2C3D4/stream_messages
+{
+  "input_mode": "replace",
+  "input_state": 1,
+  "index": 0,
+  "content_type": "markdown",
+  "content_raw": "正在生成回答，请稍候",
+  "msg_id": "ROBOT1.0_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+  "msg_seq": 1
+}
+
+// 续片（index=1）—— 携带上一分片返回的 stream_msg_id
+{
+  "input_mode": "replace",
+  "input_state": 1,
+  "index": 1,
+  "content_type": "markdown",
+  "content_raw": "正在生成回答，请稍候。目前已完成大部分内容",
+  "msg_id": "ROBOT1.0_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+  "stream_msg_id": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+  "msg_seq": 1
+}
+
+// 结束片（input_state=10）
+{
+  "input_mode": "replace",
+  "input_state": 10,
+  "index": 2,
+  "content_type": "markdown",
+  "content_raw": "正在生成回答，请稍候。目前已完成全部内容，以下是最终结果。",
+  "msg_id": "ROBOT1.0_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+  "stream_msg_id": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+  "msg_seq": 1
+}
+
+// 首片响应
+{
+  "id": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+  "timestamp": "2026-07-21T10:00:00+08:00",
+  "ext_info": { "ref_idx": "REFIDX_xxxxxxxxxxxxxxx==" }
+}</code></pre>
+<div class="tw">
+  <table>
+    <thead><tr><th>错误码</th><th>描述</th><th>排查建议</th></tr></thead>
+    <tbody>
+      <tr><td>40007</td><td>已下发内容前缀不可修改</td><td>请保持已下发内容前缀一致</td></tr>
+      <tr><td>50001</td><td>服务内部错误</td><td>请稍后重试</td></tr>
+      <tr><td>50002</td><td>频率限制</td><td>请降低调用频率</td></tr>
+    </tbody>
+  </table>
+</div>
+<div class="miss">
+  <span class="t">官方文档未提供</span>
+  <p>「片间最小间隔毫秒数 / 每秒最多下发多少片 / 单次切片最大字符数」等具体节奏数值。官方只给出 50 QPS、<code>remain_msg_len</code>、<code>index</code> 递增、<code>input_mode</code>/<code>input_state</code> 语义。节奏需自行设计并实测。</p>
+</div>
+
+<h3 id="s7-3">7.3 撤回消息</h3>
+<div class="tw">
+  <table>
+    <thead><tr><th>场景</th><th>方法</th><th>路径</th><th>频率限制</th><th>响应</th></tr></thead>
+    <tbody>
+      <tr><td>撤回单聊消息</td><td>DELETE</td><td><code>/v2/users/{user_openid}/messages/{message_id}</code></td><td>10 QPS</td><td>HTTP 200，无响应体（<code>{}</code>）</td></tr>
+      <tr><td>撤回群聊消息</td><td>DELETE</td><td><code>/v2/groups/{group_openid}/messages/{message_id}</code></td><td>10 QPS</td><td>HTTP 200，无响应体</td></tr>
+    </tbody>
+  </table>
+</div>
+<p>官方原文：撤回机器人发送给当前用户的消息。<strong>发送超过 2 分钟的消息不可撤回。</strong> 机器人可撤回自己发送的消息（发送超过 2 分钟不可撤回）。</p>
+<div class="tw">
+  <table>
+    <thead><tr><th>错误码</th><th>描述</th><th>排查建议</th></tr></thead>
+    <tbody>
+      <tr><td>306009</td><td>用户 openid 无效</td><td>请检查 user_openid 是否正确</td></tr>
+      <tr><td>40061001</td><td>请求参数无效</td><td>请检查请求参数格式</td></tr>
+      <tr><td>40061002</td><td>请求参数 msgid 无效</td><td>请检查 msgid 格式是否正确</td></tr>
+      <tr><td>40064004</td><td>已超出消息撤回时限</td><td>消息发送超过 2 分钟后不可撤回</td></tr>
+      <tr><td>40062003</td><td>无操作权限</td><td>请检查机器人是否有操作权限，机器人是否为群管理员或发消息的用户是否为普通用户</td></tr>
+      <tr><td>50065001</td><td>消息撤回失败，请稍后重试</td><td>请稍后重试</td></tr>
+    </tbody>
+  </table>
+</div>
+
+<h3 id="s7-4">7.4 富媒体 / 文件上传</h3>
+
+<h4>文件类型与大小限制（官方原文）</h4>
+<div class="tw">
+  <table>
+    <thead><tr><th><code>file_type</code></th><th>类型</th><th>格式</th><th>软限制</th><th>硬限制</th></tr></thead>
+    <tbody>
+      <tr><td>1</td><td>图片</td><td>png / jpg</td><td>20 MB</td><td>200 MB</td></tr>
+      <tr><td>2</td><td>视频</td><td>mp4</td><td>30 MB</td><td>200 MB</td></tr>
+      <tr><td>3</td><td>语音</td><td>silk</td><td>20 MB</td><td>200 MB</td></tr>
+      <tr><td>4</td><td>文件</td><td>任意</td><td>200 MB</td><td>200 MB</td></tr>
+    </tbody>
+  </table>
+</div>
+<p>官方原文：<strong>超过软限制会降级为文件类型上传，超过硬限制会报错。</strong></p>
+<div class="info">
+  <span class="t">上传接口原文补充</span>
+  <p>图片支持 png/jpg，视频支持 mp4，语音支持 silk（富媒体概述页另展示支持 gif/webp/bmp 与 mp3/wav/ogg）。<strong>单聊和群聊的文件上传接口相互独立，上传的文件不能跨场景使用。</strong></p>
+</div>
+
+<h4>上传接口（两个场景结构一致）</h4>
+<div class="tw">
+  <table>
+    <thead><tr><th>场景</th><th>路径</th><th>频率限制</th></tr></thead>
+    <tbody>
+      <tr><td>单聊富媒体上传</td><td><code>POST /v2/users/{user_openid}/files</code></td><td>50 QPS</td></tr>
+      <tr><td>群聊富媒体上传</td><td><code>POST /v2/groups/{group_openid}/files</code></td><td>50 QPS</td></tr>
+      <tr><td>单聊富媒体预上传</td><td><code>POST /v2/users/{user_id}/upload_prepare</code></td><td>10 QPS</td></tr>
+      <tr><td>单聊分片上传完成</td><td><code>POST /v2/users/{user_id}/upload_part_finish</code></td><td>10 QPS</td></tr>
+      <tr><td>群聊富媒体预上传</td><td><code>POST /v2/groups/{group_id}/upload_prepare</code></td><td>10 QPS</td></tr>
+      <tr><td>群聊分片上传完成</td><td><code>POST /v2/groups/{group_id}/upload_part_finish</code></td><td>10 QPS</td></tr>
+    </tbody>
+  </table>
+</div>
+
+<h4>files 接口请求体</h4>
+<div class="tw">
+  <table>
+    <thead><tr><th>名称</th><th>类型</th><th>描述</th></tr></thead>
+    <tbody>
+      <tr><td><code>file_type</code></td><td>integer</td><td>媒体类型。1=图片，2=视频，3=语音，4=文件</td></tr>
+      <tr><td><code>url</code></td><td>string</td><td>媒体资源的 URL，<strong>需以 http 开头</strong>，平台会下载并转存。分片上传合并时可为空</td></tr>
+      <tr><td><code>srv_send_msg</code></td><td>boolean</td><td><code>true</code>=直接发送消息并<strong>占用主动消息频次</strong>，返回中包含消息 ID；<code>false</code>=仅返回 <code>file_info</code>，用于后续发送消息接口的 <code>media</code> 字段</td></tr>
+      <tr><td><code>file_name</code></td><td>string</td><td>文件名（可选）</td></tr>
+      <tr><td><code>upload_id</code></td><td>string</td><td>分片上传任务 ID。来自 UploadPrepare 响应的 <code>upload_id</code>，传入后走分片上传合并路径，<code>url</code> 可为空</td></tr>
+    </tbody>
+  </table>
+</div>
+
+<h4>files 接口响应体</h4>
+<div class="tw">
+  <table>
+    <thead><tr><th>名称</th><th>类型</th><th>描述</th></tr></thead>
+    <tbody>
+      <tr><td><code>file_uuid</code></td><td>string</td><td>文件唯一 ID</td></tr>
+      <tr><td><code>file_info</code></td><td>string</td><td>用于发送消息接口的 <code>media.file_info</code> 字段。<strong>内部为序列化的二进制数据，开发者无需解析，直接透传即可</strong></td></tr>
+      <tr><td><code>ttl</code></td><td>integer</td><td><code>file_info</code> 有效期（秒）。<strong>到期后需重新上传</strong>。0 表示可长期使用</td></tr>
+      <tr><td><code>id</code></td><td>string</td><td>发送消息的唯一 ID。仅 <code>srv_send_msg=true</code> 时返回</td></tr>
+      <tr><td><code>raw_url</code></td><td>string</td><td>文件下载链接（COS 预签名 GET URL），有效期与 <code>ttl</code> 一致。仅分片上传合并（<code>upload_id</code> 路径）且 <code>file_type</code> 为图片/视频/语音时返回；<strong>URL 直传和文件类型（file_type=4）不返回此字段</strong></td></tr>
+    </tbody>
+  </table>
+</div>
+
+<h4>分片上传四步流程（官方原文）</h4>
+<div class="flow">
+  <div class="step"><div class="st">upload_prepare</div><div class="sd">获取 <code>upload_id</code>、<code>block_size</code> 和各分片预签名 URL</div></div>
+  <div class="step"><div class="st">分片 PUT</div><div class="sd">按 <code>block_size</code> 将文件分片，逐片 HTTP PUT 到对应的预签名 URL</div></div>
+  <div class="step"><div class="st">upload_part_finish</div><div class="sd">每片 PUT 成功后调用，通知服务端该分片完成</div></div>
+  <div class="step"><div class="st">files 合并</div><div class="sd">全部分片完成后，携带 <code>upload_id</code> 调用 files 接口完成合并，返回 <code>file_info</code></div></div>
+</div>
+<p>官方说明：支持两种上传方式 —— URL 上传（传入 url，平台下载转存）与分片上传合并（先 upload_prepare + upload_part_finish，再携带 <code>upload_id</code> 调用 files 接口完成合并）。<strong>推荐使用分片上传。</strong></p>
+<div class="tw">
+  <table>
+    <thead><tr><th>分片相关参数</th><th>官方值</th></tr></thead>
+    <tbody>
+      <tr><td><code>block_size</code></td><td>默认 5MB（预上传返回示例为 10485760 字节 = 10MB）</td></tr>
+      <tr><td><code>upload_config.concurrency</code></td><td>默认 1</td></tr>
+      <tr><td><code>upload_config.retry_timeout</code></td><td>默认 300 秒</td></tr>
+      <tr><td><code>upload_config.retry_delay</code></td><td>默认 1 秒</td></tr>
+      <tr><td><code>md5_10m</code></td><td>文件前 <strong>10002432</strong> 字节的 MD5（约 9.54 MB）</td></tr>
+    </tbody>
+  </table>
+</div>
+<div class="tw">
+  <table>
+    <thead><tr><th>错误码</th><th>描述</th><th>排查建议</th></tr></thead>
+    <tbody>
+      <tr><td>850018</td><td>群被禁言或者机器人被禁言</td><td>请检查机器人是否被禁言</td></tr>
+      <tr><td>850019</td><td>不支持的文件格式</td><td>请检查 file_type 是否正确</td></tr>
+      <tr><td>850026</td><td>下载原始文件失败</td><td>请检查 URL 是否可访问或重试</td></tr>
+      <tr><td>850031</td><td>上传文件超过大小限制</td><td>请减小文件大小</td></tr>
+      <tr><td>850027</td><td>发送数据超时</td><td>请稍后重试</td></tr>
+      <tr><td>10000</td><td>不支持的操作</td><td>请检查请求参数</td></tr>
+      <tr><td>40093001</td><td>文件上传失败，请重试</td><td>大文件分片上传中 BDH 通道异常，请重试</td></tr>
+      <tr><td>40093002</td><td>超过今天发送文件容量上限</td><td>请明天再试或减少文件大小</td></tr>
+    </tbody>
+  </table>
+</div>
+<div class="miss">
+  <span class="t">官方文档未提供</span>
+  <p><code>file_data</code> 直传字段（上传接口官方请求体未包含该字段，仅支持 URL 上传与分片上传合并）；<code>40093002</code> 的具体容量数字。</p>
+</div>
+
+<h3 id="s7-5">7.5 按钮、表情表态与互动回应</h3>
+<div class="tw">
+  <table>
+    <thead><tr><th>能力</th><th>方法</th><th>路径</th><th>说明</th></tr></thead>
+    <tbody>
+      <tr><td>回应按钮交互</td><td>PUT</td><td><code>/interactions/{interaction_id}</code></td><td>收到 <code>INTERACTION_CREATE</code>（type=11/12）后必须回应，否则客户端一直 loading 直到超时</td></tr>
+      <tr><td>机器人发表表情表态</td><td>PUT</td><td><code>/channels/{channel_id}/messages/{message_id}/reactions/{type}/{id}</code></td><td>仅频道支持</td></tr>
+      <tr><td>删除表情表态</td><td>DELETE</td><td>同上路径</td><td>仅频道支持</td></tr>
+      <tr><td>获取表情表态用户列表</td><td>GET</td><td>同上路径</td><td>用户列表 <code>limit</code> 默认 20，最多 50</td></tr>
+    </tbody>
+  </table>
+</div>
+<p><strong>按钮规模限制</strong>：最多 5 行，每行最多 5 个按钮；按钮 <code>label</code> 最多 10 字符。指令参数（<code>text</code>/<code>show</code>）最大 100 字符且需 urlencode。<code>[@全部成员]</code> 需要机器人拥有发送 @全部成员 消息的权限。</p>
+<div class="miss">
+  <span class="t">官方文档未提供</span>
+  <p>EmojiType 数值表与 Emoji 完整 id 列表（官方指向 <code>openapi/emoji/model.html</code>，本次未抓取）；按钮 <code>action.at_bot_show_channel_list</code> / <code>click_limit</code> 的替代字段（官方只标注「已弃用」）；<code>@全部成员</code> 权限的具体申请入口。</p>
+</div>
+
+<h3 id="s7-6">7.6 端点索引</h3>
+<div class="tw">
+  <table>
+    <thead><tr><th>#</th><th>方法</th><th>路径</th><th>说明</th></tr></thead>
+    <tbody>
+      <tr><td>1</td><td>POST</td><td><code>https://api.bot.qq.com/app/getAppAccessToken</code></td><td>获取 access_token</td></tr>
+      <tr><td>2</td><td>GET</td><td><code>/gateway</code></td><td>获取通用 WSS 接入点（2 QPM / 10 QPM burst）</td></tr>
+      <tr><td>3</td><td>GET</td><td><code>/gateway/bot</code></td><td>获取带分片 WSS 接入点 + session_start_limit</td></tr>
+      <tr><td>4</td><td>POST</td><td><code>/v2/users/{user_openid}/messages</code></td><td>发送单聊消息（100 QPS）</td></tr>
+      <tr><td>5</td><td>POST</td><td><code>/v2/groups/{group_openid}/messages</code></td><td>发送群聊消息（100 QPS）</td></tr>
+      <tr><td>6</td><td>POST</td><td><code>/v2/users/{user_openid}/stream_messages</code></td><td>流式发送单聊消息（50 QPS）</td></tr>
+      <tr><td>7</td><td>DELETE</td><td><code>/v2/users/{user_openid}/messages/{message_id}</code></td><td>撤回单聊消息（10 QPS）</td></tr>
+      <tr><td>8</td><td>DELETE</td><td><code>/v2/groups/{group_openid}/messages/{message_id}</code></td><td>撤回群聊消息（10 QPS）</td></tr>
+      <tr><td>9</td><td>POST</td><td><code>/v2/users/{user_openid}/files</code></td><td>单聊富媒体上传（50 QPS）</td></tr>
+      <tr><td>10</td><td>POST</td><td><code>/v2/groups/{group_openid}/files</code></td><td>群聊富媒体上传（50 QPS）</td></tr>
+      <tr><td>11</td><td>POST</td><td><code>/v2/users/{user_id}/upload_prepare</code></td><td>单聊富媒体预上传（10 QPS）</td></tr>
+      <tr><td>12</td><td>POST</td><td><code>/v2/users/{user_id}/upload_part_finish</code></td><td>单聊分片上传完成（10 QPS）</td></tr>
+      <tr><td>13</td><td>POST</td><td><code>/v2/groups/{group_id}/upload_prepare</code></td><td>群聊富媒体预上传（10 QPS）</td></tr>
+      <tr><td>14</td><td>POST</td><td><code>/v2/groups/{group_id}/upload_part_finish</code></td><td>群聊分片上传完成（10 QPS）</td></tr>
+      <tr><td>15</td><td>PUT</td><td><code>/interactions/{interaction_id}</code></td><td>回应按钮交互</td></tr>
+      <tr><td>16</td><td>PUT / DELETE / GET</td><td><code>/channels/{channel_id}/messages/{message_id}/reactions/{type}/{id}</code></td><td>表情表态（发布 / 删除 / 查询用户列表）</td></tr>
+      <tr><td>17</td><td>GET</td><td><code>/users/@me</code></td><td>官方文档鉴权示例中出现的接口（获取当前机器人信息）</td></tr>
+    </tbody>
+  </table>
+</div>
+
+<h2 id="s8">8 · 断线重连、Resume 与心跳处理策略</h2>
+
+<div class="info">
+  <span class="t">官方给出的处理逻辑原文（这是唯一的权威判据）</span>
+  <p>针对 WebSocket 错误码的简单处理逻辑：</p>
+  <ul>
+    <li><strong>4009</strong> 可以重新发起 resume</li>
+    <li><strong>4914、4915</strong> 不可以连接，请联系官方解封</li>
+    <li><strong>其他错误</strong>，请重新发起 identify</li>
+  </ul>
+</div>
+
+<h3>8.1 连接状态机</h3>
+<div class="seq">
+<svg viewBox="0 0 1000 380" role="img" aria-label="WSS 连接状态机">
+  <defs>
+    <marker id="a3" markerWidth="9" markerHeight="9" refX="8" refY="4.5" orient="auto">
+      <path d="M0,0 L9,4.5 L0,9 z" fill="#0b7fb0"/>
+    </marker>
+    <marker id="a4" markerWidth="9" markerHeight="9" refX="8" refY="4.5" orient="auto">
+      <path d="M0,0 L9,4.5 L0,9 z" fill="#b54708"/>
+    </marker>
+  </defs>
+
+  <rect x="20" y="30" width="150" height="52" rx="10" fill="#f4f5f7" stroke="#dde1e7"/>
+  <text x="95" y="61" text-anchor="middle" font-size="13.5" font-weight="700" fill="#344054">① 取接入点</text>
+
+  <rect x="210" y="30" width="150" height="52" rx="10" fill="#e8f7fe" stroke="#bfe6fa"/>
+  <text x="285" y="53" text-anchor="middle" font-size="13.5" font-weight="700" fill="#0b7fb0">② 建连 + Hello</text>
+  <text x="285" y="71" text-anchor="middle" font-size="11.5" fill="#0b7fb0">记录 heartbeat_interval</text>
+
+  <rect x="400" y="30" width="150" height="52" rx="10" fill="#e8f7fe" stroke="#bfe6fa"/>
+  <text x="475" y="53" text-anchor="middle" font-size="13.5" font-weight="700" fill="#0b7fb0">③ Identify</text>
+  <text x="475" y="71" text-anchor="middle" font-size="11.5" fill="#0b7fb0">等待 READY</text>
+
+  <rect x="590" y="30" width="160" height="52" rx="10" fill="#e7f6ee" stroke="#bfe6d2"/>
+  <text x="670" y="53" text-anchor="middle" font-size="13.5" font-weight="700" fill="#067647">④ 在线运行</text>
+  <text x="670" y="71" text-anchor="middle" font-size="11.5" fill="#067647">收事件 + 发心跳</text>
+
+  <rect x="800" y="30" width="170" height="52" rx="10" fill="#fef3e7" stroke="#f6dcbb"/>
+  <text x="885" y="53" text-anchor="middle" font-size="13.5" font-weight="700" fill="#b54708">⑤ 断线 / 收到 Op7</text>
+  <text x="885" y="71" text-anchor="middle" font-size="11.5" fill="#b54708">有 session_id 吗？</text>
+
+  <line x1="170" y1="56" x2="202" y2="56" stroke="#0b7fb0" stroke-width="1.6" marker-end="url(#a3)"/>
+  <line x1="360" y1="56" x2="392" y2="56" stroke="#0b7fb0" stroke-width="1.6" marker-end="url(#a3)"/>
+  <line x1="550" y1="56" x2="582" y2="56" stroke="#0b7fb0" stroke-width="1.6" marker-end="url(#a3)"/>
+  <line x1="750" y1="56" x2="792" y2="56" stroke="#0b7fb0" stroke-width="1.6" marker-end="url(#a3)"/>
+
+  <rect x="560" y="150" width="220" height="66" rx="10" fill="#e8f7fe" stroke="#bfe6fa"/>
+  <text x="670" y="176" text-anchor="middle" font-size="13.5" font-weight="700" fill="#0b7fb0">重连后发 Op6 Resume</text>
+  <text x="670" y="196" text-anchor="middle" font-size="11.5" fill="#0b7fb0">token + session_id + seq(最后处理的 s)</text>
+
+  <rect x="810" y="150" width="170" height="66" rx="10" fill="#fdeceb" stroke="#f5c6c2"/>
+  <text x="895" y="176" text-anchor="middle" font-size="13.5" font-weight="700" fill="#b42318">重新走 Identify</text>
+  <text x="895" y="196" text-anchor="middle" font-size="11.5" fill="#b42318">丢弃旧 session_id</text>
+
+  <line x1="885" y1="82" x2="700" y2="142" stroke="#0b7fb0" stroke-width="1.6" marker-end="url(#a3)"/>
+  <text x="712" y="120" font-size="11.5" fill="#0b7fb0">有（短期断开）</text>
+  <line x1="895" y1="82" x2="895" y2="142" stroke="#b42318" stroke-width="1.6" marker-end="url(#a4)"/>
+  <text x="902" y="120" font-size="11.5" fill="#b42318">无 / Resume 失败</text>
+
+  <path d="M670 150 L670 120 L670 90" fill="none" stroke="#067647" stroke-width="1.6" marker-end="url(#a3)"/>
+  <text x="680" y="118" font-size="11.5" fill="#067647">补发完成 → RESUMED</text>
+
+  <rect x="20" y="250" width="960" height="106" rx="10" fill="#f4f5f7" stroke="#dde1e7"/>
+  <text x="42" y="276" font-size="12.6" fill="#344054">按错误码分流（官方原文）：</text>
+  <text x="42" y="300" font-size="12.6" fill="#b54708">4008 / 4009 → 可以重试 Resume（4009「可以重新发起 resume」）</text>
+  <text x="42" y="322" font-size="12.6" fill="#067647">4006 / 4007 / 4900~4913 → 必须重新 Identify（「其他错误，请重新发起 identify」）</text>
+  <text x="42" y="344" font-size="12.6" fill="#b42318">4914 / 4915 → 不可连接，需联系官方解封；4001 / 4002 / 4010~4014 → RESUME 与 IDENTIFY 都不可重试，属于代码或权限错误</text>
+</svg>
+</div>
+
+<h3>8.2 心跳与 seq 的落地要点</h3>
+<ul>
+  <li><strong>心跳周期必须用 Hello 返回的 <code>heartbeat_interval</code></strong>（毫秒，官方示例 45000），不要硬编码。</li>
+  <li>心跳包 <code>d</code> 传「客户端收到的最新的 <code>s</code>」；<strong>首次连接传 <code>null</code></strong>。</li>
+  <li>收到 <code>Op11</code> 才认为本轮心跳成功；官方<strong>未给出</strong>失败阈值，需自行取 <code>heartbeat_interval</code> 的 1～2 倍作为判据并主动断连重连。</li>
+  <li><code>seq</code> 的持久化：官方推荐「处理过事件之后记录下 <code>s</code>」，<strong>注意是「处理完成后」而非「收到时」</strong>。移动端必须把 <code>session_id</code> 与 <code>seq</code> 落盘，否则 App 进程被杀后无法 Resume。</li>
+  <li>按官方规则，<code>s</code> 不能假设严格 +1 递增，只能作为水位标记。</li>
+</ul>
+
+<h3>8.3 Resume 与 Identify 的取舍</h3>
+<div class="tw">
+  <table>
+    <thead><tr><th>情形</th><th>动作</th><th>官方依据</th></tr></thead>
+    <tbody>
+      <tr><td>短暂断线且持有 <code>session_id</code> + <code>seq</code></td><td>重连后发 <strong>Op6 Resume</strong>，等待补发与 RESUMED</td><td>「断开之后短时间内重连会补发中间遗漏的事件……不需要发送重新登录 OpCode 2 Identify」</td></tr>
+      <tr><td>收到 4009</td><td>重新发起 Resume</td><td>官方处理逻辑原文</td></tr>
+      <tr><td>收到 4008</td><td>重新连接并遵守连接后返回的频控信息</td><td>错误码表 RESUME/IDENTIFY 均为「是」</td></tr>
+      <tr><td>收到 4006 / 4007</td><td><strong>必须重新 Identify</strong>（旧 session 作废）</td><td>4006 原文「无法继续 resume，请 identify」</td></tr>
+      <tr><td>收到 4900~4913</td><td>内部错误，请重连（可重新 Identify）</td><td>错误码表 IDENTIFY 为「是」</td></tr>
+      <tr><td>收到 4914 / 4915</td><td>不可连接，需联系官方解封（机器人下架 / 封禁）</td><td>官方处理逻辑原文</td></tr>
+      <tr><td>App 冷启动、无持久化 session</td><td>直接 Identify</td><td>—</td></tr>
+    </tbody>
+  </table>
+</div>
+<div class="miss">
+  <span class="t">官方文档未提供</span>
+  <p>「短时间内重连」的具体时限；<code>session_id</code> 有效期；同一 <code>session_id</code> 可 Resume 的次数上限；收到 <code>Op9 Invalid Session</code> 后客户端的标准处理步骤（官方只定义了该 OpCode 的含义，未定义其 <code>d</code> 结构）；<code>Op7 Reconnect</code> 的触发条件与后续动作。<strong>这些必须靠实测补齐，并在架构设计中留出可配置项。</strong></p>
+</div>
+
+<h2 id="s9">9 · 平台限制与移动端踩坑点</h2>
+
+<h3>9.1 消息频控与主动 / 被动消息规则</h3>
+
+<h4>消息类型定义（官方表格）</h4>
+<div class="tw">
+  <table>
+    <thead><tr><th>类型</th><th>特征</th><th>说明</th></tr></thead>
+    <tbody>
+      <tr><td>主动消息</td><td>无任何条件</td><td>机器人主动触达用户。<strong>用户可在客户端关闭「允许主动发送」开关，关闭后主动消息将发送失败</strong></td></tr>
+      <tr><td>互动召回消息</td><td><code>is_wakeup=true</code></td><td>用户主动与机器人对话之后每个周期内可下发 1 条召回消息</td></tr>
+      <tr><td>被动消息（回复用户）</td><td>携带 <code>msg_id</code></td><td>对用户消息的回复</td></tr>
+      <tr><td>被动消息（响应事件）</td><td>携带 <code>event_id</code></td><td>对事件的回复</td></tr>
+    </tbody>
+  </table>
+</div>
+
+<h4>被动消息有效期与可回复次数</h4>
+<div class="tw">
+  <table>
+    <thead><tr><th>场景</th><th>有效期</th><th>每条消息可回复次数</th></tr></thead>
+    <tbody>
+      <tr><td>单聊</td><td><strong>60 分钟</strong></td><td><strong>4 次</strong></td></tr>
+      <tr><td>群聊</td><td><strong>5 分钟</strong></td><td><strong>5 次</strong></td></tr>
+      <tr><td>频道</td><td>5 分钟</td><td>—</td></tr>
+    </tbody>
+  </table>
+</div>
+<p class="src"><span class="badge b-warn">官方口径冲突</span> <code>overview.html</code> 写单聊「60 分钟 / 4 次」；<code>send.html</code> 正文写单聊「60 分钟 / 5 次」，但其 2026/01/10 更新说明又写「由 60 分钟 5 次 调整为 60 分钟 4 次」。而接口字段说明中 <code>msg_id</code> 又标注「5 分钟内有效」。三处口径并列，实现时应以 <strong>4 次</strong> 为保守上限，并把有效期做成可配置。</p>
+
+<h4>主动消息频控 —— 单聊</h4>
+<div class="tw">
+  <table>
+    <thead><tr><th>认证类型</th><th>Bot 维度频控</th><th>单关系维度频控</th><th>每日上限</th></tr></thead>
+    <tbody>
+      <tr><td>企业认证</td><td>10/qps</td><td>20/qpm</td><td>1000 条/用户</td></tr>
+      <tr><td>个人认证</td><td>10/qps</td><td>20/qpm</td><td>1000 条/用户</td></tr>
+      <tr><td>未认证</td><td>5/qps &amp; 30/qpm</td><td>20/qpm</td><td>1000 条/用户</td></tr>
+    </tbody>
+  </table>
+</div>
+
+<h4>主动消息频控 —— 群聊</h4>
+<div class="tw">
+  <table>
+    <thead><tr><th>认证类型</th><th>Bot 维度频控</th><th>单关系维度频控</th><th>每日上限</th></tr></thead>
+    <tbody>
+      <tr><td>企业认证</td><td>60/qpm</td><td>20/qpm</td><td>1000 条/群</td></tr>
+      <tr><td>个人认证</td><td>60/qpm</td><td>20/qpm</td><td>1000 条/群</td></tr>
+      <tr><td>未认证</td><td>30/qpm</td><td>20/qpm</td><td>1000 条/群</td></tr>
+    </tbody>
+  </table>
+</div>
+<p class="src"><span class="badge b-warn">官方口径冲突</span> <code>overview.html</code> 群聊主动消息每日上限为「1000 条/群」，<code>send.html</code> 则写「主动消息每月 4 条」。官方另有 2026/06/22 更新说明：群场景主动推送消息能力于该日<strong>全量开放</strong>，当群主主动打开【机器人主动在群聊内发言】设置项后，机器人可对该群下发主动推送消息。</p>
+
+<h4>互动召回消息（官方原文）</h4>
+<p>在用户主动与机器人对话之后，机器人在未来 <strong>30 天</strong>内可下发互动召回消息给用户（消息类型与当前机器人拥有的消息类型权限一致），每个周期内可下发一条。分别为：<strong>当天、1-3 天、3-7 天、7-30 天，合计 4 个周期</strong>。在发消息接口中使用 <code>is_wakeup</code> 字段声明使用该能力。相关错误码：<code>40034122 召回消息已达区间上限</code>、<code>40034123 不支持召回消息</code>。</p>
+
+<h4>其它官方规则</h4>
+<ul>
+  <li><strong>消息去重</strong>：相同 <code>msg_id</code> 可能多次推送，请结合 <code>msg_seq</code> 去重。被动回复时，相同的 <code>msg_id + msg_seq</code> 重复发送会失败，可递增 <code>msg_seq</code> 实现对同一消息的多次回复。</li>
+  <li><strong>撤回</strong>：机器人可撤回自己发送的消息，<strong>发送超过 2 分钟不可撤回</strong>。</li>
+  <li><strong>URL 报备</strong>：如开发者需要在消息内容发送含有 url 信息的消息，请先在 q.qq.com 后台-开发设置-消息URL配置 预先配置，<strong>否则会发送失败</strong>（错误码 <code>304003 URL_NOT_ALLOWED url 未报备</code>）。</li>
+  <li><strong>文字子频道</strong>：发送消息接口要求机器人接口需要连接到 WebSocket 上保持在线状态；每秒最多 5 条；主动推送默认每天每子频道 20 条、每频道每天 2 个子频道。</li>
+  <li><strong>频道私信</strong>：每个机器人每天对一个用户最多 2 条主动消息，每天累计 200 条。</li>
+  <li><strong>沙箱环境</strong>：官方 2026/03/05 更新说明 —— 沙箱环境内，机器人发送消息<strong>不受频控策略影响</strong>。</li>
+</ul>
+
+<h4>常用发送错误码</h4>
+<div class="tw">
+  <table>
+    <thead><tr><th>code</th><th>message</th><th>说明</th></tr></thead>
+    <tbody>
+      <tr><td>22009</td><td>msg limit exceed</td><td>消息发送超频</td></tr>
+      <tr><td>304082</td><td>upload media info fail</td><td>富媒体资源拉取失败，请重试</td></tr>
+      <tr><td>304083</td><td>convert media info fail</td><td>富媒体资源拉取失败，请重试</td></tr>
+    </tbody>
+  </table>
+</div>
+
+<h3>9.2 认证身份带来的能力差异</h3>
+<div class="tw">
+  <table>
+    <thead><tr><th>认证身份</th><th>服务范围（官方原文）</th></tr></thead>
+    <tbody>
+      <tr><td><strong>未认证</strong></td><td>机器人仅管理员使用，可添加到管理员作为群主的群内</td></tr>
+      <tr><td><strong>个人认证</strong></td><td>可设置为公开使用，机器人进群数量添加上限为 <strong>500 个</strong></td></tr>
+      <tr><td><strong>企业认证</strong></td><td>场景均可设置为公开被使用的服务范围</td></tr>
+    </tbody>
+  </table>
+</div>
+<p>官方另有两句原文：企业主体入驻开发者，除默认开通的能力外，后续其他接口能力申请上，企业开发者与个人开发者也存在差异；个人主体入驻的开发者，相比企业主体，在后续其他接口能力申请上会存在差异。</p>
+<p>官方提到的、需要「向平台申请 / 内邀 / 达到准入条件」的能力（原文）：</p>
+<ul>
+  <li>ARK 结构化卡片：<strong>「达到准入条件的开发者，向平台运营申请后获得权限。」</strong></li>
+  <li>自定义 Markdown（频道场景）：<strong>「频道场景目前需要内邀开通。」</strong></li>
+  <li>自定义按钮：<strong>「【内邀开通】自定义按钮」</strong></li>
+  <li>特殊事件类型订阅：<strong>「其他的特殊事件，都需要经过申请才能够使用」</strong></li>
+</ul>
+<div class="miss">
+  <span class="t">官方文档未提供</span>
+  <p>「个人开发者 / 未上架机器人不能使用的具体能力清单」这一独立文档。官方仅以「存在差异」「需要申请」「达到准入条件」等表述描述，<strong>未给出逐项清单</strong>。这在架构设计阶段必须作为一项待确认事项（需在 q.qq.com 后台实际查看当前机器人的权限清单）。</p>
+</div>
+
+<h3>9.3 移动端踩坑点（基于官方限制推导的落地清单）</h3>
+
+<div class="tw">
+  <table>
+    <thead><tr><th>#</th><th>踩坑点</th><th>官方依据 / 应对</th></tr></thead>
+    <tbody>
+      <tr>
+        <td>1</td>
+        <td><strong>AppSecret 不能进客户端</strong></td>
+        <td>官方原文：「为了安全考虑，请勿在应用前端使用访问凭证。请在应用服务端发起 API 访问请求。」→ 必须用薄代理签发短期 token，或用官方推荐的云端中转；<strong>这是本方案唯一的硬架构约束</strong></td>
+      </tr>
+      <tr>
+        <td>2</td>
+        <td><strong>后台保活是功能前提</strong></td>
+        <td>官方：「发送消息接口要求机器人接口需要连接到 WebSocket 上保持在线状态」。Android 需前台服务 + 免电池优化；iOS 需接受后台被系统挂起、回到前台后靠 Resume 补事件</td>
+      </tr>
+      <tr>
+        <td>3</td>
+        <td><strong>网络切换导致长连接断开</strong></td>
+        <td>4G/WiFi 切换、Doze 模式、地铁隧道都会断线。必须监听网络状态并在恢复后按第 8 章状态机重连 + Resume</td>
+      </tr>
+      <tr>
+        <td>4</td>
+        <td><strong>session_id / seq 必须持久化</strong></td>
+        <td>官方推荐「处理过事件之后记录下 <code>s</code>」。App 进程被杀后若丢失这两个值只能重新 Identify，会丢弃断线期间的全部事件</td>
+      </tr>
+      <tr>
+        <td>5</td>
+        <td><strong>心跳定时器在后台会被降频</strong></td>
+        <td>官方只规定按 <code>heartbeat_interval</code> 周期发送（示例 45000ms）。移动端 OS 会延后定时器，需把「未收到 Op11」作为判据而非依赖定时器精度，并允许 <code>heartbeat_interval</code> 动态变化</td>
+      </tr>
+      <tr>
+        <td>6</td>
+        <td><strong>消息重复推送</strong></td>
+        <td>官方：「相同 <code>msg_id</code> 可能重复推送，开发者需结合 <code>msg_seq</code> 做去重」。必须落地 msg_id + msg_seq 去重表并持久化，否则 Resume 补发 + 平台重推会双回复</td>
+      </tr>
+      <tr>
+        <td>7</td>
+        <td><strong>被动回复窗口极短</strong></td>
+        <td>群聊被动回复有效期仅 <strong>5 分钟</strong>、单聊 60 分钟，且每条消息可回复次数有限（群 5 次 / 单聊 4 次）。UI 上做「处理中」状态时必须考虑窗口内完成，超时只能改用主动消息（受主动消息频控约束）</td>
+      </tr>
+      <tr>
+        <td>8</td>
+        <td><strong><code>msg_id</code> 与 <code>event_id</code> 取值位置不同</strong></td>
+        <td><code>msg_id</code> 取事件 <code>d.id</code>；<code>event_id</code> 取<strong>最外层 payload 的 <code>id</code></strong>。两者混用会直接报 <code>40034025 请求参数event_id无效</code></td>
+      </tr>
+      <tr>
+        <td>9</td>
+        <td><strong>intents 里放了无权限位会直接被踢</strong></td>
+        <td>官方：「如果在鉴权的时候传递了无权限的 <code>intents</code>，<code>websocket</code> 会报错，并直接关闭连接」。且权限被取消后<strong>当前连接不报错、重连才报错</strong>，表现为「突然再也连不上」</td>
+      </tr>
+      <tr>
+        <td>10</td>
+        <td><strong>URL 未报备导致发送失败</strong></td>
+        <td><code>304003</code>；消息正文里出现任何 URL 都需先在后台「消息URL配置」报备</td>
+      </tr>
+      <tr>
+        <td>11</td>
+        <td><strong>群聊 Markdown 能收、单聊不能收</strong></td>
+        <td>官方收发表：单聊 Markdown「发 ✅ / 收 ❌」，群聊「收发 ✅」。如果业务依赖「用户发来的富文本」，单聊场景拿不到</td>
+      </tr>
+      <tr>
+        <td>12</td>
+        <td><strong>文件不能跨场景复用</strong></td>
+        <td>官方：「单聊和群聊的文件上传接口相互独立，上传的文件不能跨场景使用」。同一张图发单聊和发群聊必须分别上传两次</td>
+      </tr>
+      <tr>
+        <td>13</td>
+        <td><strong><code>file_info</code> 有过期时间</strong></td>
+        <td>响应含 <code>ttl</code>（秒），<code>0</code> 才表示可长期使用；「到期后需重新上传」。本地缓存 <code>file_info</code> 时必须同时缓存 <code>ttl</code> 并做失效判断</td>
+      </tr>
+      <tr>
+        <td>14</td>
+        <td><strong>时间与时区</strong></td>
+        <td>官方 <code>timestamp</code> 为 RFC3339（发送响应为「RFC3339 东八区」），而部分事件（如 <code>FRIEND_ADD</code>、<code>GROUP_ADD_ROBOT</code>）用 <code>integer</code> Unix 秒。解析器必须同时支持两种形态，并按东八区展示</td>
+      </tr>
+      <tr>
+        <td>15</td>
+        <td><strong>接口超时不要设太短</strong></td>
+        <td>官方建议发消息接口 timeout 最低 <strong>5 秒</strong>，避免「消息已发出但没收到结果」。移动端弱网建议 10 秒以上并配合幂等（<code>msg_seq</code>）重试</td>
+      </tr>
+      <tr>
+        <td>16</td>
+        <td><strong>事件解析必须按域分派</strong></td>
+        <td>C2C / 群聊 / 频道三套模型的 <code>attachments</code>、id 形态完全不同（见 6.3）。共用模型会在某一域上静默丢字段</td>
+      </tr>
+      <tr>
+        <td>17</td>
+        <td><strong>分片在移动端是多余复杂度</strong></td>
+        <td>官方：「若无需分片，使用 <code>[0, 1]</code> 即可」。单机 App 直接用 <code>[0,1]</code>，不要引入分片</td>
+      </tr>
+      <tr>
+        <td>18</td>
+        <td><strong>不要在移动端实现加密/压缩握手</strong></td>
+        <td>官方文档<strong>完全没有</strong>压缩传输（zlib/deflate）与连接加密协商的说明。按纯 JSON 文本帧实现，不要凭经验猜测协议扩展</td>
+      </tr>
+      <tr>
+        <td>19</td>
+        <td><strong>合规与风控</strong></td>
+        <td>官方运营规范要求机器人<strong>设置过滤违法、违规等不当信息内容的机制</strong>，建议调用内容安全检测接口校验文本/图片；否则按违规程度面临封禁搜索、添加能力直至下架。运行时表现为 <code>4915</code>（WSS 不可连接）与 <code>11265</code>（HTTP 机器人已被封禁）</td>
+      </tr>
+      <tr>
+        <td>20</td>
+        <td><strong>下架机器人的沙箱表现</strong></td>
+        <td><code>4914</code>：「机器人已下架，只允许连接沙箱环境，请断开连接，检验当前连接环境」。上架/下架状态会直接影响生产环境连通性</td>
+      </tr>
+    </tbody>
+  </table>
+</div>
+
+<h3>9.4 违规处理规则（官方运营规范）</h3>
+<p>官方总则原文：如果我们认为你的 QQ 机器人违反了我们的条款、相关平台规则或法律法规，或对 QQ、QQ 机器人开放平台造成了影响，则 QQ 有权对你的 QQ 机器人采取<strong>强制措施</strong>，包括但不限于限制你的 QQ 机器人访问平台功能、封禁 QQ 机器人、要求删除数据、终止协议等。</p>
+<div class="tw">
+  <table>
+    <thead><tr><th>类别</th><th>违规内容（官方原文要点）</th><th>处罚规则（官方原文）</th></tr></thead>
+    <tbody>
+      <tr><td>内容安全</td><td>QQ 机器人涉及未设置过滤违法、违规等不当信息内容的机制。建议调用内容安全检测接口校验文本/图片是否含有敏感内容</td><td>一经发现将根据违规程度对该 QQ 机器人帐号<strong>封禁搜索、添加能力，直至下架处理</strong></td></tr>
+      <tr><td>刷量行为</td><td>不得存在恶意刷票、刷粉、刷单等行为，包括但不限于通过第三方技术、工具等进行刷票、刷粉、刷单，或为上述行为提供工具或服务</td><td>一经发现将根据违规程度采取相应处理措施<strong>直至封号处理</strong></td></tr>
+      <tr><td>网赚行为</td><td>（官方 5.3 节，具体条文见 <code>raw/events-intents.md</code> 6.6 节）</td><td>按违规程度处理</td></tr>
+    </tbody>
+  </table>
+</div>
+<div class="miss">
+  <span class="t">官方文档未提供</span>
+  <p>违规处罚的分级细则与申诉流程；「个人开发者 / 未上架机器人不能使用的具体能力清单」。官方只给出上述定性描述。</p>
+</div>
+
+<h2 id="s10">10 · 错误码对照表</h2>
+
+<p>官方原文：错误码分为两部分 —— <strong>http 状态码</strong> 与 <strong>http body 返回的 json 中的 <code>err_code</code></strong>。</p>
+<pre><code>{
+  "err_code": 40034005,
+  "message": "回复消息msg_id已过期",
+  "trace_id": "4a8a61565b909f199b1ec169fdd6f49e"
+}</code></pre>
+
+<h3 id="s10-1">10.1 WSS 网关错误码（全表，含重试策略）</h3>
+<div class="tw">
+  <table>
+    <thead><tr><th>值</th><th>含义</th><th>可重试 RESUME</th><th>可重试 IDENTIFY</th></tr></thead>
+    <tbody>
+      <tr><td>4001</td><td>无效的 opcode</td><td><span class="badge b-no">否</span></td><td><span class="badge b-no">否</span></td></tr>
+      <tr><td>4002</td><td>无效的 payload</td><td><span class="badge b-no">否</span></td><td><span class="badge b-no">否</span></td></tr>
+      <tr><td>4006</td><td>无效的 session id，无法继续 resume，请 identify</td><td><span class="badge b-no">否</span></td><td><span class="badge b-ok">是</span></td></tr>
+      <tr><td>4007</td><td>seq 错误</td><td><span class="badge b-no">否</span></td><td><span class="badge b-ok">是</span></td></tr>
+      <tr><td>4008</td><td>发送 payload 过快，请重新连接，并遵守连接后返回的频控信息</td><td><span class="badge b-ok">是</span></td><td><span class="badge b-ok">是</span></td></tr>
+      <tr><td>4009</td><td>连接过期，请重连并执行 resume 进行重新连接</td><td><span class="badge b-ok">是</span></td><td><span class="badge b-ok">是</span></td></tr>
+      <tr><td>4010</td><td>无效的 shard</td><td><span class="badge b-no">否</span></td><td><span class="badge b-no">否</span></td></tr>
+      <tr><td>4011</td><td>连接需要处理的 guild 过多，请进行合理的分片</td><td><span class="badge b-no">否</span></td><td><span class="badge b-no">否</span></td></tr>
+      <tr><td>4012</td><td>无效的 version</td><td><span class="badge b-no">否</span></td><td><span class="badge b-no">否</span></td></tr>
+      <tr><td>4013</td><td>无效的 intent</td><td><span class="badge b-no">否</span></td><td><span class="badge b-no">否</span></td></tr>
+      <tr><td>4014</td><td>intent 无权限</td><td><span class="badge b-no">否</span></td><td><span class="badge b-no">否</span></td></tr>
+      <tr><td>4900~4913</td><td>内部错误，请重连</td><td><span class="badge b-no">否</span></td><td><span class="badge b-ok">是</span></td></tr>
+      <tr><td>4914</td><td>机器人已下架，只允许连接沙箱环境，请断开连接，检验当前连接环境</td><td><span class="badge b-no">否</span></td><td><span class="badge b-no">否</span></td></tr>
+      <tr><td>4915</td><td>机器人已封禁，不允许连接，请断开连接，申请解封后再连接</td><td><span class="badge b-no">否</span></td><td><span class="badge b-no">否</span></td></tr>
+    </tbody>
+  </table>
+</div>
+<p><strong>官方处理逻辑原文</strong>：4009 可以重新发起 resume；4914、4915 不可以连接，请联系官方解封；其他错误，请重新发起 identify。</p>
+<div class="warn">
+  <span class="t">两个编号细节</span>
+  <p>第一，官方错误码表中<strong>不存在 4003 / 4004 / 4005</strong>（编号不连续），不要自行赋义。第二，官方 <code>error-trace/websocket.html</code> 原表中 <code>4014 intent 无权限</code> <strong>连续重复了两行</strong>，属于官方文档笔误，已按原文保留。另外官方文档未提供标准 WebSocket 关闭码（1000/1001 等）的解释。</p>
+</div>
+
+<h3 id="s10-2">10.2 HTTP 状态码</h3>
+<div class="tw">
+  <table>
+    <thead><tr><th>值</th><th>含义</th></tr></thead>
+    <tbody>
+      <tr><td>200</td><td>成功</td></tr>
+      <tr><td>204</td><td>成功，但是无包体，一般用于删除操作</td></tr>
+      <tr><td>201, 202</td><td>异步操作成功，虽然说成功，但是会返回一个 error body，需要特殊处理</td></tr>
+      <tr><td>401</td><td>认证失败</td></tr>
+      <tr><td>404</td><td>未找到 API</td></tr>
+      <tr><td>405</td><td>HTTP Method 不允许</td></tr>
+      <tr><td>429</td><td>频率限制</td></tr>
+      <tr><td>500</td><td>处理失败</td></tr>
+      <tr><td>504</td><td>处理失败</td></tr>
+    </tbody>
+  </table>
+</div>
+
+<h3 id="s10-3">10.3 公共业务错误码</h3>
+
+<h4>鉴权与权限类</h4>
+<div class="tw">
+  <table>
+    <thead><tr><th>值</th><th>含义</th></tr></thead>
+    <tbody>
+      <tr><td>11241</td><td>ErrorWrongToken 参数中缺少 token</td></tr>
+      <tr><td>11242</td><td>ErrorCheckTokenFailed 校验 token 失败，系统错误，一般重试一次会好，最多只能重试一次</td></tr>
+      <tr><td>11243</td><td>ErrorCheckTokenNotPass 校验 token 未通过，用户填充的 token 错误，需要开发者进行检查</td></tr>
+      <tr><td>11251</td><td>ErrorWrongAppid 参数中的 appid 错误，开发者填的 token 错误，appid 无法识别</td></tr>
+      <tr><td>11252</td><td>ErrorCheckAppPrivilegeFailed 检查应用权限失败，系统错误，一般重试一次会好，最多只能重试一次</td></tr>
+      <tr><td>11253</td><td>ErrorCheckAppPrivilegeNotPass 检查应用权限不通过，该机器人应用未获得调用该接口的权限，需要向平台申请</td></tr>
+      <tr><td>11254</td><td>ErrorInterfaceForbidden 应用接口被封禁，该机器人虽然获得了该接口权限，但是被封禁了</td></tr>
+      <tr><td>11261 / 11275</td><td>ErrorWrongAppid 参数中缺少 appid / 无 appid（同 11251）</td></tr>
+      <tr><td>11262</td><td>ErrorCheckRobot 当前接口不支持使用机器人 Bot Token 调用</td></tr>
+      <tr><td>11263</td><td>ErrorCheckGuildAuth 检查频道权限失败，系统错误，一般重试一次会好，最多只能重试一次</td></tr>
+      <tr><td>11264</td><td>ErrorGuildAuthNotPass 检查小站权限未通过，管理员添加机器人的时候未授予该接口权限；如已授权请检查 guild id</td></tr>
+      <tr><td><strong>11265</strong></td><td><strong>ErrorRobotHasBaned 机器人已经被封禁</strong></td></tr>
+      <tr><td>11273</td><td>ErrorCheckUserAuth 检查用户权限失败，当前接口不支持使用 Bearer Token 调用</td></tr>
+      <tr><td>11274</td><td>ErrorUserAuthNotPass 检查用户权限未通过，用户 OAuth 授权时未给与该接口权限，可提示用户重新授权</td></tr>
+      <tr><td>11281</td><td>ErrorCheckAdminFailed 检查是否是管理员失败，系统错误，一般重试一次会好，最多只能重试一次</td></tr>
+      <tr><td>11282</td><td>ErrorCheckAdminNotPass 检查是否是管理员未通过，该接口需要管理员权限，但用户在添加机器人时并未授予该权限，属于逻辑错误，可提示用户授权</td></tr>
+      <tr><td>11301 / 11302</td><td>ErrorGetHTTPHeader / ErrorGetHeaderUIN HTTP Header 无效</td></tr>
+      <tr><td>11303 / 11304</td><td>ErrorGetNick 获取昵称失败 / ErrorGetAvatar 获取头像失败</td></tr>
+      <tr><td>11305 / 11306</td><td>ErrorGetGuildID 获取频道 ID 失败 / ErrorGetGuildInfo 获取频道信息失败</td></tr>
+    </tbody>
+  </table>
+</div>
+
+<h4>基础与请求类</h4>
+<div class="tw">
+  <table>
+    <thead><tr><th>值</th><th>含义</th></tr></thead>
+    <tbody>
+      <tr><td>10001</td><td>UnknownAccount 账号异常</td></tr>
+      <tr><td>10003</td><td>UnknownChannel 子频道异常</td></tr>
+      <tr><td>10004</td><td>UnknownGuild 频道异常</td></tr>
+      <tr><td>12001</td><td>ReplaceIDFailed 替换 id 失败</td></tr>
+      <tr><td>12002 / 12003</td><td>RequestInvalid 请求体错误 / ResponseInvalid 回包错误</td></tr>
+      <tr><td>20028</td><td>ChannelHitWriteRateLimit 子频道消息触发限频</td></tr>
+      <tr><td>50006</td><td>CannotSendEmptyMessage 消息为空</td></tr>
+      <tr><td>50035</td><td>InvalidFormBody form-data 内容异常</td></tr>
+    </tbody>
+  </table>
+</div>
+
+<h4>消息内容与模板类（50035~50057）</h4>
+<div class="tw">
+  <table>
+    <thead><tr><th>值</th><th>含义</th></tr></thead>
+    <tbody>
+      <tr><td>50037</td><td>带有 markdown 消息只支持 markdown 或者 keyboard 组合</td></tr>
+      <tr><td>50038</td><td>非同频道同子频道</td></tr>
+      <tr><td>50039</td><td>获取消息失败</td></tr>
+      <tr><td>50040</td><td>消息模版类型错误</td></tr>
+      <tr><td>50041</td><td>markdown 有空值</td></tr>
+      <tr><td>50042</td><td>markdown 列表长达最大值</td></tr>
+      <tr><td>50043</td><td>guild_id 转换失败</td></tr>
+      <tr><td>50045</td><td>不能回复机器人自己产生的消息</td></tr>
+      <tr><td>50046</td><td>非 at 机器人消息</td></tr>
+      <tr><td>50047</td><td>非机器人产生的消息 或者 at 机器人消息</td></tr>
+      <tr><td>50048</td><td>message id 不能为空</td></tr>
+      <tr><td>50049 / 50050</td><td>只能修改含有 keyboard 元素的消息 / 修改消息时 keyboard 元素不能为空</td></tr>
+      <tr><td>50051</td><td>只能修改机器人自己发送的消息</td></tr>
+      <tr><td>50053</td><td>修改消息错误</td></tr>
+      <tr><td>50054 / 50055 / 50056</td><td>markdown 模版参数错误 / 无效的 markdown content / 不允许发送 markdown content</td></tr>
+      <tr><td>50057</td><td>markdown 参数只支持原生语法或者模版二选一</td></tr>
+    </tbody>
+  </table>
+</div>
+
+<h4>子频道权限 / 日程 / 频道业务类（301000~304051 节选代表项）</h4>
+<div class="tw">
+  <table>
+    <thead><tr><th>值</th><th>含义</th></tr></thead>
+    <tbody>
+      <tr><td>301000 / 302000</td><td>参数错误</td></tr>
+      <tr><td>301001~301007</td><td>查询频道信息错误 / 查询子频道权限错误 / 修改子频道权限错误 / 私密子频道关联人数到达上限 / 调用 Rpc 服务失败 / 非群成员没有查询权限 / 参数超过数量限制</td></tr>
+      <tr><td>302002~302024</td><td>日程相关：查询/修改/删除/创建日程失败、获取创建者信息失败、子频道 ID 为空、每天只能创建 10 个日程、触发安全打击、持续时间超过 7 天、时间先后错误、Schedule 对象为空、内容违规、频道内当日新增活动达上限等</td></tr>
+      <tr><td><strong>304003</strong></td><td><strong>URL_NOT_ALLOWED url 未报备</strong></td></tr>
+      <tr><td>304004</td><td>ARK_NOT_ALLOWED 没有发 ark 消息权限</td></tr>
+      <tr><td>304005</td><td>EMBED_LIMIT embed 长度超限</td></tr>
+      <tr><td>304006~304012</td><td>SERVER_CONFIG 后台配置错误 / GET_GUILD 查询频道异常 / GET_BOT 查询机器人异常 / GET_CHENNAL 查询子频道异常 / CHANGE_IMAGE_URL 图片转存错误 / NO_TEMPLATE 模板不存在 / GET_TEMPLATE 取模板错误</td></tr>
+      <tr><td>304014</td><td>TEMPLATE_PRIVILEGE 没有模板权限</td></tr>
+      <tr><td>304016 / 304017</td><td>SEND_ERROR 发消息错误 / UPLOAD_IMAGE 图片上传错误</td></tr>
+      <tr><td><strong>304018</strong></td><td><strong>SESSION_NOT_EXIST 机器人没连上 gateway</strong></td></tr>
+      <tr><td>304019 / 304020 / 304021</td><td>AT_EVERYONE_TIMES @全体成员次数超限 / FILE_SIZE 文件大小超限 / GET_FILE 下载文件错误</td></tr>
+      <tr><td>304022~304030</td><td>PUSH_TIME 推送消息时间限制 / PUSH_MSG_ASYNC_OK 推送消息异步调用成功等待人工审核 / REPLY_MSG_ASYNC_OK 回复消息异步调用成功等待人工审核 / BEAT 消息被打击 / MSG_ID 回复的消息 id 错误 / MSG_EXPIRE 回复的消息过期 / MSG_PROTECT 非 At 当前用户的消息不允许回复 / CORPUS_ERROR 调语料服务错误 / CORPUS_NOT_MATCH 语料不匹配</td></tr>
+      <tr><td>304031~304034</td><td>私信相关：私信已关闭 / 私信不存在 / 拉私信错误 / 不是私信成员</td></tr>
+      <tr><td>304035~304040</td><td>推送消息超过子频道数量限制 / 没有 markdown 模板的权限 / 没有发消息按钮组件的权限 / 消息按钮组件不存在 / 消息按钮组件解析错误 / 消息按钮组件消息内容错误</td></tr>
+      <tr><td>304044~304051</td><td>取消息设置错误 / 子频道主动消息数限频 / 不允许在此子频道发主动消息 / 主动消息推送超过限制的子频道数 / 不允许在此频道发主动消息 / 私信主动消息数限频 / 私信主动消息总量限频 / 消息设置引导请求构造错误</td></tr>
+    </tbody>
+  </table>
+</div>
+<p class="src">官方公共错误码表还包含 <code>610001~610014</code>、<code>620001~620007</code>（表情表态错误）、<code>630001~630007</code>、<code>1000000~2999999</code>、<code>1100100~1100499</code>（安全打击）、<code>3000000~3999999</code>、<code>3300006</code> 等段落，共 200+ 条。完整逐字表格见 <code>raw/http-api-auth.md</code> 11.2 节与 <code>raw/events-intents.md</code> 7.3 节。</p>
+
+<h4>安全打击与风控类（高优先级关注）</h4>
+<div class="tw">
+  <table>
+    <thead><tr><th>值</th><th>含义</th></tr></thead>
+    <tbody>
+      <tr><td>1100100</td><td>安全打击：消息被限频</td></tr>
+      <tr><td>1100101</td><td>安全打击：内容涉及敏感，请返回修改</td></tr>
+      <tr><td>1100102</td><td>安全打击：抱歉，暂未获得新功能体验资格</td></tr>
+      <tr><td>1100103</td><td>安全打击</td></tr>
+      <tr><td>1100104</td><td>安全打击：该群已失效或当前群已不存在</td></tr>
+      <tr><td>3300006</td><td>安全打击（属「编辑消息错误」段）</td></tr>
+    </tbody>
+  </table>
+</div>
+
+<h3 id="s10-4">10.4 接口专属错误码</h3>
+
+<h4>获取 access_token</h4>
+<div class="tw">
+  <table>
+    <thead><tr><th>错误码</th><th>错误信息</th><th>排查指南</th></tr></thead>
+    <tbody>
+      <tr><td>100001</td><td>Too many requests</td><td>请求过于频繁，请降低调用频率后重试</td></tr>
+      <tr><td>100007</td><td>appid invalid</td><td>AppID 无效，或机器人状态不正常（被封禁或已删除）</td></tr>
+      <tr><td>100016</td><td>invalid appid or secret</td><td>AppID 或 ClientSecret 不正确</td></tr>
+      <tr><td>10004</td><td>机器人不存在</td><td>AppID 对应的机器人不存在</td></tr>
+    </tbody>
+  </table>
+</div>
+
+<h4>发送单聊消息（关键项）</h4>
+<div class="tw">
+  <table>
+    <thead><tr><th>错误码</th><th>描述</th><th>排查建议</th></tr></thead>
+    <tbody>
+      <tr><td>22006</td><td>消息类型与内容不匹配</td><td>请检查 msg_type 与 content 是否对应</td></tr>
+      <tr><td>304103 / 40034005</td><td>消息 ID 已过期 / 回复消息 msg_id 已过期</td><td>请在收到消息后尽快回复</td></tr>
+      <tr><td>40034004</td><td>富媒体信息转存失败</td><td>请重试</td></tr>
+      <tr><td>40034006</td><td>消息内容违规</td><td>请修改消息内容后重试</td></tr>
+      <tr><td>40034008~40034011</td><td>markdown 参数有空值 / 有换行符 / 模版参数含 markdown 语法 / 无效的 markdown 内容</td><td>按文案修正 markdown 参数</td></tr>
+      <tr><td><strong>40034024</strong></td><td><strong>请求参数 msg_id 无效或越权</strong></td><td>请检查 msg_id 是否正确</td></tr>
+      <tr><td><strong>40034025 / 40034026</strong></td><td><strong>请求参数 event_id 无效 / 已过期</strong></td><td>请检查 event_id；请在收到事件后尽快回复</td></tr>
+      <tr><td>40034027</td><td>该事件不支持回复消息</td><td>请确认事件类型是否支持回复</td></tr>
+      <tr><td>40034029</td><td>内联键盘行/列超限</td><td>请减少键盘按钮数量</td></tr>
+      <tr><td>40034100</td><td>主动消息发送超过频控限制</td><td>请降低发送频率或等待配额恢复</td></tr>
+      <tr><td>40034105</td><td>主动消息发送失败，无权限</td><td>请检查机器人权限设置</td></tr>
+      <tr><td>40034122 / 40034123</td><td>召回消息已达区间上限 / 不支持召回消息</td><td>召回配额已满或消息不支持召回</td></tr>
+      <tr><td><strong>40034128</strong></td><td><strong>被动回复时间或次数超限</strong></td><td>请在收到事件后尽快回复</td></tr>
+      <tr><td>40054004~40054007</td><td>无好友关系 / 消息被去重 / 验证好友关系失败 / 消息长度超限</td><td>40054005 需确保每次请求使用不同的 msg_seq</td></tr>
+    </tbody>
+  </table>
+</div>
+
+<h4>发送群聊消息（在单聊基础上增加）</h4>
+<div class="tw">
+  <table>
+    <thead><tr><th>错误码</th><th>描述</th><th>排查建议</th></tr></thead>
+    <tbody>
+      <tr><td>304036 / 40034127</td><td>无 Markdown 模板权限 / 无 markdown 模板权限</td><td>请先申请 Markdown 模板权限</td></tr>
+      <tr><td>305007</td><td>键盘样式参数错误</td><td>请检查 keyboard 参数</td></tr>
+      <tr><td>340069</td><td>消息类型无效</td><td>请检查 msg_type 取值</td></tr>
+      <tr><td>40034101 / 40054003</td><td>机器人非群成员 / 机器人不是群成员</td><td>请先将机器人加入群聊</td></tr>
+      <tr><td>40054002</td><td>机器人被禁言</td><td>请等待解禁后再发送</td></tr>
+      <tr><td><strong>40054010</strong></td><td><strong>不允许发送 URL</strong></td><td>请移除消息中的 URL（或先在后台报备）</td></tr>
+      <tr><td>40054016</td><td>机器人已下线</td><td>请检查机器人状态</td></tr>
+      <tr><td>50055001 / 50055006</td><td>消息发送异常，请稍后重试 / ARK 消息发送异常，请稍后重试</td><td>请稍后重试</td></tr>
+    </tbody>
+  </table>
+</div>
+
+<h4>流式消息 / 撤回 / 上传</h4>
+<div class="tw">
+  <table>
+    <thead><tr><th>接口</th><th>错误码</th><th>含义</th></tr></thead>
+    <tbody>
+      <tr><td>流式消息</td><td>40007 / 50001 / 50002</td><td>已下发内容前缀不可修改 / 服务内部错误 / 频率限制</td></tr>
+      <tr><td>撤回单聊</td><td>306009 / 40061001 / 40061002 / 40064004</td><td>用户 openid 无效 / 请求参数无效 / 请求参数 msgid 无效 / 已超出消息撤回时限</td></tr>
+      <tr><td>撤回群聊</td><td>40062003 / 40064004 / 50065001</td><td>无操作权限 / 已超出消息撤回时限 / 消息撤回失败，请稍后重试</td></tr>
+      <tr><td>富媒体上传</td><td>850018 / 850019 / 850026 / 850027 / 850031 / 10000 / 40093001 / 40093002</td><td>群或机器人被禁言 / 不支持的文件格式 / 下载原始文件失败 / 发送数据超时 / 超过大小限制 / 不支持的操作 / 文件上传失败请重试 / 超过今天发送文件容量上限</td></tr>
+    </tbody>
+  </table>
+</div>
+
+<div class="info">
+  <span class="t">全链路追踪：<code>TraceID</code> 的两种获取方式（官方原文）</span>
+  <p>平台的链路追踪 <code>TraceID</code> 可通过 <strong>HTTP 响应头</strong> <code>X-Tps-trace-ID</code> 字段，或 <strong>响应 Body</strong> 的 <code>trace_id</code> 字段获取。如果有无法自行定位的问题需要找平台协助，可提取这个 ID 提交给平台方，方便查询相关日志。<strong>移动端应把 trace_id 一并落到本地日志</strong>，否则线上问题无法溯源。</p>
+</div>
+
+<h2 id="s11">11 · 官方文档未提供项清单</h2>
+
+<p>以下内容在本次抓取的全部官方页面中<strong>确实不存在</strong>。实现时不得凭经验补全，必须以真机实测结果为准，并在架构设计中预留可配置项。</p>
+
+<div class="tw">
+  <table>
+    <thead><tr><th>分类</th><th>缺失内容</th></tr></thead>
+    <tbody>
+      <tr><td>WSS 连接</td><td>可用子协议（<code>Sec-WebSocket-Protocol</code>）、编码格式协商、连接超时时间、重连退避策略；标准 WebSocket 关闭码（1000/1001 等）的解释；关闭码与错误码的区分说明</td></tr>
+      <tr><td>压缩传输</td><td><code>zlib</code> / <code>deflate</code> / <code>compress</code> / <code>inflate</code> 全部未出现，payload 示例中无 <code>compress</code> 字段</td></tr>
+      <tr><td>心跳</td><td><code>zombie connection</code> 的定义与处理；心跳丢失判定阈值；服务端主动发心跳时的触发条件、<code>d</code> 内容与回包方式</td></tr>
+      <tr><td>Session / seq</td><td><code>s</code> 是否从 1 开始并严格 +1 递增、是否与 shard 相关、断线期间是否连续；<code>session_id</code> 有效期；「短时间内重连」的具体时限；同一 <code>session_id</code> 可 Resume 次数上限</td></tr>
+      <tr><td>OpCode 细节</td><td><code>Op7 Reconnect</code> 的 <code>d</code> 结构、触发条件、客户端后续动作；<code>Op9 Invalid Session</code> 的 <code>d</code> 结构与重试判定；OpCode 3/4/5/8 无定义；READY 事件 <code>d</code> 的字段级表；<code>properties</code> 三个子字段的类型与取值范围</td></tr>
+      <tr><td>必填标注</td><td>Identify 与 Resume 各字段的显式「必填/可选」标注（仅 <code>properties</code> 有「可以留空」文字）</td></tr>
+      <tr><td>分片</td><td><code>max_concurrency</code> 的具体节流实现方式；<code>shard</code> 第二元素是否必须等于建议 <code>shards</code>；分片与 intents 的关系；每分片是否独立 <code>session_id</code></td></tr>
+      <tr><td>网关接口</td><td><code>/gateway</code> 与 <code>/gateway/bot</code> 的专属请求头清单与专属错误码（两页只写「详见错误码」）</td></tr>
+      <tr><td>intents</td><td>十进制/十六进制数值对照表（只有位移表达式）；「群聊 + 单聊 + 频道」推荐组合值；<code>1&lt;&lt;2</code>~<code>1&lt;&lt;8</code>、<code>1&lt;&lt;11</code>、<code>1&lt;&lt;13</code>~<code>1&lt;&lt;23</code>、<code>1&lt;&lt;31</code> 及以上各位的含义；<code>GROUP_MESSAGE_CREATE</code> 与 <code>GROUP_MEMBER_EVENT</code> 的官方归属（存在文档内部不一致）；<code>"intents": 513</code> 的官方解释</td></tr>
+      <tr><td>事件 JSON</td><td>群聊 <code>mentions</code> 的 JSON 样例；<code>&lt;@!id&gt;</code> 表示法及其清洗规则；<code>file</code>/<code>voice</code>/<code>video</code> 附件的完整 JSON 样例；<code>message_type=101/102</code> 的 <code>msg_elements</code> 完整递归结构；<code>emoji</code> 在消息事件体中的独立字段；群聊接收 Markdown 的 JSON 形态</td></tr>
+      <tr><td>鉴权</td><td><code>GET</code> 版取 token 接口；<code>https://api.sgroup.qq.com</code> 域名（官方统一为 <code>api.bot.qq.com</code>）；<code>User-Agent</code> 约定；<code>X-Union-Appid</code> 请求头；调用 OpenAPI 时的请求体 <code>sign</code> 签名算法（官方 sign 只讲回调 Ed25519 验签）；OAuth 授权码流程细节与 scope 列表；已废弃 Token 的格式/有效期/刷新机制/使用位置；取 token 接口的 QPS 数字</td></tr>
+      <tr><td>消息</td><td>单聊/群聊 messages 接口的复合 <code>content</code> JSON 字符串结构；<code>file_data</code> 直传字段；流式消息的具体节奏数值（片间毫秒/每秒片数/切片最大字符数）；<code>40093002</code> 的具体容量数字；EmojiType 数值表与 Emoji 完整 id 列表；已弃用按钮字段的替代方案；<code>@全部成员</code> 权限的申请入口</td></tr>
+      <tr><td>双通道</td><td>Webhook 的心跳、断线补发/去重、分片、回调重试策略、IP 来源地址段；两种模式在事件类型覆盖范围上是否存在差异；gateway 侧的 <code>id</code> 字段是否必填、是否为所有下行消息共有</td></tr>
+      <tr><td>平台限制</td><td>「个人开发者 / 未上架机器人不能使用的具体能力清单」；违规处罚分级与申诉流程</td></tr>
+      <tr><td>沙箱</td><td>api-v2 版沙箱域名、沙箱 WSS 网关地址、沙箱 Webhook 配置差异（沙箱域名只在旧版 <code>develop/api/</code> 给出 <code>https://sandbox.api.sgroup.qq.com</code>）</td></tr>
+    </tbody>
+  </table>
+</div>
+
+<h3>11.1 官方文档内部不一致汇总</h3>
+<div class="tw">
+  <table>
+    <thead><tr><th>#</th><th>冲突项</th><th>两处口径</th></tr></thead>
+    <tbody>
+      <tr><td>1</td><td>Identify <code>token</code> 格式</td><td><code>QQBot {AccessToken}</code>（event-emit / websocket 字段表） vs <code>Bot {appid}.{app_token}</code>（reference 正文）</td></tr>
+      <tr><td>2</td><td><code>/gateway/bot</code> 的 <code>reset_after</code> 示例</td><td><code>14400000</code>（4h） vs <code>86400000</code>（24h）</td></tr>
+      <tr><td>3</td><td>单聊被动消息可回复次数</td><td>「60 分钟 4 次」（overview） vs 「60 分钟 5 次」（send 正文） vs 更新说明「由 5 次调整为 4 次」</td></tr>
+      <tr><td>4</td><td><code>msg_id</code> 有效期</td><td>「被动消息有效期 60 分钟」（接口页顶部） vs 「<code>msg_id</code> 5 分钟内有效」（字段说明）</td></tr>
+      <tr><td>5</td><td>群聊主动消息上限</td><td>1000 条/群/天（overview） vs 每月 4 条（send）</td></tr>
+      <tr><td>6</td><td><code>msg_type</code> 枚举</td><td>0/2/7（type overview） vs 0/2/3/4/7（接口请求体说明）</td></tr>
+      <tr><td>7</td><td><code>message_type</code> 枚举</td><td>接口与事件页列出 101/102，type overview 接收表未列</td></tr>
+      <tr><td>8</td><td>基础事件集合</td><td>官方对基础事件（默认有权限）的列举在不同段落表述不完全一致</td></tr>
+      <tr><td>9</td><td><code>CHANNEL_*</code> 事件示例</td><td>示例含 <code>position</code>，但字段表未列该字段</td></tr>
+      <tr><td>10</td><td><code>GROUP_MEMBER_EVENT (1&lt;&lt;24)</code></td><td>未出现在 intents 清单，只出现在各群成员事件页的 Intent 字段中</td></tr>
+      <tr><td>11</td><td>WebSocket 错误码表</td><td><code>error-trace/websocket.html</code> 中 <code>4014</code> 连续重复两行；4914/4915 的标点在两页间有全角/半角差异</td></tr>
+    </tbody>
+  </table>
+</div>
+
+<h2 id="s12">12 · 开发红线</h2>
+
+<div class="risk">
+  <span class="t">禁止引入任何非官方协议实现</span>
+  <p>后续所有开发<strong>严格以 QQ 机器人开放平台官方文档（api-v2）为唯一实现依据</strong>。明令禁止以下方案，且不接受任何形式的绕过：</p>
+  <ul>
+    <li><strong>逆向 QQ 客户端协议</strong>：自行实现 QQ 私有登录 / 收发消息协议，或使用他人已逆向的协议库。</li>
+    <li><strong>抓包与协议复用</strong>：通过抓取 QQ 客户端或第三方客户端的通信流量，提取内部接口、密钥与签名算法并用于自建服务。</li>
+    <li><strong>Hook / 注入 / 改包</strong>：对 QQ 客户端做 Xposed、Frida、LSPosed、动态库注入、重打包等改造，或使用「协议机」「协议号」「PC 协议端」类方案。</li>
+    <li><strong>模拟 QQ 客户端登录</strong>：以单个 QQ 账号身份登录并伪装为用户或机器人，包括但不限于「个人 QQ 号挂机器人」「协议框架搭建的机器人」。</li>
+    <li><strong>使用非官方 SDK / 私有接口</strong>：任何未在官方文档中列出的接口、域名、字段与枚举。</li>
+  </ul>
+  <p>这类做法违反 QQ 开放平台运营规范与用户协议，会导致<strong>账号与机器人被封禁</strong>（对应错误码 <code>4915</code>、<code>11265</code>），并存在账号被盗、隐私泄露与法律风险。若后续提出此类需求，将直接拒绝并说明风险。</p>
+</div>
+
+<div class="ok">
+  <span class="t">合规实现边界（本项目允许并鼓励的范围）</span>
+  <ul>
+    <li>使用官方 <strong>Gateway WSS</strong>（<code>wss://api.bot.qq.com/websocket/</code>）接收事件，移动端本地直连，不依赖公网后端。</li>
+    <li>使用官方 <strong>OpenAPI</strong>（<code>https://api.bot.qq.com</code>）发送与撤回消息、上传富媒体。</li>
+    <li>使用 <strong>AppID + AppSecret</strong> 换取 <code>access_token</code>（换取环节需放在服务端/代理，避免在客户端存放 AppSecret）。</li>
+    <li>订阅官方允许的 <strong>intents</strong>，并按官方要求落在所申请权限范围内。</li>
+    <li>按官方运营规范接入内容安全检测，过滤违法违规内容。</li>
+  </ul>
+</div>
+
+<div class="ft">
+  <p><strong>知识库来源</strong>：QQ 机器人开放平台官方文档站 <code>https://bot.q.qq.com/wiki</code>（含 <code>develop/api-v2</code> 全量页面与产品介绍、运营规范页）。文档站共 <strong>422</strong> 个页面，其中 api-v2 相关约 <strong>190</strong> 个；本文档逐字引用了 WSS 接入、鉴权、事件、消息、错误码等核心页面，并已对 <code>c2c_message_create</code> 等关键页面与官方原文做过逐条一致性核验。</p>
+  <p><strong>原始笔记</strong>：<code>raw/gateway-wss.md</code>（1301 行）、<code>raw/http-api-auth.md</code>（4081 行）、<code>raw/events-intents.md</code>（3966 行）。凡本文标注「官方文档未提供」之处，均可在这三份文件中查到对应的核查记录与来源 URL。</p>
+  <p><strong>抓取日期</strong>：2026-09-26 ｜ 官方文档站最近更新时间：2026-09-24（以 sitemap 中 <code>lastmod</code> 为准）。</p>
+  <p>本文档为文档理解产物，不含任何代码实现方案；所有字段、枚举、限流数字与错误码均逐字取自官方文档，未做推测补全。</p>
+</div>
+
+</main>
+</div>
+</body>
+</html>
