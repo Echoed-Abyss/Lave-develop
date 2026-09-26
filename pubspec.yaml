@@ -40,7 +40,6 @@ dependencies:
   http: ^1.6.0
   connectivity_plus: ^7.3.1
   image_picker: ^1.2.3
-  drift: ^2.35.0
   path_provider: ^2.1.6
   path: ^1.9.1
   collection: ^1.19.1
@@ -56,8 +55,6 @@ dev_dependencies:
   # package. See that file for information about deactivating specific lint
   # rules and activating additional ones.
   flutter_lints: ^6.0.0
-  build_runner: ^2.15.1
-  drift_dev: ^2.35.0
   mocktail: ^1.0.5
 
 # For information on the generic Dart part of this file, see the

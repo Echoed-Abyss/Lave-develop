@@ -204,16 +204,29 @@ abstract interface class AppLogSink {
   void log(LogEntry entry);
 
   /// 便捷方法：按级别写入。
-  void info(LogSource source, String message, {String? botId, String? detail});
+  void info(
+    LogSource source,
+    String message, {
+    String? botId,
+    String? pluginId,
+    String? detail,
+  });
 
   /// 便捷方法：写入警告。
-  void warn(LogSource source, String message, {String? botId, String? detail});
+  void warn(
+    LogSource source,
+    String message, {
+    String? botId,
+    String? pluginId,
+    String? detail,
+  });
 
   /// 便捷方法：写入错误。
   void error(
     LogSource source,
     String message, {
     String? botId,
+    String? pluginId,
     String? detail,
     int? officialCode,
     String? traceId,
@@ -230,16 +243,29 @@ class NoopLogSink implements AppLogSink {
   void log(LogEntry entry) {}
 
   @override
-  void info(LogSource source, String message, {String? botId, String? detail}) {}
+  void info(
+    LogSource source,
+    String message, {
+    String? botId,
+    String? pluginId,
+    String? detail,
+  }) {}
 
   @override
-  void warn(LogSource source, String message, {String? botId, String? detail}) {}
+  void warn(
+    LogSource source,
+    String message, {
+    String? botId,
+    String? pluginId,
+    String? detail,
+  }) {}
 
   @override
   void error(
     LogSource source,
     String message, {
     String? botId,
+    String? pluginId,
     String? detail,
     int? officialCode,
     String? traceId,

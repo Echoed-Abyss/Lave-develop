@@ -26,6 +26,15 @@
 	<string>$(FLUTTER_BUILD_NUMBER)</string>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
+	<!-- 图片选择（image_picker）所需的隐私说明。App Store 政策要求：
+	     即使只读取相册也必须声明该 key，否则会被审核拒绝。 -->
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>需要访问相册，用于选择图片并发送给 QQ 用户或群聊。</string>
+	<key>NSCameraUsageDescription</key>
+	<string>需要访问相机，用于拍照并发送给 QQ 用户或群聊。</string>
+	<!-- 关于 ATS：wss:// 本身是 TLS 加密通道，ATS 默认即允许，
+	     因此这里刻意不添加任何 NSAppTransportSecurity 例外。
+	     只有明文 ws:// 才需要例外，而官方网关不使用明文。 -->
 	<key>UIApplicationSceneManifest</key>
 	<dict>
 		<key>UIApplicationSupportsMultipleScenes</key>

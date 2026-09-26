@@ -1,8 +1,24 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- 官方 OpenAPI 与 Gateway WSS 都走 HTTPS / WSS，必须联网权限。
+         注意：Flutter 模板只在 debug / profile 清单里声明了 INTERNET，
+         release 清单默认没有 —— 漏掉会导致打包后所有网络请求直接失败。 -->
+    <uses-permission android:name="android.permission.INTERNET"/>
+    <!-- connectivity_plus 用于监听网络切换后重建长连接。 -->
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE"/>
+    <!-- Android 13+ 前台服务常驻通知需要运行时权限。 -->
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>
+    <!-- 前台服务用于维持 WSS 长连接；Android 14 起必须声明服务类型。 -->
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE"/>
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC"/>
     <application
-        android:label="lavedevelop"
+        android:label="Lave"
         android:name="${applicationName}"
-        android:icon="@mipmap/ic_launcher">
+        android:icon="@mipmap/ic_launcher"
+        android:allowBackup="false"
+        android:fullBackupContent="false">
+        <!-- allowBackup 必须关闭：否则系统云备份还原后
+             flutter_secure_storage 会抛 InvalidKeyException: Failed to unwrap key，
+             用户表现为「凭证突然读不出来」。这是官方插件文档明确列出的坑。 -->
         <activity
             android:name=".MainActivity"
             android:exported="true"
