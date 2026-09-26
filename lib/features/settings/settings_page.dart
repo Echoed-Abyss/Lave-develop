@@ -8,6 +8,7 @@ import '../../app/theme.dart';
 import '../../core/constants/app_config.dart';
 import '../../core/constants/qq_limits.dart';
 import '../../domain/models/log_entry.dart';
+import '../../gateway/protocol/qq_opcode.dart';
 import '../../shared/widgets/glass.dart';
 
 /// 设置 Tab。
@@ -25,7 +26,11 @@ class SettingsPage extends ConsumerWidget {
     final manager = services.plugins;
 
     return ListenableBuilder(
-      listenable: Listenable.merge([services.themeMode, services.plugins]),
+      listenable: Listenable.merge([
+        services.themeMode,
+        services.plugins,
+        services.intentsMask,
+      ]),
       builder: (context, _) => GlassScaffold(
         title: '设置',
         body: ListView(
@@ -105,6 +110,52 @@ class SettingsPage extends ConsumerWidget {
                     '${config.endpointCacheTtl.inMinutes} 分钟'
                         '（官方限制 2 QPM，必须缓存）',
                   ),
+                ],
+              ),
+            ),
+
+            GlassSectionTitle(text: '事件订阅范围（intents）'),
+            GlassPanel(
+              margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+              accent: const Color(0xFFD08A1E),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    '当前掩码：${services.intentsMask.value}',
+                    style: TextStyle(
+                      fontSize: 12.5,
+                      fontWeight: FontWeight.w600,
+                      color: GlassTheme.textPrimary(context),
+                    ),
+                  ),
+                  const SizedBox(height: 6),
+                  Text(
+                    '「单聊与群聊事件」是必需项，已始终订阅。\n'
+                    '官方原文：如果在鉴权时传递了无权限的 intents，websocket 会报错'
+                    '并直接关闭连接 —— 多勾一位就可能让机器人完全收不到消息，'
+                    '因此在开放平台后台申请到权限之前，请保持关闭。',
+                    style: TextStyle(
+                      fontSize: 11.5,
+                      height: 1.65,
+                      color: GlassTheme.textSecondary(context),
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  for (final item in QqOptionalIntent.values)
+                    _IntentToggleRow(
+                      item: item,
+                      enabled: services.selectedOptionalIntents.contains(item),
+                      onChanged: (value) {
+                        final next = {...services.selectedOptionalIntents};
+                        if (value) {
+                          next.add(item);
+                        } else {
+                          next.remove(item);
+                        }
+                        services.setOptionalIntents(next);
+                      },
+                    ),
                 ],
               ),
             ),
@@ -341,4 +392,67 @@ class SettingsPage extends ConsumerWidget {
           ],
         ),
       );
+}
+
+/// 单个可选 intents 的开关行。
+class _IntentToggleRow extends StatelessWidget {
+  const _IntentToggleRow({
+    required this.item,
+    required this.enabled,
+    required this.onChanged,
+  });
+
+  final QqOptionalIntent item;
+  final bool enabled;
+  final ValueChanged<bool> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 2),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  item.officialName,
+                  style: TextStyle(
+                    fontSize: 12.5,
+                    fontWeight: FontWeight.w600,
+                    color: GlassTheme.textPrimary(context),
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  item.description,
+                  style: TextStyle(
+                    fontSize: 11.5,
+                    height: 1.5,
+                    color: GlassTheme.textSecondary(context),
+                  ),
+                ),
+                if (!item.inOfficialList)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 2),
+                    child: Text(
+                      '该位不在官方 intents 清单中，风险最高',
+                      style: TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w600,
+                        color: GlassTheme.levelColor('ERROR', isDark: isDark),
+                      ),
+                    ),
+                  ),
+              ],
+            ),
+          ),
+          Switch(value: enabled, onChanged: onChanged),
+        ],
+      ),
+    );
+  }
 }

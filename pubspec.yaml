@@ -68,6 +68,19 @@ flutter:
   # the material Icons class.
   uses-material-design: true
 
+  # 内置 Python 运行时的资产目录。
+  #
+  # 该目录当前只放说明文件（占位），因此打包体积不受影响。
+  # 把交叉编译好的 CPython 按 ABI 放进来即可让插件在 Android 上真正可用：
+  #   assets/python/arm64-v8a/python3
+  #   assets/python/arm64-v8a/lib/python3.12/…
+  # 详见 README「内置 Python 运行时」。
+  #
+  # 注意：这里必须声明该目录，否则目录不会被编入 assets，
+  # 运行时的释放逻辑（PluginRuntime.rootBundleAssetExtractor）就找不到任何资源。
+  assets:
+    - assets/python/
+
   # To add assets to your application, add an assets section, like this:
   # assets:
   #   - images/a_dot_burr.jpeg

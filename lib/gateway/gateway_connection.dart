@@ -58,12 +58,16 @@ class GatewayConnection {
     required LogService log,
     required AppConfig config,
     GatewaySocketFactory? socketFactory,
+    int Function()? intentsMaskProvider,
+    void Function(int attempted, int degraded)? onIntentsDegraded,
   })  : _gatewayApi = gatewayApi,
         _tokens = tokens,
         _bots = bots,
         _log = log,
         _config = config,
         _socketFactory = socketFactory ?? defaultGatewaySocketFactory,
+        _intentsMaskProvider = intentsMaskProvider ?? (() => QqIntents.defaultMask),
+        _onIntentsDegraded = onIntentsDegraded,
         status = ValueNotifier(
           ConnectionSnapshot.idle(botId, DateTime.now()),
         );
@@ -77,6 +81,21 @@ class GatewayConnection {
   final LogService _log;
   final AppConfig _config;
   final GatewaySocketFactory _socketFactory;
+
+  /// 本次连接要订阅的 intents 掩码来源。
+  ///
+  /// 做成回调而不是构造时取值：用户在设置页改动订阅范围后，
+  /// 下一次 Identify 应当立即用上新值，无需重建连接对象。
+  final int Function() _intentsMaskProvider;
+
+  /// 因权限被拒而降低订阅范围时回调（用于持久化，避免每次重连都再失败一遍）。
+  final void Function(int attempted, int degraded)? _onIntentsDegraded;
+
+  /// 本连接内实际生效的掩码。
+  ///
+  /// 收到官方 4014（intent 无权限）时会在这里被降级，并在本次连接生命周期内保持，
+  /// 避免「连上 → 被拒 → 再连 → 再被拒」的死循环。
+  int? _effectiveIntentsMask;
 
   /// 连接状态（不可变快照，UI 直接监听）。
   final ValueNotifier<ConnectionSnapshot> status;
@@ -359,6 +378,39 @@ class GatewayConnection {
       detail: '判定：${appError.userMessage}',
     );
 
+    // ── 官方 4013 / 4014：intents 无权限，连接会被直接关闭 ──
+    //
+    // 这是最容易把机器人「变成哑巴」的一类错误：官方对 4014 标注「两个都不可重试」，
+    // 但那是指「用同样的 intents 重试无意义」——如果直接进入终态停止重连，
+    // 用户看到的就是「连不上且永远收不到消息」，而实际只需去掉无权限的位即可恢复。
+    // 因此这里先自动降级到必需位重试一次，只有连必需位都被拒才判定为终态。
+    if (code == 4013 || code == 4014) {
+      final attempted = _effectiveIntentsMask ?? _intentsMaskProvider();
+      final degraded = QqIntents.removeOptional(attempted);
+      if (degraded != attempted) {
+        _effectiveIntentsMask = degraded;
+        _log.warn(
+          LogSource.gateway,
+          '事件订阅被拒，已自动降级订阅范围后重试',
+          botId: botId,
+          detail: intentRejectedHint(attempted, degraded),
+        );
+        _onIntentsDegraded?.call(attempted, degraded);
+        return _CloseOutcome.identify;
+      }
+      _log.error(
+        LogSource.gateway,
+        '仅订阅必需事件（单聊与群聊）仍被网关拒绝，'
+        '请确认机器人已开通「单聊/群聊消息」权限',
+        botId: botId,
+        officialCode: code,
+        detail: '官方 4014 表示 intents 无权限。'
+            '基础事件（默认有权限）只有 GUILDS、PUBLIC_GUILD_MESSAGES、GUILD_MEMBERS，'
+            '单聊与群聊事件（1<<25）需要在开放平台后台申请开通。',
+      );
+      return _CloseOutcome.blocked;
+    }
+
     if (appError.isTerminalForBot) return _CloseOutcome.blocked;
     if (appError is ProtocolRejectedError) return _CloseOutcome.blocked;
     if (appError is SessionInvalidError) return _CloseOutcome.identify;
@@ -497,13 +549,14 @@ class GatewayConnection {
       return;
     }
 
+    final mask = _effectiveIntentsMask ?? _intentsMaskProvider();
     _sendFrame({
       'op': QqOpCode.identify.value,
       'd': IdentifyPayload(
         token: token,
-        intents: QqIntents.defaultMask,
+        intents: mask,
         // 官方明确：若无需分片，使用 [0, 1] 即可。
-        // 本项目的 Gradle 侧不需要分片，但要实测确认 [0,1] 是否被接受。
+        // 分片用于多连接水平负载均衡；移动端单机不做分片。
         shard: const [0, 1],
         properties: {
           r'$os': _platformName(),
@@ -514,10 +567,25 @@ class GatewayConnection {
     });
     _log.info(
       LogSource.gateway,
-      '已发送 Identify（intents=${QqIntents.defaultMask}，'
-      '是否含群成员位=${QqIntents.has(QqIntents.defaultMask, QqIntents.groupMemberEvent)}）',
+      '已发送 Identify（intents=$mask）',
       botId: botId,
+      detail: _describeIntents(mask),
     );
+  }
+
+  /// 把掩码翻译成人话，写进日志。
+  ///
+  /// 需要这个的原因：intents 是位运算值，日志里只有数字时无法判断
+  /// 「到底订阅了什么、被拒的可能是哪一位」。
+  static String _describeIntents(int mask) {
+    final buffer = StringBuffer('订阅范围：单聊与群聊事件（1<<25，必需）');
+    for (final item in QqOptionalIntent.values) {
+      if (QqIntents.has(mask, item.bit)) {
+        buffer.write('；${item.officialName}'
+            '${item.inOfficialList ? '' : '（不在官方清单中）'}');
+      }
+    }
+    return buffer.toString();
   }
 
   void _handleDispatch(GatewayFrame frame) {

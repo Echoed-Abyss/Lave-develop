@@ -43,6 +43,8 @@ class ConnectionRegistry extends ChangeNotifier {
     required MediaApi mediaApi,
     required InteractionApi interactionApi,
     GatewaySocketFactory? socketFactory,
+    int Function()? intentsMaskProvider,
+    void Function(int attempted, int degraded)? onIntentsDegraded,
   })  : _log = log,
         _config = config,
         _bots = bots,
@@ -54,6 +56,8 @@ class ConnectionRegistry extends ChangeNotifier {
         _mediaApi = mediaApi,
         _interactionApi = interactionApi,
         _socketFactory = socketFactory,
+        _intentsMaskProvider = intentsMaskProvider,
+        _onIntentsDegraded = onIntentsDegraded,
         // 指令引擎只需要一个日志口，用注册表自己的 LogService 即可。
         commands = CommandEngine(log: log);
 
@@ -68,6 +72,12 @@ class ConnectionRegistry extends ChangeNotifier {
   final MediaApi _mediaApi;
   final InteractionApi _interactionApi;
   final GatewaySocketFactory? _socketFactory;
+
+  /// 订阅掩码来源（用户在设置页可调整可选位）。
+  final int Function()? _intentsMaskProvider;
+
+  /// 订阅范围因权限被拒而降级时的回调（用于持久化，避免每次重连都重复失败）。
+  final void Function(int attempted, int degraded)? _onIntentsDegraded;
 
   /// 是否已释放。
   ///
@@ -110,6 +120,10 @@ class ConnectionRegistry extends ChangeNotifier {
       log: _log,
       config: _config,
       socketFactory: _socketFactory,
+      // 订阅范围由设置页决定；被网关以 4014 拒绝时自动降级并回写设置，
+      // 避免「连上就被关」的死循环。
+      intentsMaskProvider: _intentsMaskProvider,
+      onIntentsDegraded: _onIntentsDegraded,
     );
 
     final dispatcher = EventDispatcher(

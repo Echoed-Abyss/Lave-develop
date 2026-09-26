@@ -31,7 +31,7 @@ QQ 机器人移动客户端。手机端直连腾讯官方 **Gateway WebSocket** 
 ```powershell
 flutter pub get
 flutter analyze            # 静态检查
-flutter test               # 145 项测试
+flutter test               # 150 项测试
 flutter build apk --debug
 flutter build apk --release
 flutter run                # 需已连接设备或模拟器
@@ -74,6 +74,30 @@ java -jar "$bt\lib\apksigner.jar" verify --print-certs `
 ```
 
 ## 构建排障（本机已踩过的坑）
+
+### 机器人连上了却收不到任何消息
+
+**首要怀疑 intents。** 官方原文：
+
+> 如果在鉴权的时候传递了无权限的 `intents`，`websocket` 会报错，并直接关闭连接。
+> 除了 `GUILDS`、`PUBLIC_GUILD_MESSAGES`、`GUILD_MEMBERS` 是基础事件默认有权限之外，
+> 其他的特殊事件都需要经过申请才能够使用。
+
+也就是说**多订阅一位就可能让连接建不起来**，表现为「一直重连、日志里没有任何事件」。
+本项目的处理方式：
+
+- 默认只订阅**必需的一位**（`GROUP_AND_C2C_EVENT`，即单聊与群聊事件），
+  覆盖单聊消息、群 @消息、机器人进出群、好友增删；
+- 其余可选位（`INTERACTION`、`GROUP_MEMBER_EVENT`）在「设置」页逐个开启，
+  其中 `GROUP_MEMBER_EVENT (1<<24)` **不在官方 intents 总表中**，界面会标红提示；
+- 若网关仍以 4014 拒绝，会自动降级到必需位重试一次并回写设置——
+  而不是直接停止重连（停止就等于永远收不到消息）；
+- 若连必需位都被拒，日志会明确提示「请确认机器人已开通单聊/群聊消息权限」。
+
+还有一条容易误判的官方说明：**权限被取消后，当前连接不报错但收不到对应事件，
+重连才会报错**。所以「昨天正常、今天收不到」也应先查权限。
+
+### 其它
 
 以下三条是本机构建失败的真实原因与处理方式，换机器时可能不需要：
 
@@ -129,8 +153,32 @@ android/        Android 原生工程（Kotlin，Gradle KTS）
 | 平台 | 可否运行插件 | 原因 |
 | --- | --- | --- |
 | Windows / macOS / Linux | ✅（需系统装有 Python 3） | 可直接创建子进程 |
-| Android | ⚠️ 需自行打包 Python 运行时 | 系统未内置 `python`；需 Chaquopy 或自编译 CPython |
+| Android | ⚠️ 需放入内置解释器 | 系统未内置 `python`；见下节 |
 | iOS | ❌ | `Process.start` 不支持 iOS，只能改为内嵌解释器方案 |
+
+## 内置 Python 运行时
+
+Android 系统没有 Python，`Process.start('python3')` 在真机上必然失败。因此运行时的
+探测顺序是「**先内置，后系统**」：
+
+1. 应用私有目录里已释放的解释器（`<files>/python/python3`）；
+2. 从 APK 的 assets 释放并 `chmod 755`（assets 位于 APK 内部，
+   没有真实路径也无法设置可执行位，必须先释放出来）；
+3. 系统 PATH 中的 `python3` / `python`（桌面平台走这条）。
+
+三者都不可用时，「插件」页会显示具体原因与处置建议，而不是静默失败。
+
+要让 Android 上真正可用，只需按以下布局把交叉编译好的 CPython 放进 assets：
+
+```
+android/app/src/main/assets/python/arm64-v8a/python3
+android/app/src/main/assets/python/arm64-v8a/lib/python3.12/…
+```
+
+`pubspec.yaml` 中的 `assets: - assets/python/` 已声明，目录已建好并附说明文件，
+**只差把二进制放进去**。产出该二进制需要 Android NDK 交叉编译（Chaquopy 或
+`python-for-android`），涉及大量下载与较长的构建时间，本次未执行；
+详见 [`assets/python/README.md`](assets/python/README.md)。
 
 ## 已知缺口
 
@@ -138,7 +186,8 @@ android/        Android 原生工程（Kotlin，Gradle KTS）
 
 - **后台保活**：Android 前台服务与 iOS BGTask 的原生部分未实现，目前只有 Dart 侧的退避重连。
   `AppConfig.enableForegroundService` 因此保持 `false`。
-- **消息面板**：机器人 Tab 中会话以摘要列表呈现，未做成完整消息气泡列表，图片因此不能在应用内点开预览。
+- **内置 Python 运行时**：运行时的**发现与释放逻辑已实现**（见下节），
+  但 APK 内尚未放入交叉编译好的解释器二进制，因此 Android 上插件目前不可用。
 - **流式消息**：端点已定义，未实现 API 类。
 - **频道（Guild）事件**：未建模，本项目以单聊 / 群聊为核心。
 - **iOS**：见「平台范围」。

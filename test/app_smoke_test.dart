@@ -41,10 +41,21 @@ void main() {
     expect(find.text('当前平台无法运行插件'), findsOneWidget);
     expect(find.text('还没有安装插件'), findsOneWidget);
 
-    // ── 设置 Tab：官方限制速查必须在 ──
+    // ── 设置 Tab ──
     await tester.tap(find.byIcon(Icons.settings_outlined));
     await tester.pumpAndSettle();
     expect(find.text('运行环境'), findsOneWidget);
+
+    // 事件订阅范围必须可见且带风险提示：这是「收不到消息」这个 bug 的用户侧入口，
+    // 默认只订阅必需位，可选位需用户按权限自行开启。
+    expect(find.text('事件订阅范围（intents）'), findsOneWidget);
+    expect(find.textContaining('会报错并直接关闭连接'), findsOneWidget);
+    expect(find.text('GROUP_MEMBER_EVENT'), findsOneWidget);
+    expect(find.text('该位不在官方 intents 清单中，风险最高'), findsOneWidget);
+
+    // 官方限制速查在列表更下方，ListView 懒构建，需要滚动才会被创建。
+    await tester.drag(find.byType(ListView).last, const Offset(0, -700));
+    await tester.pumpAndSettle();
     expect(find.text('官方限制速查'), findsOneWidget);
     // 被动回复窗口这两个数字来自官方文档，出现在界面上说明常量链路是通的。
     expect(

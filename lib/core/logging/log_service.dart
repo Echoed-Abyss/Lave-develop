@@ -63,26 +63,63 @@ class LogService extends ChangeNotifier implements AppLogSink {
     return result;
   }
 
-  /// 错误与警告的条数（用于 Tab 上的小红点）。
+  /// 错误与警告的未读条数（用于 Tab 上的小红点）。
+  ///
+  /// 与 [problemCount] 的区别：后者是「历史累计」，前者会在用户打开日志页后清零。
+  /// 用累计值做红点会导致角标永远挂着数字，用户很快就学会无视它——
+  /// 那样等于没有提示。
+  int get unreadProblems => _unreadProblems;
+  int _unreadProblems = 0;
+
+  /// 用户查看过日志后清零未读计数。
+  void markProblemsRead() {
+    if (_unreadProblems == 0) return;
+    _unreadProblems = 0;
+    notifyListeners();
+  }
+
+  /// 历史累计的错误与警告条数。
   int get problemCount =>
       _entries.where((e) => e.level.atLeast(LogLevel.warn)).length;
 
   @override
   void log(LogEntry entry) {
     if (!entry.level.atLeast(_respectableLevel)) return;
-    _entries.insert(0, entry);
+
+    // 在唯一入口统一脱敏。
+    //
+    // 为什么放在这里而不是要求各调用方自觉：进入结构化日志的内容来源很杂——
+    // 插件的 print、接口返回体摘要、异常栈——任何一处漏了，
+    // 密钥就会明文落到本地 JSON 文件里，并被「复制诊断信息」带出去。
+    final safe = _redact(entry);
+    _entries.insert(0, safe);
     if (_entries.length > maxEntries) {
       final removed = _entries.length - maxEntries;
       _entries.removeRange(maxEntries, _entries.length);
       _dropped += removed;
     }
-    // 控制台同步一份，方便开发期观察；正式环境由 AppConfig 控制量级。
-    if (entry.level.atLeast(LogLevel.warn)) {
-      AppLogger.warn('[${entry.source.label}] ${entry.message}', tag: 'service');
+    if (safe.level.atLeast(LogLevel.warn)) {
+      _unreadProblems++;
+      // 控制台同步一份，方便开发期观察；正式环境由 AppConfig 控制量级。
+      AppLogger.warn('[${safe.source.label}] ${safe.message}', tag: 'service');
     }
     notifyListeners();
     _schedulePersist();
   }
+
+  /// 对一条日志的正文与详情做脱敏，其余字段原样保留。
+  static LogEntry _redact(LogEntry entry) => LogEntry(
+        id: entry.id,
+        level: entry.level,
+        source: entry.source,
+        message: AppLogger.redact(entry.message),
+        at: entry.at,
+        botId: entry.botId,
+        pluginId: entry.pluginId,
+        officialCode: entry.officialCode,
+        traceId: entry.traceId,
+        detail: entry.detail == null ? null : AppLogger.redact(entry.detail!),
+      );
 
   /// 写入的最低门槛。
   ///
@@ -199,6 +236,7 @@ class LogService extends ChangeNotifier implements AppLogSink {
   void clear() {
     _entries.clear();
     _dropped = 0;
+    _unreadProblems = 0;
     notifyListeners();
     _schedulePersist();
   }

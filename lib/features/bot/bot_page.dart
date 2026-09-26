@@ -2,7 +2,6 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:image_picker/image_picker.dart';
 
 import '../../app/app.dart';
 import '../../app/app_services.dart';
@@ -11,6 +10,7 @@ import '../../domain/models/bot_profile.dart';
 import '../../domain/models/connection_status.dart';
 import '../../domain/models/qq_enums.dart';
 import '../../shared/widgets/glass.dart';
+import '../conversation/conversation_page.dart';
 
 /// 机器人 Tab。
 ///
@@ -116,7 +116,6 @@ class _BotCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final connection = services.registry.connectionFor(bot.appId);
     final conversations = services.history.conversationsOf(bot.appId);
-    final history = services.history;
 
     return ValueListenableBuilder<ConnectionSnapshot>(
       valueListenable: connection.status,
@@ -248,25 +247,156 @@ class _BotCard extends StatelessWidget {
                               ),
                             ),
                           ),
+                        // 点开进入完整会话页。消息内容不再挤在折叠卡片里 ——
+                        // 卡片里只有摘要，折叠状态下完全看不到消息，
+                        // 很容易被误判为「机器人收不到消息」。
+                        IconButton(
+                          tooltip: '打开会话',
+                          icon: const Icon(Icons.chevron_right),
+                          onPressed: () => _openConversation(
+                            context,
+                            services,
+                            bot,
+                            conversation.conversationId,
+                            conversation.scopeLabel == '群聊'
+                                ? ConversationScope.group
+                                : ConversationScope.c2c,
+                          ),
+                        ),
                       ],
                     ),
                   ),
                 ),
           const SizedBox(height: 6),
           const Divider(),
-          _Composer(
-            services: services,
-            bot: bot,
-            hintTargets: conversations
-                .map((c) => '${c.scopeLabel}:${c.conversationId}')
-                .toList(growable: false),
-            onToggleActiveMessage: (conversationId, enabled) {
-              history.setActiveMessageEnabled(bot.appId, conversationId, enabled);
-            },
+          GlassSectionTitle(text: '发送消息'),
+          Wrap(
+            spacing: 6,
+            runSpacing: 6,
+            children: [
+              GlassButton(
+                label: '手动指定会话',
+                icon: Icons.edit_location_alt_outlined,
+                dense: true,
+                // 没有会话时（用户尚未发消息）也能主动发起，
+                // 这是自用场景下的常见需求。
+                onPressed: () => _openManualConversation(context, services, bot),
+              ),
+              GlassButton(
+                label: '打开第一个会话',
+                icon: Icons.forum_outlined,
+                dense: true,
+                onPressed: conversations.isEmpty
+                    ? null
+                    : () => _openConversation(
+                          context,
+                          services,
+                          bot,
+                          conversations.first.conversationId,
+                          conversations.first.scopeLabel == '群聊'
+                              ? ConversationScope.group
+                              : ConversationScope.c2c,
+                        ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 4),
+          Text(
+            '被动回复不受频控限制但需在窗口内（群聊 5 分钟 / 单聊 60 分钟）；'
+            '主动消息受独立频控（单关系 20 条/分钟，每日 1000 条）。',
+            style: TextStyle(
+              fontSize: 11,
+              height: 1.5,
+              color: GlassTheme.textSecondary(context),
+            ),
           ),
         ],
       ),
     );
+  }
+
+  /// 打开会话详情页。
+  void _openConversation(
+    BuildContext context,
+    AppServices services,
+    BotProfile bot,
+    String conversationId,
+    ConversationScope scope,
+  ) {
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => ConversationPage(
+          botId: bot.appId,
+          conversationId: conversationId,
+          scope: scope,
+        ),
+      ),
+    );
+  }
+
+  /// 手动输入会话标识后打开会话详情页。
+  Future<void> _openManualConversation(
+    BuildContext context,
+    AppServices services,
+    BotProfile bot,
+  ) async {
+    final controller = TextEditingController();
+    var scope = ConversationScope.c2c;
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => StatefulBuilder(
+        builder: (dialogContext, setDialogState) => AlertDialog(
+          title: const Text('指定会话'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  GlassChip(
+                    label: '单聊',
+                    selected: scope == ConversationScope.c2c,
+                    onTap: () =>
+                        setDialogState(() => scope = ConversationScope.c2c),
+                  ),
+                  GlassChip(
+                    label: '群聊',
+                    selected: scope == ConversationScope.group,
+                    onTap: () =>
+                        setDialogState(() => scope = ConversationScope.group),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 8),
+              TextField(
+                controller: controller,
+                decoration: InputDecoration(
+                  labelText:
+                      scope == ConversationScope.c2c ? 'user_openid' : 'group_openid',
+                  helperText: '官方要求按场景使用对应 openid，两者不能互换',
+                ),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(dialogContext, false),
+              child: const Text('取消'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.pop(dialogContext, true),
+              child: const Text('打开'),
+            ),
+          ],
+        ),
+      ),
+    );
+
+    final id = controller.text.trim();
+    controller.dispose();
+    if (confirmed != true || id.isEmpty || !context.mounted) return;
+    _openConversation(context, services, bot, id, scope);
   }
 
   Future<void> _toggle(BuildContext context, bool value) async {
@@ -371,194 +501,6 @@ class _InfoRow extends StatelessWidget {
         ],
       ),
     );
-  }
-}
-
-/// 消息发送面板。
-class _Composer extends StatefulWidget {
-  const _Composer({
-    required this.services,
-    required this.bot,
-    required this.hintTargets,
-    required this.onToggleActiveMessage,
-  });
-
-  final AppServices services;
-  final BotProfile bot;
-  final List<String> hintTargets;
-  final void Function(String conversationId, bool enabled) onToggleActiveMessage;
-
-  @override
-  State<_Composer> createState() => _ComposerState();
-}
-
-class _ComposerState extends State<_Composer> {
-  final TextEditingController _target = TextEditingController();
-  final TextEditingController _text = TextEditingController();
-  ConversationScope _scope = ConversationScope.c2c;
-  bool _sending = false;
-
-  @override
-  void dispose() {
-    _target.dispose();
-    _text.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        GlassSectionTitle(text: '发送消息'),
-        Row(
-          children: [
-            GlassChip(
-              label: '单聊',
-              selected: _scope == ConversationScope.c2c,
-              onTap: () => setState(() => _scope = ConversationScope.c2c),
-            ),
-            GlassChip(
-              label: '群聊',
-              selected: _scope == ConversationScope.group,
-              onTap: () => setState(() => _scope = ConversationScope.group),
-            ),
-          ],
-        ),
-        GlassTextField(
-          controller: _target,
-          label: _scope == ConversationScope.c2c ? 'user_openid' : 'group_openid',
-          // 提示里只给 openid 本身，不带「单聊:」这类前缀 ——
-          // 这个输入框要填的是能被接口直接使用的标识。
-          hint: widget.hintTargets.isEmpty
-              ? '从上方会话列表复制，或等用户先发一条消息'
-              : '例如 ${widget.hintTargets.first.split(':').last}',
-          helper: '官方要求按场景使用对应的 openid，两者不能互换。',
-        ),
-        GlassTextField(
-          controller: _text,
-          label: '消息内容',
-          hint: '输入要发送的文本',
-          maxLines: 3,
-        ),
-        Padding(
-          padding: const EdgeInsets.symmetric(vertical: 4),
-          child: Text(
-            '注意：手动发送属于**主动消息**，受官方独立频控约束'
-            '（单聊 20 条/分钟/用户、群聊 20 条/分钟/群，每日每关系 1000 条）。'
-            '被动回复不受此限制，但需在窗口内（群 5 分钟 / 单聊 60 分钟）。',
-            style: TextStyle(
-              fontSize: 11.5,
-              height: 1.6,
-              color: GlassTheme.textSecondary(context),
-            ),
-          ),
-        ),
-        Wrap(
-          spacing: 6,
-          runSpacing: 6,
-          children: [
-            GlassButton(
-              label: _sending ? '发送中…' : '发送文本',
-              icon: Icons.send,
-              dense: true,
-              onPressed: _sending ? null : () => _send(activeOnly: true),
-            ),
-            GlassButton(
-              label: '发送图片',
-              icon: Icons.image_outlined,
-              dense: true,
-              onPressed: _sending ? null : _pickAndSendImage,
-            ),
-            GlassButton(
-              label: '填入最后一条消息',
-              icon: Icons.paste,
-              dense: true,
-              onPressed: _fillLastConversation,
-            ),
-          ],
-        ),
-        if (isDark) const SizedBox(height: 2),
-      ],
-    );
-  }
-
-  void _fillLastConversation() {
-    final conversations = widget.services.history.conversationsOf(widget.bot.appId);
-    if (conversations.isEmpty) return;
-    setState(() {
-      _target.text = conversations.first.conversationId;
-      _scope = conversations.first.scopeLabel == '群聊'
-          ? ConversationScope.group
-          : ConversationScope.c2c;
-    });
-  }
-
-  Future<void> _send({required bool activeOnly}) async {
-    final sender = widget.services.registry.senderFor(widget.bot.appId);
-    if (sender == null) return;
-    final target = _target.text.trim();
-    final text = _text.text.trim();
-    if (target.isEmpty || text.isEmpty) {
-      _toast('请先填写会话标识与消息内容');
-      return;
-    }
-
-    setState(() => _sending = true);
-    // 手动发送走主动消息：没有 msg_id / event_id 可绑定，
-    // 因此不可能走被动回复通道。
-    final response = await sender.sendText(
-      conversationId: target,
-      scope: _scope,
-      text: text,
-      passive: !activeOnly,
-    );
-    if (!mounted) return;
-    setState(() => _sending = false);
-
-    if (response.isSuccess) {
-      _text.clear();
-      _toast('已发送');
-    } else {
-      final error = response.failure!;
-      _toast(error.userMessage);
-    }
-  }
-
-  Future<void> _pickAndSendImage() async {
-    final sender = widget.services.registry.senderFor(widget.bot.appId);
-    if (sender == null) return;
-    final target = _target.text.trim();
-    if (target.isEmpty) {
-      _toast('请先填写会话标识');
-      return;
-    }
-
-    final XFile? picked = await ImagePicker().pickImage(
-      source: ImageSource.gallery,
-      // 官方图片软限制 20MB；这里先压到 1600px 宽，显著降低上传失败率与流量。
-      maxWidth: 1600,
-      imageQuality: 88,
-    );
-    if (picked == null) return;
-
-    setState(() => _sending = true);
-    final response = await sender.sendImage(
-      conversationId: target,
-      scope: _scope,
-      filePath: picked.path,
-      passive: false,
-    );
-    if (!mounted) return;
-    setState(() => _sending = false);
-    _toast(response.isSuccess ? '图片已发送' : response.failure!.userMessage);
-  }
-
-  void _toast(String message) {
-    if (!mounted) return;
-    ScaffoldMessenger.of(context)
-        .showSnackBar(SnackBar(content: Text(message)));
   }
 }
 

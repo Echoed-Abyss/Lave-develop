@@ -71,7 +71,13 @@ class _HomeShellState extends ConsumerState<HomeShell> {
         ),
         child: NavigationBar(
           selectedIndex: _index,
-          onDestinationSelected: (value) => setState(() => _index = value),
+          onDestinationSelected: (value) {
+            setState(() => _index = value);
+            // 切到日志页即视为「已读」，清掉角标。
+            if (homeTabs[value].label == '日志') {
+              ref.read(appServicesProvider).log.markProblemsRead();
+            }
+          },
           destinations: [
             for (final tab in homeTabs)
               NavigationDestination(
@@ -79,9 +85,8 @@ class _HomeShellState extends ConsumerState<HomeShell> {
                   icon: tab.icon,
                   // 日志 Tab 有未读错误时打一个小红点：
                   // 连接失败这类问题如果只写在日志里，用户永远不知道去看。
-                  badge: tab.label == '日志'
-                      ? services.log.problemCount
-                      : 0,
+                  // 用「未读」而非「累计」计数，否则角标会一直挂着，反而被无视。
+                  badge: tab.label == '日志' ? services.log.unreadProblems : 0,
                 ),
                 selectedIcon: Icon(tab.selectedIcon),
                 label: tab.label,

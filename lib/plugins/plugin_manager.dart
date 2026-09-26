@@ -192,14 +192,12 @@ class PluginManager extends ChangeNotifier {
     final process = await _runtime!.startProcess(
       manifest: descriptor.manifest,
       directory: pluginDir,
-      onStderr: (line) => _log.log(
-        LogEntry(
-          level: LogLevel.warn,
-          source: LogSource.plugin,
-          message: line,
-          at: DateTime.now(),
-          pluginId: pluginId,
-        ),
+      // 只处理「流级异常」（例如管道读取失败）。
+      // 插件 stderr 的每一行会通过 logLines 进来，不在这里重复记一次。
+      onDiagnostic: (line) => _log.warn(
+        LogSource.plugin,
+        '插件进程诊断：$line',
+        pluginId: pluginId,
       ),
     );
 

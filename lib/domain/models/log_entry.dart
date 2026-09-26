@@ -272,9 +272,9 @@ class NoopLogSink implements AppLogSink {
   }) {}
 }
 
-/// 日志工厂：把「构造 [LogEntry] 时容易漏字段」这件事收敛到一处。
+/// 便于构造日志的辅助方法。
 extension AppLogSinkX on AppLogSink {
-  /// 构造并写入一条日志。
+  /// 构造并写入一条日志，返回该条目（便于测试断言）。
   LogEntry emit({
     required LogLevel level,
     required LogSource source,

@@ -138,19 +138,28 @@ void main() {
   });
 
   group('QqIntents 掩码', () {
-    test('默认掩码包含单聊/群聊、互动、群成员三类事件', () {
+    test('默认掩码只含必需位：单聊与群聊事件', () {
       expect(
         QqIntents.has(QqIntents.defaultMask, QqIntents.groupAndC2cEvent),
         isTrue,
       );
-      expect(QqIntents.has(QqIntents.defaultMask, QqIntents.interaction), isTrue);
-      expect(
-        QqIntents.has(QqIntents.defaultMask, QqIntents.groupMemberEvent),
-        isTrue,
-      );
+      expect(QqIntents.defaultMask, QqIntents.minimal);
     });
 
-    test('默认掩码不包含未申请权限的位（多放会被网关直接关连接）', () {
+    test('默认掩码不含任何需要申请权限的可选位', () {
+      // 这是本项目的关键修复点。官方原文：传递了无权限的 intents，
+      // websocket 会报错并直接关闭连接 —— 一旦默认带上可选位，
+      // 没有权限的机器人会「连上就被关」，表现就是完全收不到消息。
+      for (final item in QqOptionalIntent.values) {
+        expect(
+          QqIntents.has(QqIntents.defaultMask, item.bit),
+          isFalse,
+          reason: '${item.officialName} 不应出现在默认掩码里',
+        );
+      }
+    });
+
+    test('默认掩码不含频道类事件（本项目不处理频道）', () {
       expect(QqIntents.has(QqIntents.defaultMask, QqIntents.guilds), isFalse);
       expect(
         QqIntents.has(QqIntents.defaultMask, QqIntents.guildMessages),
@@ -163,28 +172,56 @@ void main() {
       );
     });
 
-    test('降级掩码去掉归属存疑的群成员位', () {
-      expect(
-        QqIntents.has(
-          QqIntents.defaultMaskWithoutGroupMembers,
-          QqIntents.groupMemberEvent,
-        ),
-        isFalse,
+    test('maskWith 在必需位之上叠加用户勾选的可选位', () {
+      final mask = QqIntents.maskWith(const {QqOptionalIntent.interaction});
+
+      expect(QqIntents.has(mask, QqIntents.groupAndC2cEvent), isTrue);
+      expect(QqIntents.has(mask, QqIntents.interaction), isTrue);
+      expect(QqIntents.has(mask, QqIntents.groupMemberEvent), isFalse);
+    });
+
+    test('removeOptional 能降级掉全部可选位，且保留必需位', () {
+      final full = QqIntents.maskWith(QqOptionalIntent.values);
+      expect(full, isNot(QqIntents.minimal));
+
+      final degraded = QqIntents.removeOptional(full);
+
+      expect(degraded, QqIntents.minimal);
+      expect(QqIntents.has(degraded, QqIntents.groupAndC2cEvent), isTrue);
+      for (final item in QqOptionalIntent.values) {
+        expect(QqIntents.has(degraded, item.bit), isFalse);
+      }
+    });
+
+    test('extrasOf 与 maskWith 往返一致', () {
+      const selected = {
+        QqOptionalIntent.interaction,
+        QqOptionalIntent.groupMemberEvent,
+      };
+
+      final mask = QqIntents.maskWith(selected);
+
+      expect(QqIntents.extrasOf(mask), selected);
+    });
+
+    test('可选位的官方清单标注必须准确（界面据此提示风险）', () {
+      expect(QqOptionalIntent.interaction.inOfficialList, isTrue);
+      // 1<<24 从未出现在官方 intents 总表中，必须标为「不在清单中」，
+      // 否则界面会给出错误的安全暗示。
+      expect(QqOptionalIntent.groupMemberEvent.inOfficialList, isFalse);
+      expect(QqOptionalIntent.groupMemberEvent.officialName, 'GROUP_MEMBER_EVENT');
+      expect(QqOptionalIntent.groupMemberEvent.bit, 1 << 24);
+    });
+
+    test('4014 提示会点名被移除的位', () {
+      final hint = intentRejectedHint(
+        QqIntents.maskWith(QqOptionalIntent.values),
+        QqIntents.minimal,
       );
-      expect(
-        QqIntents.has(
-          QqIntents.defaultMaskWithoutGroupMembers,
-          QqIntents.groupAndC2cEvent,
-        ),
-        isTrue,
-      );
-      expect(
-        QqIntents.has(
-          QqIntents.defaultMaskWithoutGroupMembers,
-          QqIntents.interaction,
-        ),
-        isTrue,
-      );
+
+      expect(hint, contains('INTERACTION'));
+      expect(hint, contains('GROUP_MEMBER_EVENT'));
+      expect(hint, contains('不在官方 intents 清单中'));
     });
 
     test('位值按官方位移表达式计算', () {

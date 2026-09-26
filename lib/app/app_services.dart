@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 import '../api/interaction_api.dart';
@@ -15,6 +17,7 @@ import '../data/repository/history_repository.dart';
 import '../domain/models/log_entry.dart';
 import '../gateway/connection_registry.dart';
 import '../gateway/gateway_api.dart';
+import '../gateway/protocol/qq_opcode.dart';
 import '../plugins/plugin_manager.dart';
 
 /// 应用服务装配。
@@ -63,6 +66,12 @@ class AppServices {
       messageApi: messageApi,
       mediaApi: mediaApi,
       interactionApi: interactionApi,
+      intentsMaskProvider: () => intentsMask.value,
+      onIntentsDegraded: (attempted, degraded) {
+        // 被网关以 4014 拒绝后把降级结果固化下来：
+        // 只在内存里降级的话，下次冷启动又用回原掩码，会再失败一遍。
+        unawaited(setIntentsMask(degraded, notifyDegraded: true));
+      },
     );
   }
 
@@ -112,6 +121,19 @@ class AppServices {
   final ValueNotifier<ThemeMode> themeMode =
       ValueNotifier<ThemeMode>(ThemeMode.system);
 
+  /// 当前生效的事件订阅掩码。
+  ///
+  /// 默认只含必需位（单聊与群聊事件）。**这不是保守，而是必须**：
+  /// 官方明确「传递了无权限的 intents，websocket 会报错并直接关闭连接」，
+  /// 而基础事件之外都需要申请权限。可选位由用户在设置页确认后再打开，
+  /// 并在被网关拒绝时自动降级。
+  final ValueNotifier<int> intentsMask =
+      ValueNotifier<int>(QqIntents.defaultMask);
+
+  /// 用户勾选的可选订阅位（与 [intentsMask] 双向对应）。
+  Set<QqOptionalIntent> selectedOptionalIntents =
+      QqIntents.extrasOf(QqIntents.defaultMask);
+
   /// 是否已完成初始化。
   bool get isInitialized => _initialized;
   bool _initialized = false;
@@ -157,14 +179,48 @@ class AppServices {
     await store.write(doc);
   }
 
+  /// 修改事件订阅范围并持久化。
+  ///
+  /// [notifyDegraded] 为 `true` 时表示这次修改来自「网关拒绝后的自动降级」，
+  /// 会额外写一条日志让用户知道订阅范围被收窄了——静默改变行为比报错更糟。
+  Future<void> setIntentsMask(int mask, {bool notifyDegraded = false}) async {
+    intentsMask.value = mask;
+    selectedOptionalIntents = QqIntents.extrasOf(mask);
+
+    final doc = await store.read();
+    doc['intents_mask'] = mask;
+    await store.write(doc);
+
+    if (notifyDegraded) {
+      log.warn(
+        LogSource.gateway,
+        '事件订阅范围已自动收窄至 recv=$mask，请到设置页确认',
+        detail: '原因：网关以 4014（intent 无权限）拒绝了上一次订阅。'
+            '如需恢复完整能力，请先在开放平台后台申请对应权限，'
+            '再回到设置页重新勾选。',
+      );
+    }
+  }
+
+  /// 按用户勾选的可选位重建掩码。
+  Future<void> setOptionalIntents(Set<QqOptionalIntent> extras) =>
+      setIntentsMask(QqIntents.maskWith(extras));
+
   Future<void> _restoreTheme() async {
     final doc = await store.read();
     final name = doc['theme_mode']?.toString();
     for (final mode in ThemeMode.values) {
       if (mode.name == name) {
         themeMode.value = mode;
-        return;
+        break;
       }
+    }
+    final savedMask = doc['intents_mask'];
+    if (savedMask is num) {
+      // 安全兜底：读回来的掩码必须至少包含必需位，否则会「连上但什么都收不到」。
+      final mask = savedMask.toInt() | QqIntents.minimal;
+      intentsMask.value = mask;
+      selectedOptionalIntents = QqIntents.extrasOf(mask);
     }
   }
 

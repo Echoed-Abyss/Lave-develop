@@ -225,6 +225,90 @@ class QqWsCloseInfo {
       };
 }
 
+/// 可选的 intents 增量位。
+///
+/// **这是本项目最需要谨慎处理的一处**：官方原文明确
+/// 「如果在鉴权的时候传递了无权限的 `intents`，`websocket` 会报错，
+/// 并直接关闭连接」。而官方基础事件（默认有权限）只有
+/// `GUILDS`、`PUBLIC_GUILD_MESSAGES`、`GUILD_MEMBERS` 三位，
+/// 其余都需要经过申请。
+///
+/// 也就是说：**多传一位就可能让连接根本建不起来**，症状是
+/// 「一直重连、日志里看不到任何事件」——很容易被误判成网络问题。
+///
+/// 因此这里把每个可选的位移单独建模，并标注它是否出现在官方 intents 清单里，
+/// 由用户在界面上逐个确认后再打开，而不是一次性全塞进默认掩码。
+enum QqOptionalIntent {
+  /// 互动事件（消息按钮、快捷菜单、授权、反馈）。官方清单中有此位。
+  ///
+  /// 覆盖事件：`INTERACTION_CREATE`。
+  interaction(
+    QqIntents.interaction,
+    'INTERACTION',
+    '互动事件（消息按钮、快捷菜单、授权）',
+    inOfficialList: true,
+  ),
+
+  /// 群成员变动（加群、退群、加群申请）。
+  ///
+  /// **该位不在官方 intents 清单中**：它只出现在若干群成员事件页的
+  /// 「Intent」字段说明里，官方总表从未列出 `1 << 24`。
+  /// 属于「官方文档内部不一致」项，因此默认关闭，并提示用户风险。
+  groupMemberEvent(
+    QqIntents.groupMemberEvent,
+    'GROUP_MEMBER_EVENT',
+    '群成员变动（加群 / 退群 / 加群申请）',
+    inOfficialList: false,
+  );
+
+  const QqOptionalIntent(
+    this.bit,
+    this.officialName,
+    this.description, {
+    required this.inOfficialList,
+  });
+
+  /// 位移值。
+  final int bit;
+
+  /// 官方名称（官方总表或事件页中使用的写法）。
+  final String officialName;
+
+  /// 中文说明。
+  final String description;
+
+  /// 是否出现在官方 intents 清单里。
+  ///
+  /// `false` 表示官方总表没有列出该位，开启后有可能被网关判定为
+  /// 「无权限的 intents」而直接关闭连接——必须在界面上提示这一点。
+  final bool inOfficialList;
+
+  /// 解析。
+  static QqOptionalIntent? fromName(String? name) {
+    for (final item in values) {
+      if (item.name == name) return item;
+    }
+    return null;
+  }
+}
+
+/// 官方 error code 4014 的提示构造器（供界面直接展示该怎么做）。
+String intentRejectedHint(int attemptedMask, int fallbackMask) {
+  final removed = attemptedMask & ~fallbackMask;
+  final buffer = StringBuffer()
+    ..writeln('网关拒绝了本次事件订阅（官方 4014：intent 无权限），已自动降级重试。')
+    ..writeln('被移除的位：$removed');
+  for (final item in QqOptionalIntent.values) {
+    if ((removed & item.bit) != 0) {
+      buffer.writeln(
+        '  · ${item.officialName}（${item.description}）'
+        '${item.inOfficialList ? '' : ' ← 该位不在官方 intents 清单中，风险最高'}',
+      );
+    }
+  }
+  buffer.write('若需要这些能力，请到 QQ 开放平台后台申请对应权限后再开启。');
+  return buffer.toString();
+}
 /// 官方 intents 位定义。
 ///
 /// **全部按官方给出的位移表达式书写**，刻意不写换算后的十进制常量：
@@ -252,9 +336,12 @@ abstract final class QqIntents {
 
   /// 群成员事件：GROUP_MEMBER_ADD / GROUP_MEMBER_REMOVE / GROUP_JOIN_REQUEST。
   ///
-  /// **注意官方文档内部不一致**：该位未出现在官方 intents 清单里，
-  /// 只出现在各群成员事件页的 Intent 字段中。因此属于「需真机实测确认」项，
-  /// 若鉴权时收到 4014（intent 无权限）应降级为 [defaultMaskWithoutGroupMembers]。
+  /// **该位不在官方 intents 清单中**（官方总表只列到
+  /// `GROUP_AND_C2C_EVENT (1<<25)`、`INTERACTION (1<<26)` 等，
+  /// 从未出现 `1 << 24`）；它只出现在若干群成员事件页的「Intent」字段说明里。
+  ///
+  /// 由于官方明确「传递了无权限的 intents 会报错并直接关闭连接」，
+  /// 这个位**默认关闭**，由用户在设置页显式开启。见 [QqOptionalIntent]。
   static const int groupMemberEvent = 1 << 24;
 
   /// 单聊与群聊事件（本项目核心）：C2C_MESSAGE_CREATE、GROUP_AT_MESSAGE_CREATE、
@@ -277,16 +364,55 @@ abstract final class QqIntents {
   /// 频道公域消息事件：AT_MESSAGE_CREATE / PUBLIC_MESSAGE_DELETE。基础事件，默认有权限。
   static const int publicGuildMessages = 1 << 30;
 
-  /// 本项目默认订阅掩码：单聊 + 群聊 + 互动 + 群成员。
+  /// 本项目必需的最小订阅掩码：**只有一位**。
   ///
-  /// 只放本项目真正要用到的位。官方明确警告「请开发者注意订阅事件的范围需要控制在
-  /// 自己所需要的范围之内」——多放的位一旦无权限，连接会被直接关闭。
-  static const int defaultMask =
-      groupAndC2cEvent | interaction | groupMemberEvent;
+  /// 这一位覆盖本项目全部核心能力：单聊消息、群 @消息、机器人进出群、
+  /// 好友增删、主动消息开关变更。
+  static const int minimal = groupAndC2cEvent;
 
-  /// 降级掩码：去掉归属存疑的 [groupMemberEvent]，用于 4014 后的自动降级重连。
-  static const int defaultMaskWithoutGroupMembers =
-      groupAndC2cEvent | interaction;
+  /// 默认订阅掩码 ＝ [minimal]。
+  ///
+  /// **刻意只含一位，这是本项目的一处关键修复。**
+  /// 官方原文：「如果在鉴权的时候传递了无权限的 `intents`，`websocket` 会报错，
+  /// 并直接关闭连接」，且「除了 GUILDS、PUBLIC_GUILD_MESSAGES、GUILD_MEMBERS
+  /// 是基础事件默认有权限之外，其他的特殊事件都需要经过申请」。
+  ///
+  /// 早期版本把 `interaction` 与归属存疑的 `groupMemberEvent` 一并塞进默认掩码，
+  /// 后果是 Identify 被拒、连接被立即关闭、客户端反复重连，
+  /// **表现就是「连上了但永远收不到任何消息」**——而且日志里看不到事件，
+  /// 极易被误判为网络问题。现在默认只发必需位，其余由用户按权限自行开启。
+  static const int defaultMask = minimal;
+
+  /// 降级掩码：去掉全部可选位，退回 [minimal]。
+  ///
+  /// 用于收到官方 4014（intent 无权限）时的自动降级重连。
+  static const int degraded = minimal;
+
+  /// 依据用户勾选的可选位构造掩码。
+  static int maskWith(Iterable<QqOptionalIntent> extras) {
+    var mask = minimal;
+    for (final extra in extras) {
+      mask |= extra.bit;
+    }
+    return mask;
+  }
+
+  /// 把掩码拆回可选位集合（用于界面回显与降级时判断去掉了哪些位）。
+  static Set<QqOptionalIntent> extrasOf(int mask) {
+    final result = <QqOptionalIntent>{};
+    for (final item in QqOptionalIntent.values) {
+      if (has(mask, item.bit)) result.add(item);
+    }
+    return result;
+  }
+
+  /// 去掉全部可选位，得到降级掩码。
+  static int removeOptional(int mask) {
+    for (final item in QqOptionalIntent.values) {
+      mask &= ~item.bit;
+    }
+    return mask;
+  }
 
   /// 判断某个掩码是否包含指定位。
   static bool has(int mask, int bit) => (mask & bit) == bit;
