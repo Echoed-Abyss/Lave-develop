@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 
 import '../api/bot_message_service.dart';
+import '../api/interaction_api.dart';
 import '../api/media_api.dart';
 import '../api/message_api.dart';
 import '../api/token_api.dart';
@@ -40,6 +41,7 @@ class ConnectionRegistry extends ChangeNotifier {
     required GatewayApi gatewayApi,
     required MessageApi messageApi,
     required MediaApi mediaApi,
+    required InteractionApi interactionApi,
     GatewaySocketFactory? socketFactory,
   })  : _log = log,
         _config = config,
@@ -50,6 +52,7 @@ class ConnectionRegistry extends ChangeNotifier {
         _gatewayApi = gatewayApi,
         _messageApi = messageApi,
         _mediaApi = mediaApi,
+        _interactionApi = interactionApi,
         _socketFactory = socketFactory,
         // 指令引擎只需要一个日志口，用注册表自己的 LogService 即可。
         commands = CommandEngine(log: log);
@@ -63,7 +66,15 @@ class ConnectionRegistry extends ChangeNotifier {
   final GatewayApi _gatewayApi;
   final MessageApi _messageApi;
   final MediaApi _mediaApi;
+  final InteractionApi _interactionApi;
   final GatewaySocketFactory? _socketFactory;
+
+  /// 是否已释放。
+  ///
+  /// 存在的理由：每个连接的状态变更都会回调 `notifyListeners()`，
+  /// 而这些回调在 `dispose()` 之后仍可能被触发（例如断网时正在退避的连接
+  /// 又发生一次状态迁移），那时再通知会抛异常。
+  bool _disposed = false;
 
   final Map<String, GatewayConnection> _connections = {};
   final Map<String, EventDispatcher> _dispatchers = {};
@@ -108,6 +119,8 @@ class ConnectionRegistry extends ChangeNotifier {
       sender: sender,
       commands: commands,
       plugins: _plugins,
+      // 互动事件必须在收到后立刻回应（官方要求），否则客户端会一直 loading。
+      interactionApi: _interactionApi,
       // 官方要求「处理过事件之后记录下 s」，因此水位推进放在分发层内部、
       // 在落库完成之后调用。
       acknowledgeSeq: connection.acknowledgeSeq,
@@ -120,7 +133,7 @@ class ConnectionRegistry extends ChangeNotifier {
     _dispatchers[botId] = dispatcher;
 
     // 通知监听者（界面上的连接状态徽标依赖它）。
-    connection.status.addListener(notifyListeners);
+    connection.status.addListener(_onConnectionStatusChanged);
 
     // 让插件能代发消息（按 botId 路由，避免跨机器人错发）。
     _plugins.bindSender(botId, sender);
@@ -198,8 +211,15 @@ class ConnectionRegistry extends ChangeNotifier {
       )
       .toList(growable: false);
 
+  /// 连接状态变化时转发给界面。
+  void _onConnectionStatusChanged() {
+    if (_disposed) return;
+    notifyListeners();
+  }
+
   @override
   void dispose() {
+    _disposed = true;
     for (final connection in _connections.values) {
       unawaited(connection.dispose());
     }

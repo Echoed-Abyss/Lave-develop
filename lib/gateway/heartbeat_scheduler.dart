@@ -1,7 +1,5 @@
 import 'dart:async';
 
-import 'package:flutter/foundation.dart';
-
 /// 心跳调度器。
 ///
 /// 官方机制（知识库 3.6 节）：
@@ -90,12 +88,4 @@ class HeartbeatScheduler {
     _awaitingAck = true;
     onSend(_lastSeq);
   }
-}
-
-/// 便于测试断言：把 05:03 这样的时间格式化。
-@visibleForTesting
-String formatClock(DateTime time) {
-  final local = time.toLocal();
-  String two(int v) => v.toString().padLeft(2, '0');
-  return '${two(local.hour)}:${two(local.minute)}:${two(local.second)}';
 }

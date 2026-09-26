@@ -6,7 +6,6 @@ import 'package:flutter/foundation.dart';
 
 import '../api/token_api.dart';
 import '../core/constants/app_config.dart';
-import '../core/constants/qq_limits.dart';
 import '../core/error/app_error.dart';
 import '../core/error/error_mapper.dart';
 import '../core/logging/app_logger.dart';
@@ -307,7 +306,22 @@ class GatewayConnection {
   }
 
   void _completeClose(_CloseOutcome outcome) {
+    // 先取出 completer 再清空字段：顺序反了会导致 future 永不完成，
+    // 表现为「断开后不再重连」且没有任何日志。
     final completer = _closeCompleter;
+    _closeCompleter = null;
+
+    // 清理本次连接尝试遗留的定时器与心跳。
+    //
+    // 必须在「一次连接尝试结束」时统一清理，而不是只在 stop() 里清理：
+    // 断线重连时 stop() 不会被调用，遗留的握手超时定时器会在下一轮连接
+    // 建立后突然触发并把它关掉，表现为「刚连上就被断开」且找不到原因；
+    // 遗留的心跳则会对着已关闭的 socket 持续空转。
+    _handshakeTimer?.cancel();
+    _handshakeTimer = null;
+    _heartbeat?.stop();
+    _heartbeat = null;
+
     if (completer != null && !completer.isCompleted) {
       completer.complete(outcome);
     }
@@ -632,11 +646,3 @@ class GatewayConnection {
   static String _tail(String value) =>
       value.length <= 6 ? value : value.substring(value.length - 6);
 }
-
-/// 官方分片建议值的展示助手（本项目不分片，仅用于日志与界面说明）。
-String describeShardPolicy() =>
-    '不使用分片（官方明确：若无需分片，使用 [0, 1] 即可）'
-    '；分片用于多连接水平扩展，移动端单机无收益。'
-    '官方错误码 4011 提示「连接需要处理的 guild 过多，请进行合理的分片」。'
-    '被动回复窗口：单聊 ${QqLimits.c2cReplyWindow.inMinutes} 分钟 / '
-    '群聊 ${QqLimits.groupReplyWindow.inMinutes} 分钟。';

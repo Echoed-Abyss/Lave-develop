@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 
 import '../../domain/models/bot_event.dart';
+import '../../domain/models/qq_enums.dart';
 import '../../domain/models/qq_message.dart';
 
 /// 会话（单聊 / 群聊）摘要。
@@ -165,20 +166,76 @@ class HistoryRepository extends ChangeNotifier {
     _schedulePersist();
   }
 
-  /// 从本地载入。
+  /// 从本地载入历史。
+  ///
+  /// 说明：只恢复「展示所需的最小字段」（时间、方向、正文、官方消息 id），
+  /// 不恢复附件 —— 官方附件 URL 带签名且会过期，存下来也只会得到一堆
+  /// 失效图片，反而让用户以为「消息坏了」。
   Future<void> restore() async {
     try {
-      final messageItems = await _store.readList('messages');
-      for (final item in messageItems) {
-        // 消息恢复只需要展示所需的最小字段，附件等不落盘以控制体积。
+      for (final item in await _store.readList('messages')) {
         final botId = item['bot_id'] as String?;
         final conversationId = item['conversation_id'] as String?;
         if (botId == null || conversationId == null) continue;
-        final key = _key(botId, conversationId);
-        _messages.putIfAbsent(key, () => <QqMessage>[]);
+
+        final direction = item['direction'] == MessageDirection.outgoing.name
+            ? MessageDirection.outgoing
+            : MessageDirection.incoming;
+        final list = _messages.putIfAbsent(
+          _key(botId, conversationId),
+          () => <QqMessage>[],
+        );
+        list.add(
+          QqMessage(
+            localId: nextLocalId(),
+            botId: botId,
+            scope: ConversationScope.values.firstWhere(
+              (e) => e.value == item['scope'],
+              orElse: () => ConversationScope.c2c,
+            ),
+            conversationId: conversationId,
+            // 历史消息的发送者信息不落盘（涉及隐私且体积大），
+            // 恢复时只保留能够标识「是谁」的最小信息。
+            sender: ActorRef(
+              scopeId: direction == MessageDirection.incoming
+                  ? conversationId
+                  : 'robot',
+            ),
+            direction: direction,
+            at: DateTime.tryParse(item['at'] as String? ?? '') ?? DateTime.now(),
+            wireId: item['wire_id'] as String?,
+            content: item['content'] as String?,
+          ),
+        );
+      }
+
+      for (final item in await _store.readList('events')) {
+        final botId = item['bot_id'] as String?;
+        final kindName = item['kind'] as String?;
+        if (botId == null || kindName == null) continue;
+        _events.putIfAbsent(botId, () => <BotEvent>[]).add(
+              BotEvent(
+                botId: botId,
+                kind: BotEventKind.values.firstWhere(
+                  (e) => e.name == kindName,
+                  orElse: () => BotEventKind.unknown,
+                ),
+                at:
+                    DateTime.tryParse(item['at'] as String? ?? '') ?? DateTime.now(),
+                summary: item['summary'] as String?,
+              ),
+            );
+      }
+
+      // 消息展示需要时间正序，事件日志需要时间倒序（最新在前）。
+      for (final list in _messages.values) {
+        list.sort((a, b) => a.at.compareTo(b.at));
+      }
+      for (final list in _events.values) {
+        list.sort((a, b) => b.at.compareTo(a.at));
       }
     } catch (_) {
-      // 载入失败按空处理，不影响启动。
+      // 本地数据损坏不应导致应用打不开：忽略并按空历史继续。
     }
     notifyListeners();
   }

@@ -8,7 +8,6 @@ import 'package:path_provider/path_provider.dart';
 
 import '../api/bot_message_service.dart';
 import '../api/qq_http_client.dart';
-import '../core/logging/app_logger.dart';
 import '../core/logging/log_service.dart';
 import '../domain/models/log_entry.dart';
 import '../domain/models/plugin_models.dart';
@@ -67,6 +66,7 @@ class PluginManager extends ChangeNotifier {
   final Map<String, PluginDescriptor> _plugins = {};
   final Map<String, PluginProcess> _processes = {};
   final Map<String, StreamSubscription<PluginMessage>> _messageSubs = {};
+  final Map<String, StreamSubscription<PluginMessage>> _logSubs = {};
   final Map<String, StreamSubscription<int>> _exitSubs = {};
   int _requestSeed = 0;
 
@@ -217,7 +217,9 @@ class PluginManager extends ChangeNotifier {
 
     // 插件自身的日志（含 print 与 stderr）全部转进日志服务，
     // 这样用户在「日志」Tab 里就能看到插件输出，不必另连调试器。
-    process.logLines.listen((message) {
+    // 订阅必须保存下来：不保存就无法在停止/删除插件时取消，
+    // 反复启停会累积订阅（内存泄漏），且已停止插件的日志仍会继续写入。
+    _logSubs[pluginId] = process.logLines.listen((message) {
       _log.log(
         LogEntry(
           level: message.logLevel,
@@ -238,6 +240,7 @@ class PluginManager extends ChangeNotifier {
       final current = _plugins[pluginId];
       _processes.remove(pluginId);
       await _messageSubs.remove(pluginId)?.cancel();
+      await _logSubs.remove(pluginId)?.cancel();
       await _exitSubs.remove(pluginId)?.cancel();
       await _bumpCrashCount(pluginId);
       if (current != null) {
@@ -290,6 +293,7 @@ class PluginManager extends ChangeNotifier {
       await process.stop();
     }
     await _messageSubs.remove(pluginId)?.cancel();
+    await _logSubs.remove(pluginId)?.cancel();
     await _exitSubs.remove(pluginId)?.cancel();
 
     final descriptor = _plugins[pluginId];
@@ -350,6 +354,7 @@ class PluginManager extends ChangeNotifier {
       payload: {
         't': eventType,
         'bot_id': botId,
+        'protocol_version': pluginProtocolVersion,
         'event': eventPayload,
       },
     );
@@ -473,6 +478,9 @@ class PluginManager extends ChangeNotifier {
     for (final sub in _messageSubs.values) {
       unawaited(sub.cancel());
     }
+    for (final sub in _logSubs.values) {
+      unawaited(sub.cancel());
+    }
     for (final sub in _exitSubs.values) {
       unawaited(sub.cancel());
     }
@@ -538,11 +546,8 @@ class JsonPluginStateStore implements PluginStateStoreLike {
       );
 }
 
-/// 插件协议版本。插件可据此判断主程序能力。
+/// 插件协议版本。
+///
+/// 会随事件载荷字段的变更递增；插件可据此判断自己是否与主程序兼容。
+/// 当前值同时写在每条事件消息的 `payload.protocol_version` 里。
 const int pluginProtocolVersion = 1;
-
-/// 启动时打印一次，便于日志里确认协议版本。
-void logProtocolVersion(LogService log) {
-  AppLogger.info('插件协议版本：$pluginProtocolVersion', tag: 'plugin');
-  log.info(LogSource.plugin, '插件协议版本 $pluginProtocolVersion');
-}

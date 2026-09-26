@@ -72,6 +72,9 @@ class AppConfig {
     maxConcurrentConnections: 3,
     enableNetworkLog: true,
     enableFrameLog: true,
+    // 前台服务：当前版本**尚未实现** Android 原生 Service 与 iOS BGTask，
+    // 因此这里保持 false。置 true 会让配置读到的人以为「后台保活已经生效」，
+    // 而实际只有 Dart 侧的退避重连在工作。
     enableForegroundService: false,
   );
 
@@ -87,7 +90,8 @@ class AppConfig {
     maxConcurrentConnections: 3,
     enableNetworkLog: false,
     enableFrameLog: false,
-    enableForegroundService: true,
+    // 同上：原生前台服务未实现，保持 false，避免配置误导。
+    enableForegroundService: false,
   );
 
   /// 当前生效配置。

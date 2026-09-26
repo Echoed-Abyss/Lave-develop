@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:collection';
 
 import '../api/bot_message_service.dart';
+import '../api/interaction_api.dart';
 import '../core/constants/qq_limits.dart';
 import '../core/logging/log_service.dart';
 import '../data/repository/history_repository.dart';
@@ -29,12 +30,14 @@ class EventDispatcher {
     required MessageSender sender,
     required CommandEngine commands,
     required PluginManager plugins,
+    required InteractionApi interactionApi,
     required Future<void> Function(int? seq) acknowledgeSeq,
   })  : _history = history,
         _log = log,
         _sender = sender,
         _commands = commands,
         _plugins = plugins,
+        _interactionApi = interactionApi,
         _acknowledgeSeq = acknowledgeSeq;
 
   final String botId;
@@ -43,6 +46,7 @@ class EventDispatcher {
   final MessageSender _sender;
   final CommandEngine _commands;
   final PluginManager _plugins;
+  final InteractionApi _interactionApi;
   final Future<void> Function(int? seq) _acknowledgeSeq;
 
   /// 去重集合。
@@ -91,6 +95,16 @@ class EventDispatcher {
         );
         _applySwitchSideEffects(event);
       }
+      // 互动事件必须先回应，否则用户侧会一直转圈直到超时。
+      // 官方只要求 type=11（消息按钮）与 type=12（快捷菜单）回应，
+      // 这个判定封装在模型的 requiresAck 上。
+      if (event is InteractionCreate && event.requiresAck && event.id != null) {
+        await _interactionApi.acknowledge(
+          botId: botId,
+          interactionId: event.id!,
+        );
+      }
+
       // 生命周期事件同样投递给插件：加群 / 加好友是插件最关心的时机。
       await _plugins.dispatch(
         _payloadFor(event),

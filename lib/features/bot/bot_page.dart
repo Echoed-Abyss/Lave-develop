@@ -429,9 +429,11 @@ class _ComposerState extends State<_Composer> {
         GlassTextField(
           controller: _target,
           label: _scope == ConversationScope.c2c ? 'user_openid' : 'group_openid',
+          // 提示里只给 openid 本身，不带「单聊:」这类前缀 ——
+          // 这个输入框要填的是能被接口直接使用的标识。
           hint: widget.hintTargets.isEmpty
               ? '从上方会话列表复制，或等用户先发一条消息'
-              : '例如 ${widget.hintTargets.first}',
+              : '例如 ${widget.hintTargets.first.split(':').last}',
           helper: '官方要求按场景使用对应的 openid，两者不能互换。',
         ),
         GlassTextField(

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../api/interaction_api.dart';
 import '../api/media_api.dart';
 import '../api/message_api.dart';
 import '../api/qq_http_client.dart';
@@ -49,6 +50,7 @@ class AppServices {
     gatewayApi = GatewayApi(http: http, tokens: tokens, log: log);
     messageApi = MessageApi(http: http, tokens: tokens, log: log);
     mediaApi = MediaApi(httpClient: http, tokens: tokens, log: log);
+    interactionApi = InteractionApi(http: http, tokens: tokens, log: log);
 
     registry = ConnectionRegistry(
       log: log,
@@ -60,6 +62,7 @@ class AppServices {
       gatewayApi: gatewayApi,
       messageApi: messageApi,
       mediaApi: mediaApi,
+      interactionApi: interactionApi,
     );
   }
 
@@ -98,6 +101,9 @@ class AppServices {
 
   /// 富媒体上传接口。
   late final MediaApi mediaApi;
+
+  /// 互动回应接口（消息按钮 / 快捷菜单必须回应，否则客户端一直 loading）。
+  late final InteractionApi interactionApi;
 
   /// 多机器人连接注册表。
   late final ConnectionRegistry registry;

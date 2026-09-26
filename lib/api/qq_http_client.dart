@@ -6,10 +6,8 @@ import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 
 import '../core/constants/app_config.dart';
-import '../core/constants/qq_endpoints.dart';
 import '../core/error/app_error.dart';
 import '../core/error/error_mapper.dart';
-import '../core/error/qq_error_codes.dart';
 import '../core/logging/app_logger.dart';
 import '../core/logging/log_service.dart';
 import '../domain/models/log_entry.dart';
@@ -296,15 +294,3 @@ class QqHttpClient {
     );
   }
 }
-
-/// 官方限制：`GET /gateway` 为 2 QPM。本常量集中在这里使用，
-/// 以免有人误以为可以随意高频拉取接入点。
-Duration get gatewayEndpointMinInterval =>
-    Duration(milliseconds: (60000 / 2).round());
-
-/// 便于 UI 判断是否属于「凭证未配置」的场景。
-bool isCredentialRelatedCode(int? code) =>
-    code != null && QqErrorCodes.authCodes.contains(code);
-
-/// 官方域名（集中引用，便于将来切换到沙箱时只改一处）。
-const String qqApiBase = QqEndpoints.apiBase;

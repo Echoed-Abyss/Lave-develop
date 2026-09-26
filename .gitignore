@@ -46,3 +46,12 @@ app.*.map.json
 
 # 工具生成的 HTML 分享包（每次打开预览都会重生成，不入库）
 .trae-html-share-packages/
+
+# ★ 签名配置：含密钥库路径与口令，绝对不能入库。
+#   仓库是公开的，一旦提交等于把签名密钥公开，任何人都能伪造你的安装包。
+/android/key.properties
+*.jks
+*.keystore
+
+# iOS 侧已按范围决定移除（见 README「平台范围」）。
+# 如需恢复：flutter create --platforms=ios .

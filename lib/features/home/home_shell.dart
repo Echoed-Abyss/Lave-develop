@@ -1,3 +1,7 @@
+// AppExitResponse 由 dart:ui 提供（flutter/services 与 widgets 均不导出它，
+// Flutter 自己的 binding 也是以 `ui.AppExitResponse` 的形式引用）。
+import 'dart:ui' as ui;
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -20,6 +24,30 @@ class HomeShell extends ConsumerStatefulWidget {
 
 class _HomeShellState extends ConsumerState<HomeShell> {
   int _index = 0;
+  late final AppLifecycleListener _lifecycleListener;
+
+  @override
+  void initState() {
+    super.initState();
+    // 用 AppLifecycleListener.onExitRequested 而不是 detached：
+    // 前者只在「应用确实要退出」时触发，后者在引擎与视图分离时也会触发
+    // （例如平台侧重建视图），那时把连接与插件进程全停掉会造成误伤。
+    //
+    // 收起资源的必要性：Python 插件是独立进程，不显式结束会在系统里
+    // 留下孤儿进程；WSS 连接不主动关闭则由系统回收，回收时机不可控。
+    _lifecycleListener = AppLifecycleListener(
+      onExitRequested: () async {
+        await ref.read(appServicesProvider).shutdown();
+        return ui.AppExitResponse.exit;
+      },
+    );
+  }
+
+  @override
+  void dispose() {
+    _lifecycleListener.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
