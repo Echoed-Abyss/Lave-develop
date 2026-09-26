@@ -1,0 +1,22 @@
+# 统一换行符，避免 Windows 检出时产生 CRLF 污染
+* text=auto eol=lf
+
+# 二进制文件不做换行符转换
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.ico binary
+*.jar binary
+*.keystore binary
+*.ttf binary
+*.otf binary
+*.xcuserstate binary
+
+# 语言标识
+*.dart text
+*.kt text
+*.swift text
+*.yaml text
+*.yml text
+*.md text
