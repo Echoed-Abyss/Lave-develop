@@ -1,0 +1,80 @@
+# 文档站部署
+#
+# 用 GitHub 官方的 Pages 产物流程（configure-pages → upload-pages-artifact →
+# deploy-pages），而不是 `mkdocs gh-deploy` 推 gh-pages 分支。
+#
+# 关于 Pages 的启用：`enablement: true` 会让 configure-pages 走
+# `POST /repos/{owner}/{repo}/pages` 去创建站点，但 workflow 里的默认
+# `GITHUB_TOKEN` **没有仓库 admin 权限**，首次执行会直接报
+# 「Resource not accessible by integration」并让整个 job 失败。
+# 因此站点必须先存在一次（本仓库已用维护者的 token 建好，build_type=workflow）。
+# 留着 enablement 是为了让「站点被误删」这种情况在下次推送时能自愈；
+# 若它再次把 job 卡住，删掉这一行即可——后续步骤会给出更明确的报错。
+name: 文档站
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'docs-site/**'
+      - 'docs/qq-bot/**'
+      - '.github/workflows/docs.yml'
+  # 允许手动触发：改完文档不想等下一次 push 时用。
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# 同一时刻只发布一次；不取消进行中的发布，避免把站点留在半个状态。
+concurrency:
+  group: docs-pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-python@v7
+        with:
+          python-version: '3.12'
+          cache: pip
+          cache-dependency-path: docs-site/requirements.txt
+
+      - name: 安装依赖
+        run: pip install -r docs-site/requirements.txt
+
+      - name: 构建站点
+        # `docs/qq-bot/*.html` 由构建钩子 hooks/copy_official.py 并入站点，
+        # 本地与 CI 走的是同一条路径，这里不需要额外复制。
+        # strict: true 已写进 mkdocs.yml，链接与配置问题直接让构建失败。
+        working-directory: docs-site
+        run: mkdocs build
+
+      - name: 校验站内链接与锚点
+        # MkDocs 自身的校验盯不到静态资源与「HTML 里套 Markdown」这两种情况，
+        # 所以再用脚本把产物过一遍，避免部署出去才发现死链。
+        working-directory: docs-site
+        run: python check_links.py site /Lave-develop
+
+      - name: 启用 Pages（若尚未启用）
+        uses: actions/configure-pages@v6
+        with:
+          enablement: true
+
+      - uses: actions/upload-pages-artifact@v5
+        with:
+          path: docs-site/site
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v5

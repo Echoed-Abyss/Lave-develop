@@ -135,7 +135,7 @@
     <li class="l2"><a href="#s4-1">枚举与常量</a></li>
     <li class="l2"><a href="#s4-2">WSS 帧模型</a></li>
     <li class="l2"><a href="#s4-3">事件模型</a></li>
-    <li class="l2"><a href="#s4-4">消息元素模型</a></li>
+    <li class="l2"><a href="#s4-4">通用元素模型</a></li>
     <li class="l2"><a href="#s4-5">HTTP 实体</a></li>
     <li class="l2"><a href="#s4-6">协议模型 → 领域模型</a></li>
     <li class="l1"><a href="#s5">5 · 状态管理选型</a></li>
@@ -648,7 +648,7 @@ class RemoteTokenCredentialProvider implements CredentialProvider { /* … */ }<
   </table>
 </div>
 
-<div class="dart-title">4.1 枚举与常量 —— <code>domain/models/qq_enums.dart</code>、<code>core/constants/</code></div>
+<div class="dart-title" id="s4-1">4.1 枚举与常量 —— <code>domain/models/qq_enums.dart</code>、<code>core/constants/</code></div>
 
 <pre><code>/// 官方 OpCode 全集（知识库 3.4）。
 /// 注意：3 / 4 / 5 / 8 官方文档未定义，因此 fromValue 必须允许返回 null，
@@ -779,7 +779,7 @@ abstract final class QqLimits {
   static const Duration httpTimeout      = Duration(seconds: 10);  // 官方建议最低 5 秒
 }</code></pre>
 
-<div class="dart-title">4.2 WSS 帧与连接期报文 —— <code>gateway/protocol/</code></div>
+<div class="dart-title" id="s4-2">4.2 WSS 帧与连接期报文 —— <code>gateway/protocol/</code></div>
 
 <pre><code>/// 通用 payload 结构（知识库 3.3）。
 /// 官方示例中 id 字段时有时无，因此声明为可空；
@@ -841,7 +841,7 @@ class ReadyData {
   factory ReadyData.fromJson(Map&lt;String, dynamic&gt; json) =&gt; /* … */;
 }</code></pre>
 
-<div class="dart-title">4.3 事件模型 —— <code>gateway/protocol/events/</code></div>
+<div class="dart-title" id="s4-3">4.3 事件模型 —— <code>gateway/protocol/events/</code></div>
 
 <pre><code>/// 事件基类：用 sealed 保证 switch 穷尽性，编译器帮我们兜住遗漏。
 sealed class QqEvent {
@@ -941,7 +941,7 @@ class UnknownEvent extends QqEvent {
   final Map&lt;String, dynamic&gt; raw;
 }</code></pre>
 
-<div class="dart-title">4.4 通用元素模型 —— <code>gateway/protocol/models/</code></div>
+<div class="dart-title" id="s4-4">4.4 通用元素模型 —— <code>gateway/protocol/models/</code></div>
 
 <pre><code>/// 官方 User 对象：8 个字段来自四个不同的 id 体系，必须全部保留并逐一判空。
 class QqUser {
@@ -1059,7 +1059,7 @@ class MsgElement {
 }</code></pre>
 </div>
 
-<div class="dart-title">4.5 HTTP 实体 —— <code>api/dto/</code></div>
+<div class="dart-title" id="s4-5">4.5 HTTP 实体 —— <code>api/dto/</code></div>
 
 <pre><code>/// 取凭证响应（知识库 2.2）。
 /// 注意官方特别说明：该接口失败时 HTTP 仍返回 200，必须看 body 的 code。
@@ -1162,7 +1162,7 @@ class MediaFileInfo {
       (ttl == null || ttl == 0) ? null : now.add(Duration(seconds: ttl!));
 }</code></pre>
 
-<div class="dart-title">4.6 协议模型 → 领域模型</div>
+<div class="dart-title" id="s4-6">4.6 协议模型 → 领域模型</div>
 
 <pre><code>/// 领域层唯一的「消息」模型。UI 只认它，不再接触 openid 家族。
 class QqMessage {

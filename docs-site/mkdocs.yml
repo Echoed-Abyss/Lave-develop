@@ -1,0 +1,134 @@
+# Lave 文档站（MkDocs Material）
+#
+# 为什么用 MkDocs 而不是 Mintlify：
+#
+# Mintlify 的正规发布路径是它自己的云（装 GitHub App，站点挂在 *.mintlify.app
+# 或自定义域名），**不是 GitHub Pages**；它唯一能产出静态站的方式是 `mint export`，
+# 而官方文档明确写着「离线导出不支持搜索」。一个没有搜索的文档站对本项目这种
+# 「字段多、错误码多」的文档是硬伤。
+#
+# MkDocs Material 直接部署到 GitHub Pages，客户端全文搜索开箱可用，无第三方账号、
+# 无付费门槛。内容全部是普通 Markdown，将来若要迁到 Mintlify 云，
+# 把 docs/ 下的文件搬过去、加一个 docs.json 即可。
+site_name: Lave 文档
+site_description: QQ 机器人移动客户端 —— 用户手册、架构说明与插件开发文档
+site_url: https://echoed-abyss.github.io/Lave-develop/
+repo_url: https://github.com/Echoed-Abyss/Lave-develop
+repo_name: Echoed-Abyss/Lave-develop
+edit_uri: edit/main/docs-site/docs/
+copyright: 作者 BaiXuan · 仅使用腾讯 QQ 机器人开放平台官方接口实现
+
+# 任何 WARNING 都让构建失败。文档站最怕的不是构建报错，而是「构建成功、
+# 部署成功、点进去 404」——把问题挡在合并前比事后修便宜得多。
+strict: true
+
+theme:
+  name: material
+  language: zh
+  features:
+    - navigation.sections
+    - navigation.indexes
+    - navigation.top
+    - navigation.footer
+    - toc.follow
+    - search.suggest
+    - search.highlight
+    - content.code.copy
+    - content.tabs.link
+  palette:
+    # 与应用一致：跟随系统，并提供手动切换。
+    - media: "(prefers-color-scheme: light)"
+      scheme: default
+      toggle:
+        icon: material/brightness-7
+        name: 切换到深色
+    - media: "(prefers-color-scheme: dark)"
+      scheme: slate
+      toggle:
+        icon: material/brightness-4
+        name: 切换到浅色
+
+# 构建钩子：把 docs/qq-bot/ 下的手写 HTML 并进站点。
+# 放这里而不是让 CI 单独复制一步，是为了让 `mkdocs build` 在本地也能直接跑通。
+hooks:
+  - hooks/copy_official.py
+
+plugins:
+  # 内置全文搜索。中文需要 jieba 分词（见 requirements.txt），
+  # 不加的话搜索会退化成整段匹配，中文几乎搜不到东西。
+  - search:
+      lang:
+        - zh
+        - en
+
+markdown_extensions:
+  - admonition
+  - attr_list
+  - footnotes
+  - tables
+  # `<div class="grid cards" markdown>` 这种「HTML 外壳里放 Markdown」的写法
+  # Material 的卡片网格要用。缺了它，里面的 Markdown 不会被解析，
+  # 页面上会原样显示出 `**[标题](链接)**` 这种源码，而且链接也不会被校验。
+  - md_in_html
+  - toc:
+      permalink: true
+      toc_depth: 3
+      # 默认的 slugify 会把非 ASCII 字符整段丢掉，于是「## 关闭码处置」的锚点
+      # 会变成 `#_5` 这种东西：站内链接全断，分享出去的 URL 也毫无信息量。
+      # slugify_unicode 是 Python-Markdown 自带的 Unicode 版实现，保留中文，
+      # 且不需要像 pymdownx.slugs.slugify 那样用 !!python/object/apply 走工厂。
+      slugify: !!python/name:markdown.extensions.toc.slugify_unicode
+  - pymdownx.details
+  - pymdownx.highlight:
+      anchor_linenums: true
+  - pymdownx.inlinehilite
+  - pymdownx.superfences
+  - pymdownx.tabbed:
+      alternate_style: true
+
+nav:
+  - 开始: index.md
+  - 快速上手:
+      - 安装与首次配置: getting-started/install.md
+      - 从源码构建: getting-started/build.md
+  - 使用手册:
+      - 架构概览: guide/architecture.md
+      - 网关连接: guide/gateway.md
+      - 收发消息: guide/messages.md
+      - 消息统计: guide/statistics.md
+      - 后台保活: guide/keep-alive.md
+      - 故障排查: guide/troubleshooting.md
+  - 插件开发:
+      - 插件系统总览: plugins/index.md
+      - 五分钟上手: plugins/quickstart.md
+      - 清单 plugin.json: plugins/manifest.md
+      - 通信协议: plugins/protocol.md
+      - 配置与状态: plugins/config-and-state.md
+      - 文件与数据目录: plugins/files-and-data.md
+      - 生命周期与故障: plugins/lifecycle.md
+      - 示例插件详解: plugins/example.md
+      - 最佳实践: plugins/best-practices.md
+  - 参考:
+      - 事件订阅 intents: reference/intents.md
+      - 官方限制速查: reference/limits.md
+      - 错误码与处置: reference/error-codes.md
+      - 端点索引: reference/endpoints.md
+      - 官方文档知识库: reference/official-notes.md
+      # 下面两份是从 docs/qq-bot/ 复制进来的手写 HTML（CI 会重新复制，
+      # 所以本地不提交）。列进 nav 是为了让它们可被检索到，
+      # 否则它们虽然能构建出来，却只能靠别人给链接才能访问到。
+      - 官方文档整理（原文摘录）: official/knowledge-base.html
+      - 系统架构说明: official/app-architecture.html
+  - 关于:
+      - 常见问题: faq.md
+
+extra:
+  social:
+    - icon: fontawesome/brands/github
+      link: https://github.com/Echoed-Abyss/Lave-develop
+
+# 站点内的相对链接写错了要能被发现，而不是静默生成一个死链。
+validation:
+  links:
+    absolute_links: warn
+    unrecognized_links: warn

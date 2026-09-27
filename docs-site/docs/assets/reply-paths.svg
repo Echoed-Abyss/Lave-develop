@@ -1,0 +1,49 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 720 380" font-family="-apple-system, 'Segoe UI', 'Noto Sans CJK SC', sans-serif">
+  <defs>
+    <marker id="a" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto">
+      <path d="M0,0 L7,3 L0,6 z" fill="#546E7A"/>
+    </marker>
+  </defs>
+
+  <rect width="720" height="380" fill="#ffffff"/>
+  <text x="24" y="34" font-size="17" font-weight="700" fill="#1A2233">被动回复的两条互斥路径</text>
+  <text x="24" y="56" font-size="12" fill="#607089">一次请求只能带其中一个字段，两个都带会被官方拒绝</text>
+
+  <!-- 左：回复消息 -->
+  <rect x="24" y="76" width="330" height="250" rx="12" fill="#F1F7F4" stroke="#2E9E6B" stroke-width="1.5"/>
+  <text x="42" y="104" font-size="14" font-weight="700" fill="#2E9E6B">回复用户消息</text>
+  <text x="42" y="126" font-size="11.5" fill="#4A5A6A">适用于消息类事件</text>
+
+  <rect x="42" y="140" width="294" height="30" rx="7" fill="#ffffff" stroke="#C9DDD4"/>
+  <text x="54" y="160" font-size="12" fill="#1A2233">GROUP_AT_MESSAGE_CREATE</text>
+
+  <rect x="42" y="176" width="294" height="30" rx="7" fill="#ffffff" stroke="#C9DDD4"/>
+  <text x="54" y="196" font-size="12" fill="#1A2233">C2C_MESSAGE_CREATE</text>
+
+  <path d="M189,212 L189,240" stroke="#546E7A" stroke-width="1.5" marker-end="url(#a)"/>
+
+  <rect x="42" y="246" width="294" height="62" rx="9" fill="#ffffff" stroke="#2E9E6B" stroke-width="1.5"/>
+  <text x="56" y="268" font-size="12.5" font-weight="700" fill="#1A2233">msg_id</text>
+  <text x="56" y="288" font-size="11.5" fill="#546E7A">取值：消息事件体的 d.id</text>
+  <text x="56" y="302" font-size="11.5" fill="#546E7A">可配 msg_seq 多次回复同一条</text>
+
+  <!-- 右：响应事件 -->
+  <rect x="366" y="76" width="330" height="250" rx="12" fill="#FBF4EC" stroke="#D08A1E" stroke-width="1.5"/>
+  <text x="384" y="104" font-size="14" font-weight="700" fill="#B26A00">响应事件</text>
+  <text x="384" y="126" font-size="11.5" fill="#4A5A6A">适用于事件类（白名单固定）</text>
+
+  <rect x="384" y="140" width="294" height="30" rx="7" fill="#ffffff" stroke="#EADCC8"/>
+  <text x="396" y="160" font-size="12" fill="#1A2233">INTERACTION_CREATE</text>
+
+  <rect x="384" y="176" width="294" height="30" rx="7" fill="#ffffff" stroke="#EADCC8"/>
+  <text x="396" y="196" font-size="12" fill="#1A2233">GROUP_ADD_ROBOT / FRIEND_ADD …</text>
+
+  <path d="M531,212 L531,240" stroke="#546E7A" stroke-width="1.5" marker-end="url(#a)"/>
+
+  <rect x="384" y="246" width="294" height="62" rx="9" fill="#ffffff" stroke="#D08A1E" stroke-width="1.5"/>
+  <text x="398" y="268" font-size="12.5" font-weight="700" fill="#1A2233">event_id</text>
+  <text x="398" y="288" font-size="11.5" fill="#546E7A">取值：事件最外层 payload 的 id</text>
+  <text x="398" y="302" font-size="11.5" fill="#546E7A">不涉及 msg_seq</text>
+
+  <text x="24" y="356" font-size="11.5" fill="#607089">都不带 = 主动消息（受独立频控，且用户可关闭接收）</text>
+</svg>

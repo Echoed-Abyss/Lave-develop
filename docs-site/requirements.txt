@@ -1,0 +1,9 @@
+# 文档站依赖。
+#
+# 只需在 CI（或本地）执行一次：
+#   pip install -r docs-site/requirements.txt
+#   cd docs-site && mkdocs serve     # 本地预览 http://127.0.0.1:8000
+mkdocs-material>=9.5,<10
+# 中文分词。没有它，搜索框里输入中文几乎搜不到内容——
+# MkDocs 默认按空格/标点切词，而中文句子中间没有空格。
+jieba>=0.42
