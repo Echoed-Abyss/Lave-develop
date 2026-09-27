@@ -61,12 +61,21 @@ class BotMessageService implements MessageSender {
     required this.botId,
     required MessageApi messageApi,
     required MediaApi mediaApi,
+    void Function()? onSent,
   })  : _messageApi = messageApi,
-        _mediaApi = mediaApi;
+        _mediaApi = mediaApi,
+        _onSent = onSent;
 
   final String botId;
   final MessageApi _messageApi;
   final MediaApi _mediaApi;
+
+  /// 发送成功后的回调（用于统计「总发消息数」）。
+  ///
+  /// 挂在**这一层**而不是界面层：指令回复、插件代发、手动发送三条路径
+  /// 全都会经过这里，漏掉任何一条都会让统计数字偏小，
+  /// 而「数字对不上」比「没有数字」更让人困惑。
+  final void Function()? _onSent;
 
   /// 每条原始消息已用掉的 `msg_seq`，用于自动递增。
   ///
@@ -131,19 +140,21 @@ class BotMessageService implements MessageSender {
     required ConversationScope scope,
     required String conversationId,
     required SendMessageRequest request,
-  }) {
-    if (scope == ConversationScope.group) {
-      return _messageApi.sendGroup(
-        botId: botId,
-        groupOpenid: conversationId,
-        request: request,
-      );
-    }
-    return _messageApi.sendC2c(
-      botId: botId,
-      userOpenid: conversationId,
-      request: request,
-    );
+  }) async {
+    final response = scope == ConversationScope.group
+        ? await _messageApi.sendGroup(
+            botId: botId,
+            groupOpenid: conversationId,
+            request: request,
+          )
+        : await _messageApi.sendC2c(
+            botId: botId,
+            userOpenid: conversationId,
+            request: request,
+          );
+    // 只有真正发出去才计数：把失败也算进去会让用户以为「发了很多」。
+    if (response.isSuccess) _onSent?.call();
+    return response;
   }
 
   @override

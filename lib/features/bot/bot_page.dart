@@ -9,6 +9,7 @@ import '../../app/theme.dart';
 import '../../domain/models/bot_profile.dart';
 import '../../domain/models/connection_status.dart';
 import '../../domain/models/qq_enums.dart';
+import '../../shared/widgets/avatars.dart';
 import '../../shared/widgets/glass.dart';
 import '../conversation/conversation_page.dart';
 
@@ -131,16 +132,13 @@ class _BotCard extends StatelessWidget {
         leading: Stack(
           clipBehavior: Clip.none,
           children: [
-            CircleAvatar(
-              radius: 15,
-              backgroundColor: _accentFor(snapshot.phase).withValues(alpha: 0.18),
-              child: Icon(
-                snapshot.isOnline
-                    ? Icons.wifi_tethering
-                    : Icons.wifi_tethering_off,
-                size: 16,
-                color: _accentFor(snapshot.phase),
-              ),
+            // 头像优先用官方返回的 avatar（来自 GET /users/@me），
+            // 拿不到时退回「机器人图标 + 连接状态色」的占位。
+            BotStatusAvatar(
+              seed: bot.appId,
+              accent: _accentFor(snapshot.phase),
+              imageUrl: bot.avatarUrl,
+              label: bot.title,
             ),
             // 仅在「正在进行中」（取接入点 / 连接中 / 鉴权 / 退避）时呼吸。
             // 让用户能一眼区分「正在努力连接」与「已经稳定在线」，
@@ -762,6 +760,8 @@ class _BotEditorSheetState extends State<_BotEditorSheet> {
     if (bot != null && bot.enabled) {
       await widget.services.registry.startBot(bot);
     }
+    // 顺手拉一次官方昵称与头像：用户刚填完密钥，此刻凭证最可能是有效的。
+    unawaited(widget.services.refreshBotIdentity(appId));
 
     if (!mounted) return;
     setState(() => _saving = false);

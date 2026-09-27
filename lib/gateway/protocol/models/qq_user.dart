@@ -18,6 +18,7 @@ class QqUser {
   const QqUser({
     this.id,
     this.username,
+    this.avatar,
     this.bot,
     this.unionOpenid,
     this.unionUserAccount,
@@ -31,6 +32,17 @@ class QqUser {
 
   /// 用户昵称。
   final String? username;
+
+  /// 头像 URL。
+  ///
+  /// ⚠️ 官方对**单聊 / 群聊**的 User 子表（`C2C_MESSAGE_CREATE`、
+  /// `GROUP_AT_MESSAGE_CREATE`）**并未定义该字段**；它只出现在频道（Guild）
+  /// 体系的事件里（`AT_MESSAGE_CREATE` / `MESSAGE_CREATE` / `DIRECT_MESSAGE_CREATE`），
+  /// 以及 `GET /users/@me` 的响应中。
+  ///
+  /// 这里仍然解析它，理由是「有就用、没有就退回占位」比「假设永远没有」更稳：
+  /// 官方一旦在消息事件里补上该字段，本项目无需改动即可显示真实头像。
+  final String? avatar;
 
   /// 是否为机器人。
   final bool? bot;
@@ -53,6 +65,7 @@ class QqUser {
   factory QqUser.fromJson(Map<String, dynamic> json) => QqUser(
         id: QqJson.str(json['id']),
         username: QqJson.str(json['username']),
+        avatar: _nonEmpty(json['avatar']),
         bot: QqJson.boolean(json['bot']),
         unionOpenid: QqJson.str(json['union_openid']),
         unionUserAccount: QqJson.str(json['union_user_account']),
@@ -60,6 +73,17 @@ class QqUser {
         memberOpenid: QqJson.str(json['member_openid']),
         memberRole: QqJson.str(json['member_role']),
       );
+
+  /// 头像地址：空串与缺失**都归一为 `null`**。
+  ///
+  /// `QqJson.str` 刻意保留空串（`union_openid` 这类字段空串是有意义的），
+  /// 但头像不同：空串与「官方没给这个字段」对界面是同一件事——没有头像。
+  /// 统一成 `null` 后，下游只需要判断一种情况。
+  static String? _nonEmpty(Object? raw) {
+    final text = QqJson.str(raw);
+    if (text == null || text.trim().isEmpty) return null;
+    return text;
+  }
 
   /// 单聊场景的会话标识：优先 `user_openid`，回退到 `id`。
   ///

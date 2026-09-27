@@ -8,6 +8,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../app/app.dart';
 import '../../app/theme.dart';
+import '../../core/logging/log_service.dart';
 import '../../shared/widgets/glass.dart';
 
 /// 应用外壳：四个 Tab。
@@ -24,8 +25,16 @@ class HomeShell extends ConsumerStatefulWidget {
 }
 
 class _HomeShellState extends ConsumerState<HomeShell> {
-  int _index = 0;
+  int _index = initialHomeTabIndex;
   late final AppLifecycleListener _lifecycleListener;
+
+  /// 已经构建过的 Tab 下标。
+  ///
+  /// 必须懒构建：`IndexedStack` 会一次性构建**全部**子树，
+  /// 也就是说冷启动首帧就要跑完机器人页、日志页、统计页、插件页、设置页
+  /// 的 `build`（含日志列表与折线图）。改成「首次切到才构建、构建后保活」，
+  /// 既省掉首帧的大头开销，又保留「切回来时滚动位置与输入内容不丢」这个好处。
+  final Set<int> _built = {initialHomeTabIndex};
 
   @override
   void initState() {
@@ -64,58 +73,86 @@ class _HomeShellState extends ConsumerState<HomeShell> {
     final services = ref.watch(appServicesProvider);
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
-    // 必须监听日志服务：未读错误数会随着连接失败、接口报错而变化，
-    // 而外壳本身不会因为这些事情重建 —— 不监听的话角标会一直停在
-    // 首次构建时的数字上（等于这个提示功能形同不存在）。
-    return ListenableBuilder(
-      listenable: services.log,
-      builder: (context, _) => GlassScaffold(
-        body: SafeArea(
-          bottom: false,
-          child: IndexedStack(
-            index: _index,
-            children: [
-              for (var i = 0; i < homeTabs.length; i++)
-                _TabFade(
-                  active: i == _index,
-                  child: homeTabs[i].builder(),
-                ),
-            ],
-          ),
-        ),
-        bottomNavigationBar: Container(
-          decoration: BoxDecoration(
-            color: GlassTheme.surfaceOf(isDark: isDark, alpha: 0.5),
-            border: Border(
-              top: BorderSide(color: GlassTheme.borderOf(isDark: isDark)),
-            ),
-          ),
-          child: NavigationBar(
-            selectedIndex: _index,
-            onDestinationSelected: (value) {
-              setState(() => _index = value);
-              // 切到日志页即视为「已读」，清掉角标。
-              if (homeTabs[value].label == '日志') {
-                services.log.markProblemsRead();
-              }
-            },
-            destinations: [
-              for (final tab in homeTabs)
-                NavigationDestination(
-                  icon: _TabIcon(
-                    icon: tab.icon,
-                    // 日志 Tab 有未读错误时打一个小红点：
-                    // 连接失败这类问题如果只写在日志里，用户永远不知道去看。
-                    // 用「未读」而非「累计」计数，否则角标会一直挂着，反而被无视。
-                    badge: tab.label == '日志' ? services.log.unreadProblems : 0,
-                  ),
-                  selectedIcon: Icon(tab.selectedIcon),
-                  label: tab.label,
-                ),
-            ],
-          ),
+    // 刻意**不**在这里整体监听 LogService。
+    //
+    // 原先的写法是给整棵树套一个 ListenableBuilder(log)，结果是每产生一条日志
+    // ——连接事件、每条消息、每次接口调用都会产生——整个外壳连同五个页面
+    // 全部重建一次。这正是「滚动时发涩、消息一多就卡」的主因。
+    // 现在只让角标那一个小图标订阅日志，页面本身不再受影响。
+    return GlassScaffold(
+      body: SafeArea(
+        bottom: false,
+        child: IndexedStack(
+          index: _index,
+          children: [
+            for (var i = 0; i < homeTabs.length; i++)
+              if (_built.contains(i))
+                _TabFade(active: i == _index, child: homeTabs[i].builder())
+              else
+                const SizedBox.shrink(),
+          ],
         ),
       ),
+      bottomNavigationBar: Container(
+        decoration: BoxDecoration(
+          color: GlassTheme.surfaceOf(isDark: isDark, alpha: 0.5),
+          border: Border(
+            top: BorderSide(color: GlassTheme.borderOf(isDark: isDark)),
+          ),
+        ),
+        child: NavigationBar(
+          selectedIndex: _index,
+          onDestinationSelected: (value) {
+            setState(() {
+              _index = value;
+              _built.add(value);
+            });
+            // 切到日志页即视为「已读」，清掉角标。
+            if (homeTabs[value].label == '日志') {
+              services.log.markProblemsRead();
+            }
+          },
+          destinations: [
+            for (final tab in homeTabs)
+              NavigationDestination(
+                // 日志 Tab 有未读错误时打一个小红点：连接失败这类问题
+                // 如果只写在日志里，用户永远不知道去看。
+                // 用「未读」而非「累计」计数，否则角标会一直挂着，反而被无视。
+                icon: tab.label == '日志'
+                    ? _LogBadge(log: services.log, icon: tab.icon)
+                    : Icon(tab.icon),
+                selectedIcon: Icon(tab.selectedIcon),
+                label: tab.label,
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// 日志未读角标。
+///
+/// 单独抽成一个订阅日志的小组件，是为了把「日志变化」引发的重建
+/// 限制在这一个图标上，而不是整棵页面树——详见 `build` 里的说明。
+class _LogBadge extends StatelessWidget {
+  const _LogBadge({required this.log, required this.icon});
+
+  final LogService log;
+  final IconData icon;
+
+  @override
+  Widget build(BuildContext context) {
+    return ListenableBuilder(
+      listenable: log,
+      builder: (context, _) {
+        final unread = log.unreadProblems;
+        if (unread <= 0) return Icon(icon);
+        return Badge(
+          label: Text(unread > 99 ? '99+' : '$unread'),
+          child: Icon(icon),
+        );
+      },
     );
   }
 }
@@ -124,6 +161,9 @@ class _HomeShellState extends ConsumerState<HomeShell> {
 ///
 /// 不销毁子树（外层是 IndexedStack，非活动页仍在树上但不绘制），
 /// 因此滚动位置与输入内容都能保留，只补一个视觉过渡。
+///
+/// 外面套一层 `RepaintBoundary`：这五个页面大量使用 `BackdropFilter`，
+/// 不隔离的话每次不透明度变化都会让整页的模糊重新合成一遍。
 class _TabFade extends StatelessWidget {
   const _TabFade({required this.active, required this.child});
 
@@ -134,26 +174,9 @@ class _TabFade extends StatelessWidget {
   Widget build(BuildContext context) {
     return AnimatedOpacity(
       opacity: active ? 1 : 0,
-      duration: const Duration(milliseconds: 200),
+      duration: const Duration(milliseconds: 180),
       curve: Curves.easeOut,
-      child: child,
-    );
-  }
-}
-
-/// 带角标的 Tab 图标。
-class _TabIcon extends StatelessWidget {
-  const _TabIcon({required this.icon, required this.badge});
-
-  final IconData icon;
-  final int badge;
-
-  @override
-  Widget build(BuildContext context) {
-    if (badge <= 0) return Icon(icon);
-    return Badge(
-      label: Text(badge > 99 ? '99+' : '$badge'),
-      child: Icon(icon),
+      child: RepaintBoundary(child: child),
     );
   }
 }

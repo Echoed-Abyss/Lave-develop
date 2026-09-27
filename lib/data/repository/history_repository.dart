@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/foundation.dart';
 
+import '../local/json_doc_store.dart';
 import '../../domain/models/bot_event.dart';
 import '../../domain/models/qq_enums.dart';
 import '../../domain/models/qq_message.dart';
@@ -47,12 +48,12 @@ class ConversationSummary {
 /// 升级点集中在 `_persist` 一处。
 class HistoryRepository extends ChangeNotifier {
   HistoryRepository({
-    required HistoryStoreLike store,
+    required ListStoreLike store,
     this.maxMessagesPerConversation = 500,
     this.maxEvents = 500,
   }) : _store = store;
 
-  final HistoryStoreLike _store;
+  final ListStoreLike _store;
 
   /// 每个会话保留的消息条数上限。
   final int maxMessagesPerConversation;
@@ -168,9 +169,13 @@ class HistoryRepository extends ChangeNotifier {
 
   /// 从本地载入历史。
   ///
-  /// 说明：只恢复「展示所需的最小字段」（时间、方向、正文、官方消息 id），
-  /// 不恢复附件 —— 官方附件 URL 带签名且会过期，存下来也只会得到一堆
-  /// 失效图片，反而让用户以为「消息坏了」。
+  /// 说明：只恢复「展示所需的最小字段」（时间、方向、正文、官方消息 id、
+  /// 发送者昵称与头像地址），不恢复附件 —— 官方附件 URL 带签名且会过期，
+  /// 存下来也只会得到一堆失效图片，反而让用户以为「消息坏了」。
+  ///
+  /// 昵称与头像地址是特意落盘的：会话页要靠它们渲染头像与发言者，
+  /// 不存的话重启后所有历史气泡都会退回「用户…xxxx」的匿名占位，
+  /// 看起来像数据丢了。两者都只是短字符串，体积与隐私代价可接受。
   Future<void> restore() async {
     try {
       for (final item in await _store.readList('messages')) {
@@ -194,12 +199,13 @@ class HistoryRepository extends ChangeNotifier {
               orElse: () => ConversationScope.c2c,
             ),
             conversationId: conversationId,
-            // 历史消息的发送者信息不落盘（涉及隐私且体积大），
-            // 恢复时只保留能够标识「是谁」的最小信息。
             sender: ActorRef(
               scopeId: direction == MessageDirection.incoming
                   ? conversationId
                   : 'robot',
+              displayName: item['sender_name'] as String?,
+              avatarUrl: item['sender_avatar'] as String?,
+              isBot: direction == MessageDirection.outgoing,
             ),
             direction: direction,
             at: DateTime.tryParse(item['at'] as String? ?? '') ?? DateTime.now(),
@@ -270,6 +276,11 @@ class HistoryRepository extends ChangeNotifier {
             'at': message.at.toIso8601String(),
             if (message.content != null) 'content': message.content,
             if (message.wireId != null) 'wire_id': message.wireId,
+            // 昵称与头像地址：会话页渲染头像需要，见 restore 的说明。
+            if (message.sender.displayName != null)
+              'sender_name': message.sender.displayName,
+            if (message.sender.avatarUrl != null)
+              'sender_avatar': message.sender.avatarUrl,
           });
         }
       });
@@ -299,9 +310,4 @@ class HistoryRepository extends ChangeNotifier {
   }
 }
 
-/// 历史存储的最小依赖面。
-abstract interface class HistoryStoreLike {
-  Future<List<Map<String, dynamic>>> readList(String key);
-
-  Future<void> writeList(String key, List<Map<String, dynamic>> items);
-}
+/// 历史存储的最小依赖面见 `data/local/json_doc_store.dart` 的 [ListStoreLike]。

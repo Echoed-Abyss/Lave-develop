@@ -85,6 +85,14 @@ class MainActivity : FlutterActivity() {
                     result.success(true)
                 }
 
+                "canScheduleExactAlarms" ->
+                    result.success(KeepAliveScheduler.canScheduleExactAlarms(this))
+
+                "openExactAlarmSettings" -> {
+                    KeepAliveScheduler.openExactAlarmSettings(this)
+                    result.success(true)
+                }
+
                 else -> result.notImplemented()
             }
         }

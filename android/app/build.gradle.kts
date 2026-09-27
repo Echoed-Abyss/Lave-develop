@@ -37,13 +37,15 @@ android {
     defaultConfig {
         applicationId = "com.echoedabyss.lavedevelop"
 
-        // 显式抬到 24，不沿用 flutter.minSdkVersion 的默认值：
-        // image_picker（flutter.dev 官方插件）要求 Android SDK 24+，
-        // flutter_secure_storage 10+ 要求 23，取两者较高值。
-        // 写死的原因是这个约束会随插件升级而变化，静默变低会推迟到
-        // 打包时的清单合并阶段才报错，排查成本高。
-        minSdk = 24
-        targetSdk = flutter.targetSdkVersion
+        // 支持范围明确到 Android 12 ~ 16（API 31 ~ 36）。
+        //
+        // 下限取 31 而不是更低，是刻意的：Android 12 起「禁止从后台启动前台服务」
+        // 生效，保活的每一条代码路径都必须落在官方豁免清单内，
+        // 低版本的宽松行为无法复用，与其维护两套分支不如把下限提上来。
+        // 目标上限取 36（Android 16），也就是当前能声明的最高目标版本。
+        minSdk = 31
+        targetSdk = 36
+
         versionCode = flutter.versionCode
         versionName = flutter.versionName
 
@@ -60,6 +62,13 @@ android {
     }
 
     packaging {
+        dex {
+            // 压缩 dex：minSdk 提到 31 后 AGP 默认改为**不压缩** dex
+            // （API 28+ 可直接 mmap 加载，启动更快、设备上更省空间），
+            // 代价是 APK 体积增加约 6MB。本项目通过 GitHub 分发 APK，
+            // 下载体积比毫秒级启动差异更值得优化，因此显式改回压缩。
+            useLegacyPackaging = true
+        }
         jniLibs {
             // 预编译的官方运行时不能被 AGP 的 strip 处理：
             // 它们已经是 release 形态，再次 strip 可能失败或破坏文件；

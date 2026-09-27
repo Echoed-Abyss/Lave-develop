@@ -99,6 +99,38 @@ class AndroidKeepAlive {
     }
   }
 
+  /// 是否已获得精确闹钟权限。
+  ///
+  /// 这是保活链路里唯一「凭定时到点就能在后台启动前台服务」的手段
+  /// （官方后台启动豁免清单中的一条），用于划掉任务后的拉起
+  /// 与 15 分钟一次的看门狗巡检。
+  ///
+  /// Android 14 起该权限默认被拒绝，必须由用户手动开启；
+  /// 未开启时退化为不精确闹钟——仍会响，但系统会按省电策略推迟，
+  /// 所以「后台能不能自动恢复」的差别很大。
+  Future<bool> canScheduleExactAlarms() async {
+    try {
+      return await _channel.invokeMethod<bool>('canScheduleExactAlarms') ?? true;
+    } on MissingPluginException {
+      _supported = false;
+      return true;
+    } catch (error) {
+      AppLogger.warn('查询精确闹钟权限失败：$error', tag: 'keepalive');
+      return true;
+    }
+  }
+
+  /// 打开系统的「闹钟和提醒」授权页，让用户为本应用开启精确闹钟。
+  Future<void> openExactAlarmSettings() async {
+    try {
+      await _channel.invokeMethod<bool>('openExactAlarmSettings');
+    } on MissingPluginException {
+      _supported = false;
+    } catch (error) {
+      AppLogger.warn('打开精确闹钟设置失败：$error', tag: 'keepalive');
+    }
+  }
+
   Future<bool> _invoke(String method, [Map<String, Object?>? args]) async {
     try {
       return await _channel.invokeMethod<bool>(method, args) ?? false;

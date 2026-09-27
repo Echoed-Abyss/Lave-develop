@@ -192,6 +192,7 @@ class ActorRef {
   const ActorRef({
     required this.scopeId,
     this.displayName,
+    this.avatarUrl,
     this.role,
     this.unionId,
     this.isBot = false,
@@ -202,6 +203,13 @@ class ActorRef {
 
   /// 昵称（官方可能为空）。
   final String? displayName;
+
+  /// 头像 URL。
+  ///
+  /// **官方对单聊 / 群聊消息事件的 User 表里没有 avatar 字段**
+  /// （它只出现在频道事件与 `GET /users/@me` 中），因此这里绝大多数时候是空的。
+  /// 界面必须按「可能为空」来渲染，见 `shared/widgets/avatars.dart` 的占位策略。
+  final String? avatarUrl;
 
   /// 群内角色（仅群聊场景有值）。
   final GroupRole? role;

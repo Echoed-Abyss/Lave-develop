@@ -8,6 +8,7 @@ import '../features/home/home_shell.dart';
 import '../features/logs/logs_page.dart';
 import '../features/plugins/plugins_page.dart';
 import '../features/settings/settings_page.dart';
+import '../features/stats/stats_page.dart';
 
 /// 应用服务容器。
 ///
@@ -44,7 +45,7 @@ class LaveApp extends ConsumerWidget {
   }
 }
 
-/// 页面注册表：顺序即 Tab 顺序（Bot / 日志 / 插件 / 设置）。
+/// 页面注册表：顺序即 Tab 顺序（机器人 / 日志 / 统计 / 插件 / 设置）。
 ///
 /// 独立成常量而不是写在 `HomeShell` 里，是为了让「Tab 数量与顺序」
 /// 这个会变化的契约只有一处定义。
@@ -62,6 +63,12 @@ const List<HomeTabSpec> homeTabs = [
     builder: _buildLogsPage,
   ),
   HomeTabSpec(
+    label: '统计',
+    icon: Icons.insights_outlined,
+    selectedIcon: Icons.insights,
+    builder: _buildStatsPage,
+  ),
+  HomeTabSpec(
     label: '插件',
     icon: Icons.extension_outlined,
     selectedIcon: Icons.extension,
@@ -75,8 +82,15 @@ const List<HomeTabSpec> homeTabs = [
   ),
 ];
 
+/// 进入应用时停留在哪个 Tab。
+///
+/// 统计页在正中间，也是首页：用户打开应用最想先确认的是
+/// 「机器人今天有没有在收发消息」，而不是先去管理账号。
+const int initialHomeTabIndex = 2;
+
 Widget _buildBotPage() => const BotPage();
 Widget _buildLogsPage() => const LogsPage();
+Widget _buildStatsPage() => const StatsPage();
 Widget _buildPluginsPage() => const PluginsPage();
 Widget _buildSettingsPage() => const SettingsPage();
 

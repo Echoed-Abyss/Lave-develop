@@ -7,6 +7,7 @@ import '../api/media_api.dart';
 import '../api/message_api.dart';
 import '../api/qq_http_client.dart';
 import '../api/token_api.dart';
+import '../api/user_api.dart';
 import '../core/constants/app_config.dart';
 import '../core/logging/app_logger.dart';
 import '../core/logging/log_service.dart';
@@ -14,6 +15,7 @@ import '../data/local/credential_store.dart';
 import '../data/local/json_doc_store.dart';
 import '../data/repository/bot_repository.dart';
 import '../data/repository/history_repository.dart';
+import '../data/repository/stats_repository.dart';
 import '../domain/models/log_entry.dart';
 import '../gateway/connection_registry.dart';
 import '../gateway/gateway_api.dart';
@@ -38,6 +40,7 @@ class AppServices {
 
     bots = BotRepository(store: this.store, config: this.config);
     history = HistoryRepository(store: this.store);
+    stats = StatsRepository(store: this.store);
 
     plugins = PluginManager(
       log: log,
@@ -59,12 +62,14 @@ class AppServices {
     messageApi = MessageApi(http: http, tokens: tokens, log: log);
     mediaApi = MediaApi(httpClient: http, tokens: tokens, log: log);
     interactionApi = InteractionApi(http: http, tokens: tokens, log: log);
+    userApi = UserApi(http: http, tokens: tokens, log: log);
 
     registry = ConnectionRegistry(
       log: log,
       config: this.config,
       bots: bots,
       history: history,
+      stats: stats,
       plugins: plugins,
       tokens: tokens,
       gatewayApi: gatewayApi,
@@ -105,6 +110,9 @@ class AppServices {
   /// 消息与事件仓库。
   late final HistoryRepository history;
 
+  /// 消息收发统计（首页折线图的数据源）。
+  late final StatsRepository stats;
+
   /// 插件管理。
   late final PluginManager plugins;
 
@@ -128,6 +136,9 @@ class AppServices {
 
   /// 互动回应接口（消息按钮 / 快捷菜单必须回应，否则客户端一直 loading）。
   late final InteractionApi interactionApi;
+
+  /// 机器人自身资料接口（唯一的头像来源）。
+  late final UserApi userApi;
 
   /// 多机器人连接注册表。
   late final ConnectionRegistry registry;
@@ -180,6 +191,7 @@ class AppServices {
     await log.restore();
     await bots.restore();
     await history.restore();
+    await stats.restore();
     await _restoreTheme();
 
     await plugins.initialize();
@@ -187,6 +199,10 @@ class AppServices {
     await keepAlive.start();
 
     await registry.syncWithBots();
+
+    // 资料刷新放在最后且不 await：它只是为了让列表与气泡显示真实昵称与头像，
+    // 失败没有任何副作用，没必要挡住「初始化完成」这一步。
+    if (bots.bots.isNotEmpty) unawaited(refreshBotIdentities());
 
     _initialized = true;
     log.info(
@@ -196,6 +212,27 @@ class AppServices {
       '插件 ${plugins.plugins.length} 个'
       '${plugins.isSupported ? '' : '（当前平台不支持运行）'}',
     );
+  }
+
+  /// 拉取单个机器人的官方资料（昵称与头像）并写回账号。
+  ///
+  /// 只更新官方字段，不动用户填的备注名——见 `BotRepository.updateIdentity`。
+  /// 失败静默返回：该接口只影响展示，不该在界面上冒出错误提示。
+  Future<void> refreshBotIdentity(String appId) async {
+    final identity = await userApi.fetchSelf(appId);
+    if (identity == null || !identity.hasAnything) return;
+    await bots.updateIdentity(
+      appId,
+      officialName: identity.username,
+      avatarUrl: identity.avatarUrl,
+    );
+  }
+
+  /// 刷新全部机器人的官方资料（启动时与新增账号后各调用一次）。
+  Future<void> refreshBotIdentities() async {
+    for (final bot in bots.bots) {
+      await refreshBotIdentity(bot.appId);
+    }
   }
 
   /// 切换主题并持久化。
@@ -259,6 +296,9 @@ class AppServices {
   Future<void> shutdown() async {
     AppLogger.info('开始收起应用资源', tag: 'lifecycle');
     await keepAlive.detach();
+    // 统计走的是 3 秒防抖落盘，这里补一次立即写，
+    // 否则「刚收到最后几条消息就退出」会丢掉这几个计数。
+    await stats.flush();
     await registry.shutdown();
     await plugins.shutdownAll();
     http.dispose();

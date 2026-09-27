@@ -18,6 +18,14 @@
     <!-- 息屏后仍要按时发心跳，必须持有 PARTIAL_WAKE_LOCK。
          前台服务只解决「进程被冻结」，不解决「CPU 停止调度」。 -->
     <uses-permission android:name="android.permission.WAKE_LOCK"/>
+    <!-- 手机重启后自动恢复在线。开机广播是官方豁免清单里明确列出的
+         「可以在后台启动前台服务」的场景之一，也是重启后唯一的恢复手段。 -->
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED"/>
+    <!-- 精确闹钟：官方豁免清单里唯一「凭定时到点就能在后台启动前台服务」的手段，
+         用于划掉任务后的拉起与 15 分钟一次的看门狗巡检。
+         属特殊权限，Android 14+ 默认拒绝，需用户在系统设置里开启；
+         未开启时自动退回不精确闹钟（仍会响，但系统可能推迟）。 -->
+    <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM"/>
     <application
         android:label="Lave"
         android:name="${applicationName}"
@@ -74,6 +82,29 @@
                 android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
                 android:value="维持与腾讯 QQ 机器人开放平台网关的 WebSocket 长连接：需按服务端下发的周期持续发送心跳，进程被系统冻结即断连、机器人掉线。" />
         </service>
+
+        <!-- 开机 / 应用更新后的自启。
+             这些广播到达时 Flutter 引擎还没起来，甚至用户可能从未打开过应用，
+             因此只能由原生侧读 KeepAliveScheduler 里那份开关记录来决定是否恢复。
+             exported=true 是系统的保护广播所必需，这里只响应下面列出的动作。 -->
+        <receiver
+            android:name=".KeepAliveBootReceiver"
+            android:enabled="true"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.BOOT_COMPLETED"/>
+                <action android:name="android.intent.action.LOCKED_BOOT_COMPLETED"/>
+                <action android:name="android.intent.action.MY_PACKAGE_REPLACED"/>
+                <action android:name="android.intent.action.QUICKBOOT_POWERON"/>
+                <action android:name="com.htc.intent.action.QUICKBOOT_POWERON"/>
+            </intent-filter>
+        </receiver>
+
+        <!-- 保活闹钟接收器：由本应用自己用显式 Intent 投递，因此不导出。 -->
+        <receiver
+            android:name=".KeepAliveAlarmReceiver"
+            android:enabled="true"
+            android:exported="false"/>
 
         <!-- Don't delete the meta-data below.
              This is used by the Flutter tool to generate GeneratedPluginRegistrant.java -->

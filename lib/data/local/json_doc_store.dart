@@ -8,7 +8,6 @@ import 'package:path_provider/path_provider.dart';
 import '../../core/logging/app_logger.dart';
 import '../../core/logging/log_service.dart';
 import '../repository/bot_repository.dart';
-import '../repository/history_repository.dart';
 
 /// 极简 JSON 文档存储。
 ///
@@ -31,8 +30,8 @@ import '../repository/history_repository.dart';
 /// 这些需要 `build_runner` 代码生成或额外的原生依赖，多一层构建步骤
 /// 就多一类「生成物过期导致编译失败」的问题。自用场景的数据量（消息、
 /// 日志各按千条上限）用单文件完全够。升级路径集中在三个接口后面：
-/// [JsonDocStoreLike]、[BotStoreLike]、[HistoryStoreLike]。
-class JsonDocStore implements JsonDocStoreLike, BotStoreLike, HistoryStoreLike {
+/// [JsonDocStoreLike]、[BotStoreLike]、[ListStoreLike]。
+class JsonDocStore implements JsonDocStoreLike, BotStoreLike, ListStoreLike {
   JsonDocStore({required this.fileName});
 
   /// 文件名（落在应用文档目录下）。
@@ -151,4 +150,15 @@ class JsonDocStore implements JsonDocStoreLike, BotStoreLike, HistoryStoreLike {
       AppLogger.warn('清除本地文档失败：$fileName（$error）', tag: 'store');
     }
   }
+}
+
+/// 「按键读写一组记录」的最小依赖面。
+///
+/// 放在这里而不是某个具体仓库里：消息历史、事件日志、收发统计都需要它，
+/// 而它描述的是**存储能力**，不是任何一个仓库的业务。各仓库只依赖这个接口，
+/// 因此换存储实现（例如将来换成带索引的本地数据库）时改动面可控。
+abstract interface class ListStoreLike {
+  Future<List<Map<String, dynamic>>> readList(String key);
+
+  Future<void> writeList(String key, List<Map<String, dynamic>> items);
 }

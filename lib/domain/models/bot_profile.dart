@@ -10,6 +10,7 @@ class BotProfile {
   const BotProfile({
     required this.appId,
     required this.displayName,
+    this.officialName,
     this.avatarUrl,
     this.enabled = true,
     this.createdAt,
@@ -23,10 +24,20 @@ class BotProfile {
   /// 而 AppID 是唯一稳定标识；界面展示名允许用户自行修改。
   final String appId;
 
-  /// 界面展示名。缺省时用 AppID。
+  /// 界面展示名（用户在编辑面板里填的备注名）。缺省时回退到官方昵称或 AppID。
   final String displayName;
 
+  /// 官方返回的机器人昵称（来自 `GET /users/@me` 的 `username`）。
+  ///
+  /// 与 [displayName] 分开存的原因：用户填的备注名是他的选择，
+  /// 不该被一次资料刷新悄悄覆盖；两者都在界面上有用
+  /// （列表显示备注名，详情里可以对照官方昵称）。
+  final String? officialName;
+
   /// 头像地址（如有）。
+  ///
+  /// 来源是 `GET /users/@me` 的 `avatar`：**这是官方唯一提供头像的机器人相关接口**
+  /// （`GET /gateway/bot` 不含该字段，消息事件里也没有）。
   final String? avatarUrl;
 
   /// 是否启用。关闭后不建立连接，但仍保留配置与历史。
@@ -42,8 +53,14 @@ class BotProfile {
   final String? remark;
 
   /// 用于界面展示的名称。
-  String get title =>
-      displayName.isNotEmpty ? displayName : appId;
+  ///
+  /// 优先级：用户备注名 → 官方昵称 → AppID。
+  String get title {
+    if (displayName.isNotEmpty) return displayName;
+    final official = officialName?.trim();
+    if (official != null && official.isNotEmpty) return official;
+    return appId;
+  }
 
   /// 用于日志与列表的短标识：保留 AppID 后 6 位便于区分。
   String get shortId => appId.length <= 6 ? appId : appId.substring(appId.length - 6);
@@ -51,6 +68,7 @@ class BotProfile {
   factory BotProfile.fromJson(Map<String, dynamic> json) => BotProfile(
         appId: QqJson.str(json['app_id']) ?? '',
         displayName: QqJson.str(json['display_name']) ?? '',
+        officialName: QqJson.str(json['official_name']),
         avatarUrl: QqJson.str(json['avatar_url']),
         enabled: QqJson.boolean(json['enabled']) ?? true,
         createdAt: _dateTime(json['created_at']),
@@ -61,6 +79,7 @@ class BotProfile {
   Map<String, dynamic> toJson() => {
         'app_id': appId,
         'display_name': displayName,
+        if (officialName != null) 'official_name': officialName,
         if (avatarUrl != null) 'avatar_url': avatarUrl,
         'enabled': enabled,
         if (createdAt != null) 'created_at': createdAt!.toIso8601String(),
@@ -71,6 +90,7 @@ class BotProfile {
 
   BotProfile copyWith({
     String? displayName,
+    String? officialName,
     String? avatarUrl,
     bool? enabled,
     DateTime? lastConnectedAt,
@@ -79,6 +99,7 @@ class BotProfile {
       BotProfile(
         appId: appId,
         displayName: displayName ?? this.displayName,
+        officialName: officialName ?? this.officialName,
         avatarUrl: avatarUrl ?? this.avatarUrl,
         enabled: enabled ?? this.enabled,
         createdAt: createdAt,

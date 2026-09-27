@@ -32,12 +32,14 @@ class EventDispatcher {
     required PluginManager plugins,
     required InteractionApi interactionApi,
     required Future<void> Function(int? seq) acknowledgeSeq,
+    void Function()? onIncomingMessage,
   })  : _history = history,
         _log = log,
         _sender = sender,
         _commands = commands,
         _plugins = plugins,
         _interactionApi = interactionApi,
+        _onIncomingMessage = onIncomingMessage,
         _acknowledgeSeq = acknowledgeSeq;
 
   final String botId;
@@ -48,6 +50,9 @@ class EventDispatcher {
   final PluginManager _plugins;
   final InteractionApi _interactionApi;
   final Future<void> Function(int? seq) _acknowledgeSeq;
+
+  /// 收到一条**去重后**的入站消息时回调（统计用）。
+  final void Function()? _onIncomingMessage;
 
   /// 去重集合。
   ///
@@ -147,6 +152,9 @@ class EventDispatcher {
     }
 
     _history.addMessage(message);
+    // 统计「收到消息数」。放在**去重之后**：官方明确「相同 msg_id 可能重复推送」，
+    // 在去重前计数会把一次消息算成两次，用户看到的数字会持续虚高。
+    _onIncomingMessage?.call();
     _log.info(
       LogSource.event,
       '${message.scope.label}消息：${message.preview}',
@@ -292,6 +300,7 @@ class EventDispatcher {
           sender: ActorRef(
             scopeId: event.author?.userOpenid ?? event.author?.id ?? 'unknown',
             displayName: event.author?.username,
+            avatarUrl: event.author?.avatar,
             unionId: event.author?.unionOpenid,
             isBot: event.author?.bot ?? false,
           ),
@@ -318,6 +327,7 @@ class EventDispatcher {
           sender: ActorRef(
             scopeId: event.author?.memberOpenid ?? event.author?.id ?? 'unknown',
             displayName: event.author?.username,
+            avatarUrl: event.author?.avatar,
             role: GroupRole.fromValue(event.author?.memberRole),
             isBot: event.author?.bot ?? false,
           ),

@@ -104,6 +104,34 @@ class BotRepository extends ChangeNotifier {
     await _persist();
   }
 
+  /// 写入官方返回的机器人资料（昵称与头像）。
+  ///
+  /// 与 [update] 分开是刻意的：调用方是「后台资料刷新」，不是用户编辑。
+  /// 它只应改动这两个官方字段，绝不能碰到用户填的备注名与启用状态——
+  /// 用 [update] 直接整体覆盖的话，一次刷新就会把备注名清掉。
+  ///
+  /// 内容没变时不落盘：应用每次启动都会刷一遍资料，
+  /// 无变化也写一次纯属浪费（写的是整个文档）。
+  Future<void> updateIdentity(
+    String appId, {
+    String? officialName,
+    String? avatarUrl,
+  }) async {
+    final bot = find(appId);
+    if (bot == null) return;
+
+    final name = (officialName == null || officialName.isEmpty) ? null : officialName;
+    final avatar = (avatarUrl == null || avatarUrl.isEmpty) ? null : avatarUrl;
+    if (bot.officialName == name && bot.avatarUrl == avatar) return;
+
+    await update(
+      bot.copyWith(
+        officialName: name ?? bot.officialName,
+        avatarUrl: avatar ?? bot.avatarUrl,
+      ),
+    );
+  }
+
   /// 删除账号（含其会话水位）。密钥由调用方负责删除。
   Future<void> remove(String appId) async {
     _bots.removeWhere((b) => b.appId == appId);

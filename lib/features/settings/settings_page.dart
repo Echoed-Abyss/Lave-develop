@@ -245,7 +245,7 @@ class _KeepAliveStatus extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    return FutureBuilder<(bool, bool)>(
+    return FutureBuilder<(bool, bool, bool)>(
       future: _load(),
       builder: (context, snapshot) {
         if (!snapshot.hasData) {
@@ -257,7 +257,7 @@ class _KeepAliveStatus extends StatelessWidget {
             ),
           );
         }
-        final (running, whitelisted) = snapshot.data!;
+        final (running, exactAlarm, whitelisted) = snapshot.data!;
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -267,6 +267,15 @@ class _KeepAliveStatus extends StatelessWidget {
               value: running ? '已在后台常驻' : '未运行',
               ok: running,
               isDark: isDark,
+            ),
+            const SizedBox(height: 3),
+            _statusRow(
+              context,
+              label: '精确闹钟',
+              value: exactAlarm ? '已授权' : '未授权，点此开启',
+              ok: exactAlarm,
+              isDark: isDark,
+              onTap: exactAlarm ? null : coordinator.openExactAlarmSettings,
             ),
             const SizedBox(height: 3),
             _statusRow(
@@ -284,10 +293,11 @@ class _KeepAliveStatus extends StatelessWidget {
     );
   }
 
-  Future<(bool, bool)> _load() async {
+  Future<(bool, bool, bool)> _load() async {
     final running = await coordinator.isServiceRunning();
+    final exactAlarm = await coordinator.canScheduleExactAlarms();
     final whitelisted = await coordinator.isIgnoringBatteryOptimizations();
-    return (running, whitelisted);
+    return (running, exactAlarm, whitelisted);
   }
 
   Widget _statusRow(

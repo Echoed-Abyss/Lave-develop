@@ -120,6 +120,15 @@ class KeepAliveCoordinator extends ChangeNotifier {
   Future<void> openBatteryOptimizationSettings() =>
       _bridge.openBatteryOptimizationSettings();
 
+  /// 是否已获得精确闹钟权限。
+  ///
+  /// 它决定「应用被清掉后能不能自动回来」：精确闹钟在官方后台启动豁免清单里，
+  /// 不精确闹钟不在——后者到点也可能因为后台启动被拒而拉不起服务。
+  Future<bool> canScheduleExactAlarms() => _bridge.canScheduleExactAlarms();
+
+  /// 打开精确闹钟授权页。
+  Future<void> openExactAlarmSettings() => _bridge.openExactAlarmSettings();
+
   /// 释放监听。
   ///
   /// 与 [detach] 的区别：这里只摘监听，不动服务状态，

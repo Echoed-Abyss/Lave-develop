@@ -11,6 +11,7 @@ import '../core/constants/app_config.dart';
 import '../core/logging/log_service.dart';
 import '../data/repository/bot_repository.dart';
 import '../data/repository/history_repository.dart';
+import '../data/repository/stats_repository.dart';
 import '../domain/command/command_engine.dart';
 import '../domain/models/bot_profile.dart';
 import '../domain/models/connection_status.dart';
@@ -36,6 +37,7 @@ class ConnectionRegistry extends ChangeNotifier {
     required AppConfig config,
     required BotRepository bots,
     required HistoryRepository history,
+    required StatsRepository stats,
     required PluginManager plugins,
     required AccessTokenManager tokens,
     required GatewayApi gatewayApi,
@@ -49,6 +51,7 @@ class ConnectionRegistry extends ChangeNotifier {
         _config = config,
         _bots = bots,
         _history = history,
+        _stats = stats,
         _plugins = plugins,
         _tokens = tokens,
         _gatewayApi = gatewayApi,
@@ -65,6 +68,10 @@ class ConnectionRegistry extends ChangeNotifier {
   final AppConfig _config;
   final BotRepository _bots;
   final HistoryRepository _history;
+
+  /// 消息收发统计（连接层是唯一同时看得到「收」与「发」的地方）。
+  final StatsRepository _stats;
+
   final PluginManager _plugins;
   final AccessTokenManager _tokens;
   final GatewayApi _gatewayApi;
@@ -109,6 +116,7 @@ class ConnectionRegistry extends ChangeNotifier {
       botId: botId,
       messageApi: _messageApi,
       mediaApi: _mediaApi,
+      onSent: _stats.recordSent,
     );
     _senders[botId] = sender;
 
@@ -138,6 +146,7 @@ class ConnectionRegistry extends ChangeNotifier {
       // 官方要求「处理过事件之后记录下 s」，因此水位推进放在分发层内部、
       // 在落库完成之后调用。
       acknowledgeSeq: connection.acknowledgeSeq,
+      onIncomingMessage: _stats.recordReceived,
     );
 
     // 连接层只负责协议；所有业务语义都在分发层。

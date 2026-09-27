@@ -11,6 +11,7 @@ import '../../domain/models/connection_status.dart';
 import '../../domain/models/log_entry.dart';
 import '../../domain/models/qq_enums.dart';
 import '../../domain/models/qq_message.dart';
+import '../../shared/widgets/avatars.dart';
 import '../../shared/widgets/glass.dart';
 
 /// 会话详情页：完整消息列表 + 图片预览 + 发送栏。
@@ -71,6 +72,10 @@ class _ConversationPageState extends ConsumerState<ConversationPage> {
           widget.botId,
           widget.conversationId,
         );
+        // 机器人昵称与头像：气泡右侧、以及占位色都以它为准。
+        final bot = services.bots.find(widget.botId);
+        final botName = bot?.title ?? '机器人';
+        final botAvatarUrl = bot?.avatarUrl;
 
         return ValueListenableBuilder<ConnectionSnapshot>(
           valueListenable: connection.status,
@@ -117,7 +122,11 @@ class _ConversationPageState extends ConsumerState<ConversationPage> {
                           itemCount: messages.length,
                           itemBuilder: (context, index) {
                             final message = messages[messages.length - 1 - index];
-                            final bubble = _MessageBubble(message: message);
+                            final bubble = _MessageBubble(
+                              message: message,
+                              botName: botName,
+                              botAvatarUrl: botAvatarUrl,
+                            );
                             // 只给最新一条做入场动效（reverse 列表里 index 0 即最新）。
                             // 给每条都做的话，滚动时不断有新条目挂载并播放动画，
                             // 既干扰阅读也白白消耗帧预算。
@@ -242,13 +251,22 @@ class _ConversationPageState extends ConsumerState<ConversationPage> {
   /// 官方不会把机器人自己发的消息作为事件回推，因此不本地补记的话，
   /// 用户发完消息在列表里看不到自己发的那条，会以为发送失败。
   void _appendOutgoing(String preview) {
-    ref.read(appServicesProvider).history.addMessage(
+    final services = ref.read(appServicesProvider);
+    // 发出方是本机器人：带上它的昵称与头像，气泡右侧才能显示真实头像
+    // 而不是一个通用机器人图标。
+    final bot = services.bots.find(widget.botId);
+    services.history.addMessage(
           QqMessage(
-            localId: ref.read(appServicesProvider).history.nextLocalId(),
+            localId: services.history.nextLocalId(),
             botId: widget.botId,
             scope: widget.scope,
             conversationId: widget.conversationId,
-            sender: const ActorRef(scopeId: 'robot', displayName: '机器人'),
+            sender: ActorRef(
+              scopeId: 'robot',
+              displayName: bot?.title ?? '机器人',
+              avatarUrl: bot?.avatarUrl,
+              isBot: true,
+            ),
             direction: MessageDirection.outgoing,
             at: DateTime.now(),
             content: preview,
@@ -348,9 +366,18 @@ class _StatusBar extends StatelessWidget {
 
 /// 消息气泡。
 class _MessageBubble extends StatelessWidget {
-  const _MessageBubble({required this.message});
+  const _MessageBubble({
+    required this.message,
+    required this.botName,
+    required this.botAvatarUrl,
+  });
 
   final QqMessage message;
+
+  /// 机器人昵称与头像：气泡右侧（机器人发言）用它，
+  /// 因为这类消息的发送者是我们自己构造的，取账号上的资料更准。
+  final String botName;
+  final String? botAvatarUrl;
 
   @override
   Widget build(BuildContext context) {
@@ -366,11 +393,27 @@ class _MessageBubble extends StatelessWidget {
             mine ? MainAxisAlignment.end : MainAxisAlignment.start,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          if (!mine) const _Avatar(isBot: false),
+          if (!mine)
+            Padding(
+              padding: const EdgeInsets.only(right: 6),
+              // 用户头像：官方消息事件里没有 avatar 字段，
+              // 因此绝大多数时候走的是「按 openid 稳定的首字占位」。
+              child: LaveAvatar(
+                seed: message.sender.scopeId,
+                imageUrl: message.sender.avatarUrl,
+                label: message.sender.displayName ?? message.sender.label,
+                radius: 13,
+              ),
+            ),
           Flexible(
             child: GlassPanel(
               radius: 14,
               blurSigma: GlassTheme.listBlurSigma,
+              // 气泡在长列表里，**必须**关掉背景模糊：BackdropFilter 是
+              // GPU 上最贵的常规操作，几十个气泡各做一次全屏模糊，
+              // 滚动时在中低端机上会直接掉帧。关掉后仍有半透明底与描边，
+              // 视觉上依然是玻璃。
+              blur: false,
               padding: const EdgeInsets.fromLTRB(12, 9, 12, 9),
               accent: mine ? GlassTheme.brand : null,
               child: Column(
@@ -380,7 +423,7 @@ class _MessageBubble extends StatelessWidget {
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       Text(
-                        mine ? '机器人' : message.sender.label,
+                        mine ? botName : message.sender.label,
                         style: TextStyle(
                           fontSize: 11.5,
                           fontWeight: FontWeight.w600,
@@ -462,32 +505,19 @@ class _MessageBubble extends StatelessWidget {
               ),
             ),
           ),
-          if (mine) const _Avatar(isBot: true),
+          if (mine)
+            Padding(
+              padding: const EdgeInsets.only(left: 6),
+              child: LaveAvatar(
+                seed: 'robot:${message.botId}',
+                imageUrl: botAvatarUrl,
+                label: botName,
+                radius: 13,
+                isBot: true,
+                accent: GlassTheme.brand,
+              ),
+            ),
         ],
-      ),
-    );
-  }
-}
-
-/// 小头像占位。
-class _Avatar extends StatelessWidget {
-  const _Avatar({required this.isBot});
-
-  final bool isBot;
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 6),
-      child: CircleAvatar(
-        radius: 12,
-        backgroundColor: (isBot ? GlassTheme.brand : const Color(0xFF7A8CA0))
-            .withValues(alpha: 0.18),
-        child: Icon(
-          isBot ? Icons.smart_toy : Icons.person,
-          size: 13,
-          color: isBot ? GlassTheme.brand : const Color(0xFF7A8CA0),
-        ),
       ),
     );
   }
