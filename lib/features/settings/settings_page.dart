@@ -6,6 +6,7 @@ import '../../app/keep_alive_coordinator.dart';
 import '../../app/theme.dart';
 import '../../core/constants/app_info.dart';
 import '../../gateway/protocol/qq_opcode.dart';
+import '../../platform/android_keep_alive.dart';
 import '../../shared/widgets/glass.dart';
 
 /// 设置 Tab。
@@ -161,7 +162,9 @@ class SettingsPage extends ConsumerWidget {
                           ? '应用退到后台后，系统会在约 10 秒后冻结进程；被冻结时心跳停发，'
                               '网关会直接关闭连接（这就是「后台容易掉线」的原因）。\n'
                               '开启后由前台服务让进程免于冻结，代价是有一条常驻通知，'
-                              '它会显示当前在线的机器人数。'
+                              '它会显示当前在线的机器人数。\n'
+                              '开启时退出应用不会让机器人下线：连接与插件会继续运行，'
+                              '要真正停止请关掉本开关，或点通知上的「停止保活」。'
                           : '当前平台不支持前台服务保活（仅 Android 需要）。',
                       style: TextStyle(
                         fontSize: 11.5,
@@ -230,13 +233,15 @@ class SettingsPage extends ConsumerWidget {
 
 /// 保活的**真实**状态与系统前提。
 ///
-/// 为什么要单独显示这三行：开关只表达用户意图，
-/// 「服务到底起来了没有」「有没有加电池优化白名单」才是决定
-/// 后台能不能保住连接的因素。只要开关不要事实，用户遇到
-/// 「开关是开的、机器人就是不在线」时完全没有排查方向。
+/// 为什么要单独列这几行：开关只表达用户意图，真正决定「后台能不能保住连接」
+/// 的是五项互不相同的事实——服务有没有真的起来、起来的是哪种前台服务类型、
+/// 有没有加电池优化白名单、有没有精确闹钟权限、应用被放在哪个待机分桶。
+/// 只要开关不要事实，用户遇到「开关是开的、机器人就是不在线」时
+/// 完全没有排查方向，而这几项里任意一项不合格都足以单独造成掉线。
 ///
 /// 每次构建都重新查询而不是缓存：这几个值会被应用之外的操作改掉
-/// （用户在系统设置里加白名单、系统回收服务），缓存只会给出过期结论。
+/// （用户在系统设置里加白名单、系统回收服务、系统调整待机分桶），
+/// 缓存只会给出过期结论。
 class _KeepAliveStatus extends StatelessWidget {
   const _KeepAliveStatus({required this.coordinator});
 
@@ -245,10 +250,11 @@ class _KeepAliveStatus extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    return FutureBuilder<(bool, bool, bool)>(
-      future: _load(),
+    return FutureBuilder<KeepAliveStatus>(
+      future: coordinator.status(),
       builder: (context, snapshot) {
-        if (!snapshot.hasData) {
+        final status = snapshot.data;
+        if (status == null || !status.available) {
           return Text(
             '正在查询保活状态…',
             style: TextStyle(
@@ -257,47 +263,90 @@ class _KeepAliveStatus extends StatelessWidget {
             ),
           );
         }
-        final (running, exactAlarm, whitelisted) = snapshot.data!;
+
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             _statusRow(
               context,
               label: '服务状态',
-              value: running ? '已在后台常驻' : '未运行',
-              ok: running,
+              value: status.running ? '已在后台常驻' : '未运行',
+              ok: status.running,
               isDark: isDark,
             ),
             const SizedBox(height: 3),
             _statusRow(
               context,
-              label: '精确闹钟',
-              value: exactAlarm ? '已授权' : '未授权，点此开启',
-              ok: exactAlarm,
+              label: '服务类型',
+              // dataSync 在 Android 15+ 每 24 小时只能累计跑 6 小时，
+              // 到点会被系统强制停服；specialUse 没有时限。
+              value: switch (status.foregroundType) {
+                'specialUse' => 'specialUse（无时长上限）',
+                'dataSync' => 'dataSync（有 6 小时/24 小时上限）',
+                _ => '未知',
+              },
+              ok: status.foregroundType == 'specialUse',
               isDark: isDark,
-              onTap: exactAlarm ? null : coordinator.openExactAlarmSettings,
             ),
             const SizedBox(height: 3),
             _statusRow(
               context,
               label: '电池优化',
-              value: whitelisted ? '已加白名单' : '未加白名单，点此设置',
-              ok: whitelisted,
+              value: status.ignoringBatteryOptimizations
+                  ? '已加白名单'
+                  : '未加白名单，点此授权',
+              ok: status.ignoringBatteryOptimizations,
+              isDark: isDark,
+              // 未加白名单时优先直接弹系统对话框，比打开列表页有效得多。
+              onTap: status.ignoringBatteryOptimizations
+                  ? null
+                  : () => coordinator.requestIgnoreBatteryOptimizations(),
+            ),
+            const SizedBox(height: 3),
+            _statusRow(
+              context,
+              label: '精确闹钟',
+              value: status.canScheduleExactAlarms ? '已授权' : '未授权，点此开启',
+              ok: status.canScheduleExactAlarms,
               isDark: isDark,
               onTap:
-                  whitelisted ? null : coordinator.openBatteryOptimizationSettings,
+                  status.canScheduleExactAlarms ? null : coordinator.openExactAlarmSettings,
             ),
+            const SizedBox(height: 3),
+            _statusRow(
+              context,
+              label: '待机分桶',
+              // RARE（极少使用）起系统会限制应用的互联网连接，
+              // 这与前台服务是否在跑无关，是「放着一会儿就掉线」的独立原因。
+              value: status.standbyBucketRestrictsNetwork
+                  ? '${status.standbyBucketLabel}（可能限制网络）'
+                  : status.standbyBucketLabel,
+              ok: !status.standbyBucketRestrictsNetwork,
+              isDark: isDark,
+            ),
+            if (status.standbyBucketRestrictsNetwork ||
+                status.isLimitedForegroundType) ...[
+              const SizedBox(height: 6),
+              Text(
+                [
+                  if (status.isLimitedForegroundType)
+                    '前台服务类型回落到了 dataSync：请重启应用；若持续如此，'
+                        '说明系统拒绝了 specialUse 类型。',
+                  if (status.standbyBucketRestrictsNetwork)
+                    '应用已被系统放进低优先级分桶，后台网络会被限制。'
+                        '多打开几次应用、把电池优化设为「不优化」可以脱离该分桶。',
+                ].join('\n'),
+                style: TextStyle(
+                  fontSize: 11,
+                  height: 1.6,
+                  color: GlassTheme.levelColor('WARN', isDark: isDark),
+                ),
+              ),
+            ],
           ],
         );
       },
     );
-  }
-
-  Future<(bool, bool, bool)> _load() async {
-    final running = await coordinator.isServiceRunning();
-    final exactAlarm = await coordinator.canScheduleExactAlarms();
-    final whitelisted = await coordinator.isIgnoringBatteryOptimizations();
-    return (running, exactAlarm, whitelisted);
   }
 
   Widget _statusRow(

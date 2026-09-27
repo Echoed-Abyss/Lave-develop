@@ -28,7 +28,22 @@ void main() {
   setUp(() {
     TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
         .setMockMethodCallHandler(nativeChannel, (call) async {
-      // 全部返回 true 就够：本测试关心的是「拿到返回值后界面渲染成什么样」，
+      // 保活诊断必须返回一张真正的表：它的类型是 `Map<String, Object?>`，
+      // 返回 `true` 会让 `invokeMapMethod` 抛类型错误，
+      // 诊断区块就会一直停在「正在查询保活状态…」，下面那几条断言随之失败——
+      // 那是测试桩的问题，不是界面的问题。
+      if (call.method == 'keepAliveStatus') {
+        return <String, Object?>{
+          'running': true,
+          'foregroundType': 'specialUse',
+          'ignoringBatteryOptimizations': true,
+          'canScheduleExactAlarms': true,
+          'notificationPermission': true,
+          'standbyBucket': 10,
+          'sdkInt': 36,
+        };
+      }
+      // 其余方法全部返回 true 就够：本测试关心的是「拿到返回值后界面渲染成什么样」，
       // 而不是各方法的具体语义（那些由各自的单元测试覆盖）。
       return true;
     });
@@ -105,13 +120,18 @@ void main() {
     expect(find.text('后台保活'), findsOneWidget);
     expect(find.text('保活前台服务'), findsOneWidget);
 
-    // 保活的三个系统前提必须可见：只给开关不给事实，用户遇到
+    // 保活的系统前提与诊断必须可见：只给开关不给事实，用户遇到
     // 「开关是开的但机器人不在线」时没有任何排查方向。
     await tester.drag(settingsList, const Offset(0, -400), warnIfMissed: false);
     await tester.pumpAndSettle();
     expect(find.text('服务状态'), findsOneWidget);
+    // 前台服务类型必须显示：dataSync 在 Android 15+ 有 6 小时/24 小时上限，
+    // 与无时限的 specialUse 后果完全不同，这是「几小时后掉线」的唯一定性证据。
+    expect(find.text('服务类型'), findsOneWidget);
     expect(find.text('精确闹钟'), findsOneWidget);
     expect(find.text('电池优化'), findsOneWidget);
+    // 待机分桶：进入 RARE 起系统会限制后台网络，是独立于前台服务的一条掉线原因。
+    expect(find.text('待机分桶'), findsOneWidget);
 
     // 关于：只保留当前版本与作者。
     await tester.drag(settingsList, const Offset(0, -700), warnIfMissed: false);

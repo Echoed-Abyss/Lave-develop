@@ -26,6 +26,18 @@
          属特殊权限，Android 14+ 默认拒绝，需用户在系统设置里开启；
          未开启时自动退回不精确闹钟（仍会响，但系统可能推迟）。 -->
     <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM"/>
+    <!-- 电池优化白名单（Doze）。
+         必须声明它，ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS 才被系统接受。
+
+         为什么这对本应用是必需的：低电耗模式（Doze）一旦生效，
+         系统会**暂停应用的网络访问**并忽略 PARTIAL_WAKE_LOCK——
+         前台服务只能让进程不被冻结，挡不住这条。表现为「息屏十几分钟后必掉线」。
+         加入白名单是解除该限制的唯一手段。
+
+         官方对该权限的用途限制很严（只接受「低电耗模式破坏核心功能且无法改用 FCM」）；
+         本应用是自建 WSS 长连接、不上架应用商店、由用户自行安装，
+         因此这里由用户主动点击按钮触发系统弹窗，而不是应用私自申请。 -->
+    <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS"/>
     <application
         android:label="Lave"
         android:name="${applicationName}"

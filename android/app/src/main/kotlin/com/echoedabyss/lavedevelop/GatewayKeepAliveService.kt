@@ -12,6 +12,7 @@ import android.os.Build
 import android.os.IBinder
 import android.os.PowerManager
 import android.util.Log
+import androidx.annotation.RequiresApi
 
 /**
  * 网关长连接的保活前台服务。
@@ -72,6 +73,27 @@ class GatewayKeepAliveService : Service() {
         var isRunning: Boolean = false
             private set
 
+        /**
+         * 实际生效的前台服务类型（[ServiceInfo] 的 `FOREGROUND_SERVICE_TYPE_*`）。
+         *
+         * 必须暴露出来：`specialUse` 与 `dataSync` 的后果完全不同——
+         * 后者在 Android 15+ 有「每 24 小时累计 6 小时」的硬上限，
+         * 到点会被系统强制停服。用户遇到「开机几小时后掉线」时，
+         * 这个字段是唯一能直接定性的证据。
+         */
+        @Volatile
+        var foregroundType: Int = 0
+            private set
+
+        /** 供界面直接显示的类型名。 */
+        val foregroundTypeName: String
+            get() = when (foregroundType) {
+                ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE -> "specialUse"
+                ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC -> "dataSync"
+                0 -> "unknown"
+                else -> "other($foregroundType)"
+            }
+
         /** 启动或更新文案。 */
         fun start(context: Context, text: String) = dispatch(context, ACTION_START, text)
 
@@ -125,6 +147,15 @@ class GatewayKeepAliveService : Service() {
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         if (intent?.action == ACTION_STOP) {
             stopping = true
+            // 开关记录必须一起关掉。
+            //
+            // 通知栏的「停止保活」按钮直接用 PendingIntent.getService 投递到这里，
+            // 不经过 `dispatch`，因此那条路径上的 setEnabled/cancelAll 不会执行。
+            // 漏掉这一步的后果很具体：用户点了停止、服务确实停了，
+            // 但开关仍记为「开」，15 分钟后看门狗闹钟又会把它拉起来——
+            // 用户会觉得「怎么关都关不掉」。
+            KeepAliveScheduler.setEnabled(this, false, null)
+            KeepAliveScheduler.cancelAll(this)
             releaseWakeLock()
             stopForegroundCompat()
             stopSelf()
@@ -186,7 +217,10 @@ class GatewayKeepAliveService : Service() {
         val notification = buildNotification(currentText)
 
         if (Build.VERSION.SDK_INT >= 34) {
-            if (attemptForeground("specialUse") {
+            if (attemptForeground(
+                    "specialUse",
+                    ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE,
+                ) {
                     startForeground(
                         NOTIFICATION_ID,
                         notification,
@@ -196,7 +230,10 @@ class GatewayKeepAliveService : Service() {
             ) {
                 return true
             }
-        } else if (attemptForeground("dataSync") {
+        } else if (attemptForeground(
+                "dataSync",
+                ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC,
+            ) {
                 startForeground(
                     NOTIFICATION_ID,
                     notification,
@@ -208,7 +245,9 @@ class GatewayKeepAliveService : Service() {
         }
 
         // 最后兜底：不带类型的重载，使用清单里声明的类型。
-        if (attemptForeground("清单默认类型") {
+        // 此时无法确知系统选了什么，`foregroundType` 置 0（unknown）——
+        // 界面会如实显示「未知」，而不是假装成 specialUse。
+        if (attemptForeground("清单默认类型", 0) {
                 startForeground(NOTIFICATION_ID, notification)
             }
         ) {
@@ -216,6 +255,7 @@ class GatewayKeepAliveService : Service() {
         }
 
         isRunning = false
+        foregroundType = 0
         // 连前台都进不去时，至少把通知挂上，让用户知道后台有个服务在跑。
         try {
             getSystemService(NotificationManager::class.java)?.notify(NOTIFICATION_ID, notification)
@@ -225,14 +265,74 @@ class GatewayKeepAliveService : Service() {
         return false
     }
 
-    private fun attemptForeground(label: String, block: () -> Unit): Boolean = try {
+    private fun attemptForeground(
+        label: String,
+        type: Int,
+        block: () -> Unit,
+    ): Boolean = try {
         block()
         isRunning = true
+        foregroundType = type
         Log.i(TAG, "已进入前台服务（$label）")
         true
     } catch (error: Exception) {
         Log.w(TAG, "以前台服务方式启动失败（$label）：$error")
         false
+    }
+
+    /**
+     * 前台服务超时（Android 15 / API 35 起）。
+     *
+     * 只有 `dataSync` / `mediaProcessing` 会自动收到这个回调，
+     * 因为这两类在 Android 15+ 有「每 24 小时累计 6 小时」的上限，
+     * 到点系统要求应用停服，否则会 ANR 并丢失前台资格。
+     *
+     * 本项目在 API 34+ 一律用 `specialUse`（无时限），因此正常情况下
+     * 这个回调**永远不会**被触发。仍然实现它有两个理由：
+     * 1. 万一 `specialUse` 启动被 ROM 拒绝而退回 `dataSync`，
+     *    这里是唯一能获知「被系统掐了」的地方，必须记录下来；
+     * 2. 官方明确要求：超时回调里不主动停服会被判 ANR。
+     *
+     * 处理方式：如实记录被限流的类型，然后停服并由看门狗闹钟在
+     * 允许的时机重新拉起——期间保持「如实告知用户」而不是假装还在线。
+     */
+    @RequiresApi(Build.VERSION_CODES.VANILLA_ICE_CREAM)
+    override fun onTimeout(startId: Int, fgsType: Int) {
+        val name = when (fgsType) {
+            ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC -> "dataSync"
+            ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PROCESSING -> "mediaProcessing"
+            else -> "type=$fgsType"
+        }
+        Log.w(TAG, "前台服务被系统判定超时（$name，startId=$startId），即将停服并等待重新拉起")
+        handleTimeout("系统对前台服务类型 $name 的运行时长配额已用尽")
+    }
+
+    /** Android 15 起 `shortService` 使用的单参数重载。 */
+    @RequiresApi(Build.VERSION_CODES.VANILLA_ICE_CREAM)
+    override fun onTimeout(startId: Int) {
+        Log.w(TAG, "前台服务被系统判定超时（startId=$startId），即将停服并等待重新拉起")
+        handleTimeout("系统对前台服务的运行时长配额已用尽")
+    }
+
+    /**
+     * 超时后的统一收尾。
+     *
+     * `stopSelf()` 是**必须**的：官方规定超时回调内不主动停服会被判 ANR。
+     * 重新拉起交给看门狗——从后台启动前台服务受 Android 12+ 限制，
+     * 而精确闹钟在豁免清单内，是唯一可靠的重启时机。
+     */
+    private fun handleTimeout(reason: String) {
+        val wasRunning = isRunning
+        isRunning = false
+        releaseWakeLock()
+        stopForegroundCompat()
+        stopSelf()
+        if (KeepAliveScheduler.isEnabled(this)) {
+            KeepAliveScheduler.scheduleRestart(this)
+        }
+        if (wasRunning) {
+            Log.w(TAG, "保活前台服务因超时停止：$reason")
+        }
     }
 
     private fun stopForegroundCompat() {
@@ -250,11 +350,35 @@ class GatewayKeepAliveService : Service() {
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
         )
 
-        return Notification.Builder(this, CHANNEL_ID)
+        // 「停止」动作按钮。
+        //
+        // **为什么必须有它**：应用退出后 Dart 与前台服务都会继续跑（这正是保活
+        // 的含义），此时用户手上唯一能「真正停下来」的入口就是这条通知。
+        // 没有这个按钮，用户就只剩下去系统设置里「强行停止」，那反而更容易
+        // 把应用弄进 stopped 状态、连开机自启都失效。
+        //
+        // 用 getService 而不是 getBroadcast：停止逻辑本来就写在服务的
+        // onStartCommand 里（ACTION_STOP），绕一层广播只会多一个可被拦截的环节。
+        val stopIntent = Intent(this, GatewayKeepAliveService::class.java).setAction(ACTION_STOP)
+        val stopPending = PendingIntent.getService(
+            this,
+            1,
+            stopIntent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
+        )
+
+        val builder = Notification.Builder(this, CHANNEL_ID)
             .setContentTitle("Lave 正在维持网关连接")
             .setContentText(text)
             .setSmallIcon(R.mipmap.ic_launcher)
             .setContentIntent(pending)
+            .addAction(
+                Notification.Action.Builder(
+                    null,
+                    "停止保活",
+                    stopPending,
+                ).build(),
+            )
             // 常驻 + 不可自动清除：Android 13 及以下用户划不掉它。
             // Android 14+ 系统改行为后仍可被划掉，但服务不受影响（见类注释）。
             .setOngoing(true)
@@ -268,7 +392,8 @@ class GatewayKeepAliveService : Service() {
             // 用户切到后台时这条通知是「服务是否真的在跑」的唯一可见证据，
             // 延迟出现会让人以为保活没生效，因此要求立即显示。
             .setForegroundServiceBehavior(Notification.FOREGROUND_SERVICE_IMMEDIATE)
-            .build()
+
+        return builder.build()
     }
 
     private fun ensureChannel() {

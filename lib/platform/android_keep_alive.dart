@@ -1,6 +1,88 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 
 import '../core/logging/app_logger.dart';
+
+/// 保活诊断快照。
+///
+/// 存在的理由：这个功能有太多「开关是开的、服务却没生效」的失败模式
+/// （通知权限被拒、后台启动被系统拒绝、Doze 暂停网络、待机分桶限制网络、
+/// 前台服务被类型配额掐掉）。只看开关状态根本无法区分它们，
+/// 用户能说的只有「机器人不在线」。把原始事实全部摊开，
+/// 才能把「猜」变成「看」。
+@immutable
+class KeepAliveStatus {
+  const KeepAliveStatus({
+    required this.running,
+    required this.foregroundType,
+    required this.ignoringBatteryOptimizations,
+    required this.canScheduleExactAlarms,
+    required this.notificationPermission,
+    required this.standbyBucket,
+    required this.sdkInt,
+  });
+
+  /// 平台不支持（非 Android）或查询失败时的占位值。
+  ///
+  /// 刻意把 [sdkInt] 记成 0：调用方据此就能区分「真的查到了」与「根本没查」，
+  /// 不会把占位值当成真实诊断结论展示给用户。
+  static const KeepAliveStatus unavailable = KeepAliveStatus(
+    running: false,
+    foregroundType: 'unknown',
+    ignoringBatteryOptimizations: false,
+    canScheduleExactAlarms: false,
+    notificationPermission: false,
+    standbyBucket: -1,
+    sdkInt: 0,
+  );
+
+  /// 前台服务是否**真的**在跑（不是「用户开了开关」）。
+  final bool running;
+
+  /// 实际生效的前台服务类型：`specialUse` / `dataSync` / `unknown`。
+  final String foregroundType;
+
+  /// 是否已在电池优化白名单里（Doze 会暂停非白名单应用的网络访问）。
+  final bool ignoringBatteryOptimizations;
+
+  /// 是否已获得精确闹钟权限（决定被清掉后能否自动回来）。
+  final bool canScheduleExactAlarms;
+
+  /// 是否已授予通知权限（不影响服务，只影响通知是否可见）。
+  final bool notificationPermission;
+
+  /// 应用待机分桶：10 活跃 / 20 工作集 / 30 常用 / 40 极少使用 / 50 受限。
+  final int standbyBucket;
+
+  /// 系统 API 级别（0 表示未查询到）。
+  final int sdkInt;
+
+  /// 诊断是否真的可用。
+  bool get available => sdkInt > 0;
+
+  /// 前台服务类型是否落到了有运行时长上限的 `dataSync`。
+  ///
+  /// Android 15 起 `dataSync` 每 24 小时累计只能跑 6 小时，
+  /// 到点被系统停服。API 34+ 本应走 `specialUse`，出现这个值说明
+  /// `specialUse` 启动被 ROM 拒绝了，属于需要修复的异常状态。
+  bool get isLimitedForegroundType => foregroundType == 'dataSync';
+
+  /// 待机分桶是否已经开始限制网络访问。
+  ///
+  /// RARE（40）起系统会限制应用的互联网连接——这是「放着一会儿就掉线」
+  /// 的常见原因，且与前台服务是否在跑无关。
+  bool get standbyBucketRestrictsNetwork => standbyBucket >= 40;
+
+  /// 待机分桶的中文名。
+  String get standbyBucketLabel => switch (standbyBucket) {
+        10 => '活跃',
+        20 => '工作集',
+        30 => '常用',
+        40 => '极少使用',
+        50 => '受限',
+        _ => '未知',
+      };
+}
 
 /// Android 侧「网关保活前台服务」的桥。
 ///
@@ -97,6 +179,64 @@ class AndroidKeepAlive {
     } catch (error) {
       AppLogger.warn('打开电池优化设置失败：$error', tag: 'keepalive');
     }
+  }
+
+  /// 直接弹系统的「允许应用在后台运行」对话框。
+  ///
+  /// 与 [openBatteryOptimizationSettings] 的差别很关键：后者只是打开列表页，
+  /// 用户要在几十个应用里自己找到本应用再手动改成「不优化」，
+  /// 实际上绝大多数人不会做完。这个动作直接弹一个「允许 / 不允许」的框。
+  ///
+  /// 返回**请求前**是否已在白名单中（弹窗是异步的，返回值不代表用户的选择）；
+  /// 用户选择后再调一次 [isIgnoringBatteryOptimizations] 即可确认。
+  Future<bool> requestIgnoreBatteryOptimizations() async {
+    try {
+      return await _channel
+              .invokeMethod<bool>('requestIgnoreBatteryOptimizations') ??
+          false;
+    } on MissingPluginException {
+      _supported = false;
+      return false;
+    } catch (error) {
+      AppLogger.warn('申请忽略电池优化失败：$error', tag: 'keepalive');
+      return false;
+    }
+  }
+
+  /// 一次性取回全部保活诊断事实。
+  ///
+  /// 任何一项查询失败都退化为 [KeepAliveStatus.unavailable]，
+  /// 而不是抛异常：诊断是**辅助**手段，它自己的失败不该影响保活本身，
+  /// 更不该让设置页崩掉。
+  Future<KeepAliveStatus> status() async {
+    try {
+      final raw = await _channel.invokeMapMethod<String, Object?>('keepAliveStatus');
+      if (raw == null) return KeepAliveStatus.unavailable;
+      return KeepAliveStatus(
+        running: raw['running'] == true,
+        foregroundType: raw['foregroundType']?.toString() ?? 'unknown',
+        ignoringBatteryOptimizations:
+            raw['ignoringBatteryOptimizations'] == true,
+        canScheduleExactAlarms: raw['canScheduleExactAlarms'] == true,
+        notificationPermission: raw['notificationPermission'] == true,
+        standbyBucket: _intOf(raw['standbyBucket']) ?? -1,
+        sdkInt: _intOf(raw['sdkInt']) ?? 0,
+      );
+    } on MissingPluginException {
+      _supported = false;
+      return KeepAliveStatus.unavailable;
+    } catch (error) {
+      AppLogger.warn('查询保活诊断失败：$error', tag: 'keepalive');
+      return KeepAliveStatus.unavailable;
+    }
+  }
+
+  /// 平台通道可能把整数送成 `num` 或字符串，两种都要接受。
+  static int? _intOf(Object? value) {
+    if (value is int) return value;
+    if (value is num) return value.toInt();
+    if (value is String) return int.tryParse(value);
+    return null;
   }
 
   /// 是否已获得精确闹钟权限。

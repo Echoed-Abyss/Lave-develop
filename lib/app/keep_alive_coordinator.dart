@@ -120,6 +120,20 @@ class KeepAliveCoordinator extends ChangeNotifier {
   Future<void> openBatteryOptimizationSettings() =>
       _bridge.openBatteryOptimizationSettings();
 
+  /// 直接弹「允许应用在后台运行」的系统对话框。
+  ///
+  /// 比 [openBatteryOptimizationSettings] 更有效：后者只是打开列表页，
+  /// 用户得自己在几十个应用里找到本应用再手动改，多数人不会做完。
+  /// 返回请求前是否已在白名单中（弹窗异步，不代表用户的选择）。
+  Future<bool> requestIgnoreBatteryOptimizations() =>
+      _bridge.requestIgnoreBatteryOptimizations();
+
+  /// 一次性取回全部保活诊断事实。
+  ///
+  /// 界面用它回答「开关是开的，为什么还是掉线」：
+  /// 服务是否真的在跑、跑的是哪种类型、有没有被 Doze 或待机分桶限制。
+  Future<KeepAliveStatus> status() => _bridge.status();
+
   /// 是否已获得精确闹钟权限。
   ///
   /// 它决定「应用被清掉后能不能自动回来」：精确闹钟在官方后台启动豁免清单里，

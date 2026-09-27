@@ -43,11 +43,17 @@ class _HomeShellState extends ConsumerState<HomeShell> {
     // 前者只在「应用确实要退出」时触发，后者在引擎与视图分离时也会触发
     // （例如平台侧重建视图），那时把连接与插件进程全停掉会造成误伤。
     //
-    // 收起资源的必要性：Python 插件是独立进程，不显式结束会在系统里
-    // 留下孤儿进程；WSS 连接不主动关闭则由系统回收，回收时机不可控。
+    // 但「退出」在这里**不等于「停止服务」**：只要后台保活开着，
+    // 退出后机器人与插件必须继续在线（那正是保活的意义）。
+    // 具体分派交给 AppServices.handleExitRequest——它按保活开关决定
+    // 是「只落盘」还是「完整收尾」。原生侧的 FlutterEngine 在
+    // Activity 销毁后依然存活（shouldDestroyEngineWithHost 为 false），
+    // 因此 Dart 的定时器与 WSS 心跳不会随界面一起消失。
     _lifecycleListener = AppLifecycleListener(
       onExitRequested: () async {
-        await ref.read(appServicesProvider).shutdown();
+        await ref.read(appServicesProvider).handleExitRequest();
+        // 始终返回 exit：把「要不要继续在线」交给保活开关表达，
+        // 而不是用「拒绝退出」来留住用户——那会变成一个退不掉的界面。
         return ui.AppExitResponse.exit;
       },
       // 回到前台时补一次保活。
