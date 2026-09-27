@@ -46,6 +46,38 @@ android {
         targetSdk = flutter.targetSdkVersion
         versionCode = flutter.versionCode
         versionName = flutter.versionName
+
+        ndk {
+            // 只打包 arm64-v8a。
+            //
+            // 内置的 Python 运行时（libpython3.14.so / libcrypto / libssl /
+            // libsqlite3 / libpylauncher.so）约 17.7MB，且**按 ABI 各需一份**。
+            // 真实手机几乎全是 arm64，因此这里只带一个架构以控制包体；
+            // 需要在模拟器（x86_64）上跑插件时，按 README「内置 Python 运行时」
+            // 补一份 x86_64 的运行时到 jniLibs 与 assets 即可。
+            abiFilters += listOf("arm64-v8a")
+        }
+    }
+
+    packaging {
+        jniLibs {
+            // 预编译的官方运行时不能被 AGP 的 strip 处理：
+            // 它们已经是 release 形态，再次 strip 可能失败或破坏文件；
+            // libpylauncher.so 更是一个可执行文件（PIE），并非共享库。
+            keepDebugSymbols += listOf(
+                "**/libpylauncher.so",
+                "**/libpython3.14.so",
+                "**/libcrypto*.so",
+                "**/libssl*.so",
+                "**/libsqlite3*.so",
+            )
+            // 必须让原生库被解压到磁盘（而不是直接从 APK 内映射）。
+            //
+            // 原因：Android 10 起禁止从应用可写数据目录执行文件，
+            // 安装后的原生库目录是唯一可执行的落点；而只有解压模式下
+            // 这些 .so 才会真正落到磁盘上，libpylauncher.so 才能被 exec。
+            useLegacyPackaging = true
+        }
     }
 
     signingConfigs {

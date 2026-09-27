@@ -79,7 +79,63 @@ flutter:
   # 注意：这里必须声明该目录，否则目录不会被编入 assets，
   # 运行时的释放逻辑（PluginRuntime.rootBundleAssetExtractor）就找不到任何资源。
   assets:
-    - assets/python/
+    - assets/python/arm64-v8a/
+    - assets/python/arm64-v8a/lib/
+    - assets/python/arm64-v8a/lib/python3.14/
+    - assets/python/arm64-v8a/lib/python3.14/__phello__/
+    - assets/python/arm64-v8a/lib/python3.14/_pyrepl/
+    - assets/python/arm64-v8a/lib/python3.14/asyncio/
+    - assets/python/arm64-v8a/lib/python3.14/collections/
+    - assets/python/arm64-v8a/lib/python3.14/compression/
+    - assets/python/arm64-v8a/lib/python3.14/compression/_common/
+    - assets/python/arm64-v8a/lib/python3.14/compression/zstd/
+    - assets/python/arm64-v8a/lib/python3.14/concurrent/
+    - assets/python/arm64-v8a/lib/python3.14/concurrent/futures/
+    - assets/python/arm64-v8a/lib/python3.14/concurrent/interpreters/
+    - assets/python/arm64-v8a/lib/python3.14/config-3.14-aarch64-linux-android/
+    - assets/python/arm64-v8a/lib/python3.14/ctypes/
+    - assets/python/arm64-v8a/lib/python3.14/ctypes/macholib/
+    - assets/python/arm64-v8a/lib/python3.14/curses/
+    - assets/python/arm64-v8a/lib/python3.14/dbm/
+    - assets/python/arm64-v8a/lib/python3.14/email/
+    - assets/python/arm64-v8a/lib/python3.14/email/mime/
+    - assets/python/arm64-v8a/lib/python3.14/encodings/
+    - assets/python/arm64-v8a/lib/python3.14/ensurepip/
+    - assets/python/arm64-v8a/lib/python3.14/ensurepip/_bundled/
+    - assets/python/arm64-v8a/lib/python3.14/html/
+    - assets/python/arm64-v8a/lib/python3.14/http/
+    - assets/python/arm64-v8a/lib/python3.14/importlib/
+    - assets/python/arm64-v8a/lib/python3.14/importlib/metadata/
+    - assets/python/arm64-v8a/lib/python3.14/importlib/resources/
+    - assets/python/arm64-v8a/lib/python3.14/json/
+    - assets/python/arm64-v8a/lib/python3.14/lib-dynload/
+    - assets/python/arm64-v8a/lib/python3.14/logging/
+    - assets/python/arm64-v8a/lib/python3.14/multiprocessing/
+    - assets/python/arm64-v8a/lib/python3.14/multiprocessing/dummy/
+    - assets/python/arm64-v8a/lib/python3.14/pathlib/
+    - assets/python/arm64-v8a/lib/python3.14/pydoc_data/
+    - assets/python/arm64-v8a/lib/python3.14/re/
+    - assets/python/arm64-v8a/lib/python3.14/site-packages/
+    - assets/python/arm64-v8a/lib/python3.14/sqlite3/
+    - assets/python/arm64-v8a/lib/python3.14/string/
+    - assets/python/arm64-v8a/lib/python3.14/sysconfig/
+    - assets/python/arm64-v8a/lib/python3.14/tomllib/
+    - assets/python/arm64-v8a/lib/python3.14/unittest/
+    - assets/python/arm64-v8a/lib/python3.14/urllib/
+    - assets/python/arm64-v8a/lib/python3.14/venv/
+    - assets/python/arm64-v8a/lib/python3.14/venv/scripts/
+    - assets/python/arm64-v8a/lib/python3.14/venv/scripts/common/
+    - assets/python/arm64-v8a/lib/python3.14/venv/scripts/posix/
+    - assets/python/arm64-v8a/lib/python3.14/wsgiref/
+    - assets/python/arm64-v8a/lib/python3.14/xml/
+    - assets/python/arm64-v8a/lib/python3.14/xml/dom/
+    - assets/python/arm64-v8a/lib/python3.14/xml/etree/
+    - assets/python/arm64-v8a/lib/python3.14/xml/parsers/
+    - assets/python/arm64-v8a/lib/python3.14/xml/sax/
+    - assets/python/arm64-v8a/lib/python3.14/xmlrpc/
+    - assets/python/arm64-v8a/lib/python3.14/zipfile/
+    - assets/python/arm64-v8a/lib/python3.14/zipfile/_path/
+    - assets/python/arm64-v8a/lib/python3.14/zoneinfo/
 
   # To add assets to your application, add an assets section, like this:
   # assets:

@@ -2,41 +2,87 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
+import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 
 import '../core/logging/app_logger.dart';
 import '../domain/models/plugin_models.dart';
 
-/// 内置解释器释放器：把 assets 中的 Python 运行时写到 [pythonRoot]，返回可执行文件路径。
+/// 内置解释器释放器：把 assets 里的运行时释放到 [pythonRoot]。
 ///
-/// 抽成可替换的函数是为了让能力探测可以在纯 Dart 测试中验证——
-/// 测试注入一个「假装释放成功 / 假装没有内置资源」的实现即可。
-typedef PluginAssetExtractor = Future<String?> Function(Directory pythonRoot);
+/// [abi] 为设备实际的 ABI（从原生库目录名推导），用于在多个 ABI 目录中
+/// 选中正确的那一份——不同架构的二进制不能混用。
+///
+/// 抽成可替换的函数是为了让能力探测能在纯 Dart 测试中验证：
+/// 测试注入一个空实现即可模拟「没有内置资源」。
+typedef PluginAssetExtractor = Future<void> Function(
+  Directory pythonRoot,
+  String? abi,
+);
+
+/// 内置 Python 运行时的解析结果。
+@immutable
+class BundledPythonRuntime {
+  const BundledPythonRuntime({
+    required this.executable,
+    required this.environment,
+    required this.ensureExtracted,
+  });
+
+  /// 可执行文件（启动器或解释器）的绝对路径。
+  final String executable;
+
+  /// 启动子进程时需要额外注入的环境变量。
+  ///
+  /// - `PYTHONHOME`：标准库所在的前缀目录。**不设它解释器会去
+  ///   `/usr/lib/python3.x` 找标准库，在 Android 上必然失败**；
+  /// - `LD_LIBRARY_PATH`：原生库目录。官方的 `libpython3.14.so` 与它依赖的
+  ///   libcrypto / libssl / libsqlite3 都放在那里，不设它动态链接器找不到。
+  final Map<String, String> environment;
+
+  /// 确保标准库已释放到磁盘（幂等）。
+  ///
+  /// **刻意与探测分离**：释放要写 600 多个文件，若放在启动流程里，
+  /// 首次安装后的第一次启动会白屏数秒。改为在真正要启动插件时才做，
+  /// 用户看到的等待只出现在「点启动插件」这一个动作上。
+  final Future<void> Function() ensureExtracted;
+}
+
+/// 内置运行时的标准库版本目录名。
+///
+/// 与 assets 中的 `lib/python3.14/` 对应；升级内置 Python 时同步修改，
+/// 以便识别出「已释放的是旧版本」并重新释放。
+const String bundledPythonVersionDir = 'python3.14';
 
 /// 从 Flutter assets 释放内置 Python 运行时（默认实现）。
 ///
 /// 为什么必须「释放」而不是直接执行 assets 里的文件：
 /// Android 的 assets 位于 APK 内部，没有真实文件路径，也无法设置可执行位。
-/// 必须先复制到应用私有目录并 `chmod 755`，才能被 `Process.start` 执行。
+/// 标准库必须复制到应用私有目录（**读取不受限**），
+/// 而可执行文件必须走原生库目录（Android 10 起禁止从数据目录执行文件）。
 ///
 /// 资产布局（由打包流程决定，见 README「内置 Python 运行时」）：
 /// ```
-/// android/app/src/main/assets/python/arm64-v8a/python3
-/// android/app/src/main/assets/python/arm64-v8a/lib/python3.12/…
+/// assets/python/arm64-v8a/lib/python3.14/…      # 标准库（含 ABI 相关的 lib-dynload）
 /// ```
-/// 按 ABI 分目录是因为不同架构的二进制不能混用；
-/// 这里按顺序尝试，取第一个真实存在的目录。
-Future<String?> rootBundleAssetExtractor(Directory pythonRoot) async {
-  // 顺序即优先级：移动端优先 arm64，桌面端用不带 ABI 的目录。
-  const abiCandidates = <String>['arm64-v8a', 'armeabi-v7a', 'x86_64', ''];
+Future<void> rootBundleAssetExtractor(Directory pythonRoot, String? abi) async {
+  // 顺序即优先级：优先设备实际 ABI，其次常见 ABI，最后不带 ABI 的通用目录。
+  final candidates = <String>[
+    if (abi != null && abi.isNotEmpty) abi,
+    'arm64-v8a',
+    'armeabi-v7a',
+    'x86_64',
+    '',
+  ];
 
   try {
     final manifest = await AssetManifest.loadFromAssetBundle(rootBundle);
     final allKeys = manifest.listAssets();
 
-    for (final abi in abiCandidates) {
-      final prefix = abi.isEmpty ? 'assets/python/' : 'assets/python/$abi/';
+    for (final candidate in candidates) {
+      final prefix = candidate.isEmpty ? 'assets/python/' : 'assets/python/$candidate/';
       final keys = allKeys.where((key) => key.startsWith(prefix)).toList();
       if (keys.isEmpty) continue;
 
@@ -55,22 +101,15 @@ Future<String?> rootBundleAssetExtractor(Directory pythonRoot) async {
         );
       }
 
-      final executable =
-          File('${pythonRoot.path}${Platform.pathSeparator}python3');
-      if (await executable.exists()) {
-        AppLogger.info(
-          '已释放内置 Python 运行时（$prefix，${keys.length} 个文件）',
-          tag: 'plugin',
-        );
-        return executable.path;
-      }
-      return null;
+      AppLogger.info(
+        '已释放内置 Python 运行时（$prefix，${keys.length} 个文件）',
+        tag: 'plugin',
+      );
+      return;
     }
-    return null;
   } catch (error) {
-    // 没有内置资源属于正常情况（绝大多数构建都不会带），因此只记 debug。
+    // 没有内置资源属于正常情况（例如未打包运行时的构建），因此不算错误。
     AppLogger.info('未发现内置 Python 资源：$error', tag: 'plugin');
-    return null;
   }
 }
 
@@ -98,24 +137,31 @@ Future<String?> rootBundleAssetExtractor(Directory pythonRoot) async {
 /// 一行一条 JSON（JSON Lines）。选它的原因是 `stdout` 天然按行分帧：
 /// 不需要额外的长度头或分隔协议，插件作者用 `print` 就能调试。
 class PluginRuntime {
-  PluginRuntime._({required this.capability});
+  PluginRuntime._({required this.capability, this.bundled});
 
   /// 当前平台能力。
   final PluginRuntimeCapability capability;
 
+  /// 内置运行时（使用内置方案时非空）。
+  ///
+  /// 非空时 [startProcess] 会注入 `PYTHONHOME` 与 `LD_LIBRARY_PATH` ——
+  /// 少了这两个变量，官方的 `libpython3.14.so` 既找不到标准库，
+  /// 也找不到同目录下的 libcrypto / libssl / libsqlite3。
+  final BundledPythonRuntime? bundled;
+
   /// 探测当前平台是否可以运行 Python 插件。
   ///
-  /// 探测顺序（**先看内置解释器，再找系统解释器**）：
-  /// 1. 应用私有目录下已释放的内置解释器（`<files>/python/bin/python3`）；
-  /// 2. 从 APK 的 assets 释放内置解释器（见 [ensureBundledPython]）；
-  /// 3. 系统 PATH 中的 `python3` / `python`。
+  /// 探测顺序（**先内置，后系统**）：
+  /// 1. 原生库目录里的启动器 `libpylauncher.so` + 已释放的标准库（Android 首选）；
+  /// 2. assets 中自带的可执行解释器 `python3`（桌面或自带运行时的构建）；
+  /// 3. 系统 PATH 中的 `python3` / `python`（桌面平台走这条）。
   ///
   /// 这样做的意义：Android 系统**不内置 Python**，`Process.start('python3')`
-  /// 在真机上必然失败。要让 Android 上真正可用，必须把解释器随包分发，
-  /// 由本方法负责把它从 assets 释放到可执行位置。
+  /// 在真机上必然失败。要让 Android 上真正可用，必须把运行时随包分发。
   static Future<PluginRuntime> probe({
     PluginAssetExtractor? assetExtractor,
     Directory? filesDirectory,
+    Future<String?> Function()? nativeDirectoryProvider,
   }) async {
     final platform = _platformName();
 
@@ -130,18 +176,20 @@ class PluginRuntime {
       );
     }
 
-    // ── ① 已释放的内置解释器 ──
-    final bundled = await _resolveBundledInterpreter(
+    // ── ① 内置运行时 ──
+    final bundled = await _resolveBundledRuntime(
       assetExtractor: assetExtractor,
       filesDirectory: filesDirectory,
+      nativeDirectoryProvider: nativeDirectoryProvider,
     );
     if (bundled != null) {
-      AppLogger.info('使用内置 Python：$bundled', tag: 'plugin');
+      AppLogger.info('使用内置 Python：${bundled.executable}', tag: 'plugin');
       return PluginRuntime._(
         capability: PluginRuntimeCapability.available(
           platform: platform,
-          pythonExecutable: bundled,
+          pythonExecutable: bundled.executable,
         ),
+        bundled: bundled,
       );
     }
 
@@ -169,55 +217,108 @@ class PluginRuntime {
       capability: PluginRuntimeCapability.unsupported(
         platform: platform,
         reason: Platform.isAndroid
-            ? '未在应用中检测到内置 Python 运行时，且 Android 系统本身不提供 Python。'
-                '请把交叉编译好的解释器按 '
-                '`android/app/src/main/assets/python/<abi>/python3` 放入 '
-                'assets 后重新打包（详见 README「内置 Python 运行时」）。'
+            ? '未检测到内置 Python 运行时。本应用应在 APK 中内置官方 Android 版 '
+                'CPython；出现此提示说明构建产物不完整，或设备架构不在打包范围内'
+                '（当前仅内置 arm64-v8a）。'
             : '未在系统中找到可用的 Python 解释器（已尝试 python3 / python），'
                 '请先安装 Python 3 后重启应用。',
       ),
     );
   }
 
-  /// 解析可用的内置解释器，必要时先从 assets 释放。
+  /// 候选可执行文件名。
+  static const List<String> _pythonCandidates = ['python3', 'python'];
+
+  /// 解析内置运行时。
   ///
-  /// 布局约定：`assets/python/<abi>/` 下的全部内容会被释放到
-  /// 应用私有目录的 `<files>/python/`，其中解释器可执行文件为
-  /// `<files>/python/python3`。保持目录结构是为了让 stdlib
-  /// （`lib/python3.x/…`）也能被一起带出来——只放一个裸可执行文件是跑不起来的。
-  static Future<String?> _resolveBundledInterpreter({
+  /// 释放标准库与定位可执行文件是两个独立的动作：
+  /// 标准库放在**应用私有目录**（只读即可，Android 不限制读取），
+  /// 可执行文件放在**原生库目录**（Android 10 起禁止从数据目录执行文件）。
+  static Future<BundledPythonRuntime?> _resolveBundledRuntime({
     PluginAssetExtractor? assetExtractor,
     Directory? filesDirectory,
+    Future<String?> Function()? nativeDirectoryProvider,
   }) async {
     try {
       final base = filesDirectory ?? await getApplicationSupportDirectory();
       final root = Directory('${base.path}${Platform.pathSeparator}python');
-      final executable = File(
-        '${root.path}${Platform.pathSeparator}python3',
+
+      // 原生库目录的末级目录名就是设备的 ABI，用它挑对应的 assets 目录。
+      String? abi = Platform.isAndroid ? 'arm64-v8a' : null;
+      String? nativeDir;
+      if (nativeDirectoryProvider != null) {
+        final resolved = await nativeDirectoryProvider();
+        if (resolved != null && resolved.isNotEmpty) {
+          nativeDir = resolved;
+          final name = p.basename(resolved);
+          if (name.isNotEmpty) abi = name;
+        }
+      }
+
+      // 标准库只需释放一次。
+      //
+      // 不设标记的话每次冷启动都要重写 600 多个文件——那是几百毫秒到数秒的
+      // 纯 IO，用户会感知为「打开应用特别卡」。
+      final stdlibMarker = File(
+        '${root.path}${Platform.pathSeparator}lib'
+        '${Platform.pathSeparator}$bundledPythonVersionDir'
+        '${Platform.pathSeparator}os.py',
       );
 
-      if (executable.existsSync()) return executable.path;
-
-      final extractor = assetExtractor ?? rootBundleAssetExtractor;
-      final extracted = await extractor(root);
-      if (extracted == null) return null;
-
-      // 赋予可执行权限。失败时直接返回 null —— 没有执行位的文件
-      // 交给 Process.start 只会得到一个难以理解的 errno。
-      final chmod = await Process.run('chmod', ['755', extracted]);
-      if (chmod.exitCode != 0) {
-        AppLogger.warn('内置解释器 chmod 失败：${chmod.stderr}', tag: 'plugin');
-        return null;
+      Future<void> ensureExtracted() async {
+        if (stdlibMarker.existsSync()) return;
+        final extractor = assetExtractor ?? rootBundleAssetExtractor;
+        await extractor(root, abi);
       }
-      return extracted;
+
+      // ── 方案 A：原生库目录里的启动器（Android 内置方案） ──
+      //
+      // 这里**只检查启动器是否存在，不在这里释放标准库**：
+      // 探测发生在应用启动流程中，而释放要写 600 多个文件，
+      // 放在这里会让首次启动白屏数秒。真正的释放推迟到启动插件时
+      // （见 ensureExtracted）。
+      if (nativeDir != null) {
+        final launcher = File(
+          '$nativeDir${Platform.pathSeparator}libpylauncher.so',
+        );
+        if (launcher.existsSync()) {
+          return BundledPythonRuntime(
+            executable: launcher.path,
+            environment: {
+              'PYTHONHOME': root.path,
+              'LD_LIBRARY_PATH': nativeDir,
+            },
+            ensureExtracted: ensureExtracted,
+          );
+        }
+      }
+
+      // ── 方案 B：assets 里直接带了可执行解释器 ──
+      //
+      // 这条路必须先释放才能判断解释器是否存在，因此在这里就释放。
+      await ensureExtracted();
+      final direct = File('${root.path}${Platform.pathSeparator}python3');
+      if (direct.existsSync()) {
+        // 赋予可执行位。失败时返回 null —— 没有执行位的文件交给
+        // Process.start 只会得到一个难以理解的 errno。
+        final chmod = await Process.run('chmod', ['755', direct.path]);
+        if (chmod.exitCode != 0) {
+          AppLogger.warn('内置解释器 chmod 失败：${chmod.stderr}', tag: 'plugin');
+          return null;
+        }
+        return BundledPythonRuntime(
+          executable: direct.path,
+          environment: {'PYTHONHOME': root.path},
+          ensureExtracted: ensureExtracted,
+        );
+      }
+
+      return null;
     } catch (error) {
-      AppLogger.warn('内置解释器释放失败：$error', tag: 'plugin');
+      AppLogger.warn('内置运行时解析失败：$error', tag: 'plugin');
       return null;
     }
   }
-
-  /// 候选可执行文件名。
-  static const List<String> _pythonCandidates = ['python3', 'python'];
 
   /// 启动一个插件进程。
   ///
@@ -230,6 +331,9 @@ class PluginRuntime {
     if (!capability.supported) return null;
     final executable = capability.pythonExecutable;
     if (executable == null) return null;
+
+    // 内置运行时：先把标准库释放出来（首次启动一个插件时会花一点时间）。
+    await bundled?.ensureExtracted();
 
     final entryPath = '$directory${Platform.pathSeparator}${manifest.entry}';
     if (!File(entryPath).existsSync()) {
@@ -248,6 +352,8 @@ class PluginRuntime {
           // 「插件明明 print 了但主程序收不到」，且现象是长时间静默。
           'PYTHONUNBUFFERED': '1',
           'PYTHONIOENCODING': 'utf-8',
+          // 内置运行时需要 PYTHONHOME 与 LD_LIBRARY_PATH，见 BundledPythonRuntime。
+          ...?bundled?.environment,
         },
         runInShell: false,
       );

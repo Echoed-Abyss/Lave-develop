@@ -18,6 +18,7 @@ import '../domain/models/log_entry.dart';
 import '../gateway/connection_registry.dart';
 import '../gateway/gateway_api.dart';
 import '../gateway/protocol/qq_opcode.dart';
+import '../plugins/native_runtime_info.dart';
 import '../plugins/plugin_manager.dart';
 
 /// 应用服务装配。
@@ -40,6 +41,9 @@ class AppServices {
     plugins = PluginManager(
       log: log,
       store: JsonPluginStateStore(store: this.store),
+      // 内置 Python 的启动器与 libpython 都在原生库目录里，
+      // 而该路径只能在 Android 侧拿到（含安装时生成的哈希）。
+      nativeDirectoryProvider: nativeInfo.nativeLibraryDir,
     );
 
     http = QqHttpClient(log: log, config: this.config);
@@ -95,6 +99,9 @@ class AppServices {
 
   /// 插件管理。
   late final PluginManager plugins;
+
+  /// 平台原生信息（原生库目录等）。
+  final NativeRuntimeInfo nativeInfo = NativeRuntimeInfo();
 
   /// HTTP 客户端。
   late final QqHttpClient http;

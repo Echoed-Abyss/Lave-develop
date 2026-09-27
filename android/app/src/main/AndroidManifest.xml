@@ -15,10 +15,16 @@
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher"
         android:allowBackup="false"
-        android:fullBackupContent="false">
+        android:fullBackupContent="false"
+        android:extractNativeLibs="true">
         <!-- allowBackup 必须关闭：否则系统云备份还原后
              flutter_secure_storage 会抛 InvalidKeyException: Failed to unwrap key，
              用户表现为「凭证突然读不出来」。这是官方插件文档明确列出的坑。 -->
+
+        <!-- extractNativeLibs 必须为 true（与 build.gradle.kts 的
+             packaging.jniLibs.useLegacyPackaging 一致）：内置 Python 的启动器
+             libpylauncher.so 需要作为**可执行文件**运行，而 Android 10 起
+             应用只能执行安装后原生库目录中的文件，该目录仅在解压模式下存在。 -->
         <activity
             android:name=".MainActivity"
             android:exported="true"

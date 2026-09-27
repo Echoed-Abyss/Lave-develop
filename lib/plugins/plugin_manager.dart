@@ -31,11 +31,16 @@ class PluginManager extends ChangeNotifier {
   PluginManager({
     required LogService log,
     required PluginStateStoreLike store,
+    Future<String?> Function()? nativeDirectoryProvider,
   })  : _log = log,
-        _store = store;
+        _store = store,
+        _nativeDirectoryProvider = nativeDirectoryProvider;
 
   final LogService _log;
   final PluginStateStoreLike _store;
+
+  /// 原生库目录来源（Android 上用于定位内置 Python 启动器）。
+  final Future<String?> Function()? _nativeDirectoryProvider;
 
   PluginRuntime? _runtime;
 
@@ -80,7 +85,9 @@ class PluginManager extends ChangeNotifier {
 
   /// 初始化：探测平台能力 → 扫描插件目录 → 恢复启用状态。
   Future<void> initialize() async {
-    _runtime = await PluginRuntime.probe();
+    _runtime = await PluginRuntime.probe(
+      nativeDirectoryProvider: _nativeDirectoryProvider,
+    );
     _capability = _runtime!.capability;
 
     _log.log(

@@ -33,9 +33,13 @@ flutter pub get
 flutter analyze            # 静态检查
 flutter test               # 150 项测试
 flutter build apk --debug
-flutter build apk --release
+flutter build apk --release --target-platform android-arm64
 flutter run                # 需已连接设备或模拟器
 ```
+
+`--target-platform android-arm64` 是**必需的**：内置的 Python 运行时只打包了
+`arm64-v8a`，不加这个参数 Flutter 会同时放进 armeabi-v7a，而后者没有运行时，
+结果是「装得上但插件不可用」。
 
 ### 国内网络
 
@@ -158,27 +162,32 @@ android/        Android 原生工程（Kotlin，Gradle KTS）
 
 ## 内置 Python 运行时
 
-Android 系统没有 Python，`Process.start('python3')` 在真机上必然失败。因此运行时的
-探测顺序是「**先内置，后系统**」：
+**APK 已内置 CPython 3.14，用户无需任何二次下载。** 组成与落点：
 
-1. 应用私有目录里已释放的解释器（`<files>/python/python3`）；
-2. 从 APK 的 assets 释放并 `chmod 755`（assets 位于 APK 内部，
-   没有真实路径也无法设置可执行位，必须先释放出来）；
-3. 系统 PATH 中的 `python3` / `python`（桌面平台走这条）。
+| 内容 | 仓库位置 | 运行时落点 |
+| --- | --- | --- |
+| 启动器（本仓库用 NDK 编译） | `jniLibs/arm64-v8a/libpylauncher.so` | 安装后的**原生库目录** |
+| 解释器与依赖库 | `jniLibs/arm64-v8a/libpython3.14.so` 等 | 同上 |
+| 标准库（653 个文件） | `assets/python/arm64-v8a/lib/python3.14/**` | 应用私有目录 `<files>/python/lib/python3.14/**` |
 
-三者都不可用时，「插件」页会显示具体原因与处置建议，而不是静默失败。
+三处关键设计：
 
-要让 Android 上真正可用，只需按以下布局把交叉编译好的 CPython 放进 assets：
+**启动器为什么要自己编。** 官方 Android 包（<https://www.python.org/downloads/android/>）
+**没有 `python3` 可执行文件**，只有 `libpython3.14.so`——它是给进程内嵌入用的形态。
+本项目的插件是独立子进程 + JSON 行协议，需要一个可执行文件，
+因此用 `android/app/src/main/cpp/python_launcher.c` 调 `Py_BytesMain` 编了个 5.7KB 的薄壳。
 
-```
-android/app/src/main/assets/python/arm64-v8a/python3
-android/app/src/main/assets/python/arm64-v8a/lib/python3.12/…
-```
+**为什么可执行文件与标准库分开放。** Android 10 起禁止从应用可写数据目录执行文件，
+可执行文件只能放在安装后的原生库目录（因而 `extractNativeLibs` 必须为 `true`，
+见 `android/app/build.gradle.kts`）；标准库只需读取，放私有目录即可。
 
-`pubspec.yaml` 中的 `assets: - assets/python/` 已声明，目录已建好并附说明文件，
-**只差把二进制放进去**。产出该二进制需要 Android NDK 交叉编译（Chaquopy 或
-`python-for-android`），涉及大量下载与较长的构建时间，本次未执行；
-详见 [`assets/python/README.md`](assets/python/README.md)。
+**为什么启动时不释放标准库。** 释放要写 600 多个文件，放在启动流程里会让首次启动
+白屏数秒。改为在真正点「启动插件」时才释放（幂等，只做一次）。
+
+标准库的释放依赖 `pubspec.yaml` 中逐条声明的 57 个资产子目录——
+**Flutter 的资产目录声明不是递归的**，只写 `assets/python/` 会导致标准库全部丢失，
+而这在打包时不会报错。完整的重建步骤、x86_64 扩展方式与踩坑说明见
+[`assets/python/README.md`](assets/python/README.md)。
 
 ## 已知缺口
 
@@ -186,8 +195,10 @@ android/app/src/main/assets/python/arm64-v8a/lib/python3.12/…
 
 - **后台保活**：Android 前台服务与 iOS BGTask 的原生部分未实现，目前只有 Dart 侧的退避重连。
   `AppConfig.enableForegroundService` 因此保持 `false`。
-- **内置 Python 运行时**：运行时的**发现与释放逻辑已实现**（见下节），
-  但 APK 内尚未放入交叉编译好的解释器二进制，因此 Android 上插件目前不可用。
+- **内置 Python 仅 arm64-v8a**：模拟器（x86_64）不在内置范围内，扩展方式见
+  [`assets/python/README.md`](assets/python/README.md)。
+- **内置 Python 未经真机运行验证**：打包链路与产物均已逐项核对（见下），
+  但「解释器在设备上真正跑起来」这一步需要在真机上确认。
 - **流式消息**：端点已定义，未实现 API 类。
 - **频道（Guild）事件**：未建模，本项目以单聊 / 群聊为核心。
 - **iOS**：见「平台范围」。
