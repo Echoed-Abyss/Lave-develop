@@ -146,10 +146,20 @@ class MainActivity : FlutterActivity() {
     }
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
-        super.configureFlutterEngine(flutterEngine)
-
+        // **只在引擎的第一次挂载时执行。**
+        //
+        // 官方文档把这个方法与 `cleanUpFlutterEngine` 配成一对
+        // （「宿主销毁或分离前清理在 configureFlutterEngine 里建立的引用」），
+        // 也就是说：**Activity 每次重建都会再调一次**。
+        // 而这里复用的是同一个引擎，重复执行会带来两个具体问题：
+        // 1. MethodChannel 的处理器被反复覆盖，闭包越堆越多；
+        // 2. `super` 里会做插件注册，同一个引擎注册两遍意味着每个插件的
+        //    `onAttachedToEngine` 跑两次，重复订阅、重复初始化。
+        // 引擎本身是长期存活的，这些注册只需要发生一次。
         if (channelRegistered) return
         channelRegistered = true
+
+        super.configureFlutterEngine(flutterEngine)
 
         MethodChannel(
             flutterEngine.dartExecutor.binaryMessenger,
