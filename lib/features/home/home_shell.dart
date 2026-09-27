@@ -54,46 +54,79 @@ class _HomeShellState extends ConsumerState<HomeShell> {
     final services = ref.watch(appServicesProvider);
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
-    return GlassScaffold(
-      body: SafeArea(
-        bottom: false,
-        child: IndexedStack(
-          index: _index,
-          children: homeTabs.map((tab) => tab.builder()).toList(growable: false),
-        ),
-      ),
-      bottomNavigationBar: Container(
-        decoration: BoxDecoration(
-          color: GlassTheme.surfaceOf(isDark: isDark, alpha: 0.5),
-          border: Border(
-            top: BorderSide(color: GlassTheme.borderOf(isDark: isDark)),
+    // 必须监听日志服务：未读错误数会随着连接失败、接口报错而变化，
+    // 而外壳本身不会因为这些事情重建 —— 不监听的话角标会一直停在
+    // 首次构建时的数字上（等于这个提示功能形同不存在）。
+    return ListenableBuilder(
+      listenable: services.log,
+      builder: (context, _) => GlassScaffold(
+        body: SafeArea(
+          bottom: false,
+          child: IndexedStack(
+            index: _index,
+            children: [
+              for (var i = 0; i < homeTabs.length; i++)
+                _TabFade(
+                  active: i == _index,
+                  child: homeTabs[i].builder(),
+                ),
+            ],
           ),
         ),
-        child: NavigationBar(
-          selectedIndex: _index,
-          onDestinationSelected: (value) {
-            setState(() => _index = value);
-            // 切到日志页即视为「已读」，清掉角标。
-            if (homeTabs[value].label == '日志') {
-              ref.read(appServicesProvider).log.markProblemsRead();
-            }
-          },
-          destinations: [
-            for (final tab in homeTabs)
-              NavigationDestination(
-                icon: _TabIcon(
-                  icon: tab.icon,
-                  // 日志 Tab 有未读错误时打一个小红点：
-                  // 连接失败这类问题如果只写在日志里，用户永远不知道去看。
-                  // 用「未读」而非「累计」计数，否则角标会一直挂着，反而被无视。
-                  badge: tab.label == '日志' ? services.log.unreadProblems : 0,
+        bottomNavigationBar: Container(
+          decoration: BoxDecoration(
+            color: GlassTheme.surfaceOf(isDark: isDark, alpha: 0.5),
+            border: Border(
+              top: BorderSide(color: GlassTheme.borderOf(isDark: isDark)),
+            ),
+          ),
+          child: NavigationBar(
+            selectedIndex: _index,
+            onDestinationSelected: (value) {
+              setState(() => _index = value);
+              // 切到日志页即视为「已读」，清掉角标。
+              if (homeTabs[value].label == '日志') {
+                services.log.markProblemsRead();
+              }
+            },
+            destinations: [
+              for (final tab in homeTabs)
+                NavigationDestination(
+                  icon: _TabIcon(
+                    icon: tab.icon,
+                    // 日志 Tab 有未读错误时打一个小红点：
+                    // 连接失败这类问题如果只写在日志里，用户永远不知道去看。
+                    // 用「未读」而非「累计」计数，否则角标会一直挂着，反而被无视。
+                    badge: tab.label == '日志' ? services.log.unreadProblems : 0,
+                  ),
+                  selectedIcon: Icon(tab.selectedIcon),
+                  label: tab.label,
                 ),
-                selectedIcon: Icon(tab.selectedIcon),
-                label: tab.label,
-              ),
-          ],
+            ],
+          ),
         ),
       ),
+    );
+  }
+}
+
+/// Tab 内容切换时的淡入。
+///
+/// 不销毁子树（外层是 IndexedStack，非活动页仍在树上但不绘制），
+/// 因此滚动位置与输入内容都能保留，只补一个视觉过渡。
+class _TabFade extends StatelessWidget {
+  const _TabFade({required this.active, required this.child});
+
+  final bool active;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedOpacity(
+      opacity: active ? 1 : 0,
+      duration: const Duration(milliseconds: 200),
+      curve: Curves.easeOut,
+      child: child,
     );
   }
 }

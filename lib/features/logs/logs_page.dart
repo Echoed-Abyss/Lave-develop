@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../app/app.dart';
 import '../../app/theme.dart';
+import '../../core/logging/log_service.dart';
 import '../../domain/models/log_entry.dart';
 import '../../shared/widgets/glass.dart';
 
@@ -158,11 +159,11 @@ class _LogsPageState extends ConsumerState<LogsPage> {
 class _FilterBar extends StatelessWidget {
   const _FilterBar({required this.log});
 
-  final dynamic log;
+  final LogService log;
 
   @override
   Widget build(BuildContext context) {
-    final counts = log.countsBySource as Map<LogSource, int>;
+    final counts = log.countsBySource;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -171,7 +172,9 @@ class _FilterBar extends StatelessWidget {
           padding: const EdgeInsets.symmetric(horizontal: 12),
           child: Row(
             children: [
-              for (final level in LogLevel.values)
+              // 用 selectableLevels 而不是 LogLevel.values：
+              // trace 级被存储层拦掉了，放出来只会得到一个永远为空的选项。
+              for (final level in log.selectableLevels)
                 GlassChip(
                   label: level.label,
                   selected: log.minLevel == level,

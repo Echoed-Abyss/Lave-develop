@@ -41,10 +41,26 @@ class LogService extends ChangeNotifier implements AppLogSink {
   LogSource? sourceFilter;
   String keyword = '';
 
-  /// 按当前筛选条件过滤后的日志。
+  // ───────────────────────── 筛选结果缓存 ─────────────────────────
+  //
+  // 这两个结果都会被界面在 build 里直接读取，而计算是 O(n)。
+  // 不缓存的话，每次重建（滚动、切换筛选、任意一次 notifyListeners）
+  // 都会对全量日志做两趟遍历，日志攒到上千条后就是可感知的卡顿。
+  List<LogEntry>? _filteredCache;
+  Map<LogSource, int>? _countsCache;
+
+  void _invalidateCache() {
+    _filteredCache = null;
+    _countsCache = null;
+  }
+
+  /// 按当前筛选条件过滤后的日志（结果已缓存）。
   List<LogEntry> get filtered {
+    final cached = _filteredCache;
+    if (cached != null) return cached;
+
     final text = keyword.trim().toLowerCase();
-    return _entries.where((entry) {
+    final result = _entries.where((entry) {
       if (!entry.level.atLeast(minLevel)) return false;
       if (sourceFilter != null && entry.source != sourceFilter) return false;
       if (text.isEmpty) return true;
@@ -52,16 +68,30 @@ class LogService extends ChangeNotifier implements AppLogSink {
           (entry.detail?.toLowerCase().contains(text) ?? false) ||
           (entry.botId?.toLowerCase().contains(text) ?? false);
     }).toList(growable: false);
+
+    _filteredCache = result;
+    return result;
   }
 
-  /// 各来源的条数统计（界面在筛选器上显示徽标）。
+  /// 各来源的条数统计（结果已缓存）。
   Map<LogSource, int> get countsBySource {
+    final cached = _countsCache;
+    if (cached != null) return cached;
+
     final result = <LogSource, int>{};
     for (final entry in _entries) {
       result[entry.source] = (result[entry.source] ?? 0) + 1;
     }
+    _countsCache = result;
     return result;
   }
+
+  /// 可供筛选的日志级别。
+  ///
+  /// 不含 `trace`：它被 [_respectableLevel] 拦在存储之外，
+  /// 放在筛选器上只会得到一个永远为空的选项。
+  List<LogLevel> get selectableLevels =>
+      LogLevel.values.where((level) => level != LogLevel.trace).toList();
 
   /// 错误与警告的未读条数（用于 Tab 上的小红点）。
   ///
@@ -103,6 +133,7 @@ class LogService extends ChangeNotifier implements AppLogSink {
       // 控制台同步一份，方便开发期观察；正式环境由 AppConfig 控制量级。
       AppLogger.warn('[${safe.source.label}] ${safe.message}', tag: 'service');
     }
+    _invalidateCache();
     notifyListeners();
     _schedulePersist();
   }
@@ -229,6 +260,7 @@ class LogService extends ChangeNotifier implements AppLogSink {
       sourceFilter = sourceFilter == source ? null : source;
     }
     if (keyword != null) this.keyword = keyword;
+    _invalidateCache();
     notifyListeners();
   }
 
@@ -237,6 +269,7 @@ class LogService extends ChangeNotifier implements AppLogSink {
     _entries.clear();
     _dropped = 0;
     _unreadProblems = 0;
+    _invalidateCache();
     notifyListeners();
     _schedulePersist();
   }
@@ -290,6 +323,7 @@ class LogService extends ChangeNotifier implements AppLogSink {
       _entries
         ..clear()
         ..addAll(items.map(LogEntry.fromJson));
+      _invalidateCache();
       notifyListeners();
     } catch (error) {
       AppLogger.warn('日志恢复失败：$error', tag: 'log');

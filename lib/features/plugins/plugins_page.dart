@@ -58,11 +58,13 @@ class _PluginsPageState extends ConsumerState<PluginsPage> {
           body: ListView(
             padding: const EdgeInsets.only(bottom: 96, top: 8),
             children: [
-              _CapabilityBanner(
-                supported: manager.isSupported,
-                describe: manager.capability.describe,
-                reason: manager.capability.reason,
-                running: manager.runningCount,
+              FadeSlideIn(
+                child: _CapabilityBanner(
+                  supported: manager.isSupported,
+                  describe: manager.capability.describe,
+                  reason: manager.capability.reason,
+                  running: manager.runningCount,
+                ),
               ),
               GlassSectionTitle(
                 text: '已安装（${plugins.length}）',
@@ -88,17 +90,19 @@ class _PluginsPageState extends ConsumerState<PluginsPage> {
                       '点击右下角可写入一个示例插件。',
                 )
               else
-                for (final plugin in plugins)
-                  _PluginCard(
-                    plugin: plugin,
-                    supported: manager.isSupported,
-                    onToggle: (value) => manager.setEnabled(plugin.id, value),
-                    onStart: () => manager.start(plugin.id),
-                    onStop: () => manager.stop(plugin.id),
-                    onDelete: () => _confirmDelete(plugin),
+                for (final (index, plugin) in plugins.indexed)
+                  FadeSlideIn(
+                    // 错落延迟最多累加到第 6 个：再多会让整页显得「慢吞吞」。
+                    delay: Duration(milliseconds: 40 * index.clamp(0, 5)),
+                    child: _PluginCard(
+                      plugin: plugin,
+                      supported: manager.isSupported,
+                      onToggle: (value) => manager.setEnabled(plugin.id, value),
+                      onStart: () => manager.start(plugin.id),
+                      onStop: () => manager.stop(plugin.id),
+                      onDelete: () => _confirmDelete(plugin),
+                    ),
                   ),
-              const GlassSectionTitle(text: '插件协议'),
-              _ProtocolCard(),
             ],
           ),
         );
@@ -432,27 +436,5 @@ class _PluginCard extends StatelessWidget {
       case PluginStatus.stopped:
         return const Color(0xFF7A8CA0);
     }
-  }
-}
-
-/// 协议说明卡片（供插件作者对照）。
-class _ProtocolCard extends StatelessWidget {
-  @override
-  Widget build(BuildContext context) {
-    return GlassPanel(
-      margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-      child: SelectableText(
-        '主进程 → 插件：{"type":"init"|"event"|"shutdown","id":"...","payload":{...}}\n'
-        '插件 → 主进程：{"type":"ready"|"log"|"reply","id":"...","payload":{...}}\n\n'
-        '插件通过 reply 请求主进程代发消息（插件永远拿不到 access_token）。\n'
-        '任何非 JSON 的 print 输出都会作为日志收进「日志」Tab。',
-        style: TextStyle(
-          fontSize: 11.5,
-          height: 1.7,
-          fontFamily: 'monospace',
-          color: GlassTheme.textSecondary(context),
-        ),
-      ),
-    );
   }
 }

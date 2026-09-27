@@ -1,34 +1,28 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../app/app.dart';
-import '../../app/app_services.dart';
 import '../../app/theme.dart';
-import '../../core/constants/app_config.dart';
-import '../../core/constants/qq_limits.dart';
-import '../../domain/models/log_entry.dart';
+import '../../core/constants/app_info.dart';
 import '../../gateway/protocol/qq_opcode.dart';
 import '../../shared/widgets/glass.dart';
 
 /// 设置 Tab。
 ///
-/// 内容取舍：只放**真正会影响运行行为**的项。
-/// 不放「关于作者」这类装饰，也不放会造成误解的开关
-/// （例如「无限重连」——官方对封禁类错误明确不可重试）。
+/// 内容取舍：只保留**会影响运行行为、且只能在应用内调整**的项。
+/// 常量速查、诊断导出、运行环境罗列这类信息已移除 ——
+/// 它们要么是开发期才需要的（已写入文档），要么在出问题时可以直接从
+/// 「日志」页复制，放在设置里只会让真正要改的开关被淹没。
 class SettingsPage extends ConsumerWidget {
   const SettingsPage({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final services = ref.watch(appServicesProvider);
-    final config = services.config;
-    final manager = services.plugins;
 
     return ListenableBuilder(
       listenable: Listenable.merge([
         services.themeMode,
-        services.plugins,
         services.intentsMask,
       ]),
       builder: (context, _) => GlassScaffold(
@@ -37,267 +31,112 @@ class SettingsPage extends ConsumerWidget {
           padding: const EdgeInsets.only(top: 8, bottom: 40),
           children: [
             GlassSectionTitle(text: '外观'),
-            GlassPanel(
-              margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    '主题',
-                    style: TextStyle(
-                      fontSize: 13,
-                      fontWeight: FontWeight.w600,
-                      color: GlassTheme.textPrimary(context),
+            FadeSlideIn(
+              child: GlassPanel(
+                margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      '主题',
+                      style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                        color: GlassTheme.textPrimary(context),
+                      ),
                     ),
-                  ),
-                  const SizedBox(height: 8),
-                  Wrap(
-                    spacing: 6,
-                    children: [
-                      GlassChip(
-                        label: '跟随系统',
-                        selected: services.themeMode.value == ThemeMode.system,
-                        onTap: () => services.setThemeMode(ThemeMode.system),
-                      ),
-                      GlassChip(
-                        label: '浅色',
-                        selected: services.themeMode.value == ThemeMode.light,
-                        onTap: () => services.setThemeMode(ThemeMode.light),
-                      ),
-                      GlassChip(
-                        label: '深色',
-                        selected: services.themeMode.value == ThemeMode.dark,
-                        onTap: () => services.setThemeMode(ThemeMode.dark),
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-            ),
-
-            GlassSectionTitle(text: '运行环境'),
-            GlassPanel(
-              margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  _row(context, '环境', AppEnvironment.label),
-                  _row(
-                    context,
-                    '日志级别',
-                    config.enableFrameLog ? '调试（含逐帧日志）' : '生产（已关闭逐帧日志）',
-                  ),
-                  _row(context, 'HTTP 超时', '${config.httpTimeout.inSeconds} 秒'),
-                  _row(
-                    context,
-                    '并发连接上限',
-                    '${config.maxConcurrentConnections} 个机器人同时在线',
-                  ),
-                  _row(
-                    context,
-                    '心跳判死阈值',
-                    '连续 ${config.heartbeatTimeoutMultiplier} 次未收到 ACK',
-                  ),
-                  _row(
-                    context,
-                    '重连退避',
-                    '${config.reconnectBaseDelay.inSeconds} 秒起，'
-                        '上限 ${config.reconnectMaxDelay.inSeconds} 秒（含抖动）',
-                  ),
-                  _row(
-                    context,
-                    '接入点缓存',
-                    '${config.endpointCacheTtl.inMinutes} 分钟'
-                        '（官方限制 2 QPM，必须缓存）',
-                  ),
-                ],
+                    const SizedBox(height: 8),
+                    Wrap(
+                      spacing: 6,
+                      children: [
+                        for (final entry in const [
+                          (ThemeMode.system, '跟随系统'),
+                          (ThemeMode.light, '浅色'),
+                          (ThemeMode.dark, '深色'),
+                        ])
+                          GlassChip(
+                            label: entry.$2,
+                            selected: services.themeMode.value == entry.$1,
+                            onTap: () => services.setThemeMode(entry.$1),
+                          ),
+                      ],
+                    ),
+                  ],
+                ),
               ),
             ),
 
             GlassSectionTitle(text: '事件订阅范围（intents）'),
-            GlassPanel(
-              margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-              accent: const Color(0xFFD08A1E),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    '当前掩码：${services.intentsMask.value}',
-                    style: TextStyle(
-                      fontSize: 12.5,
-                      fontWeight: FontWeight.w600,
-                      color: GlassTheme.textPrimary(context),
+            FadeSlideIn(
+              delay: const Duration(milliseconds: 60),
+              child: GlassPanel(
+                margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                accent: const Color(0xFFD08A1E),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Text(
+                          '当前掩码 ${services.intentsMask.value}',
+                          style: TextStyle(
+                            fontSize: 12.5,
+                            fontWeight: FontWeight.w600,
+                            color: GlassTheme.textPrimary(context),
+                          ),
+                        ),
+                        const Spacer(),
+                        PulseDot(
+                          color: const Color(0xFFD08A1E),
+                          size: 7,
+                          animate: services.selectedOptionalIntents.isNotEmpty,
+                        ),
+                      ],
                     ),
-                  ),
-                  const SizedBox(height: 6),
-                  Text(
-                    '「单聊与群聊事件」是必需项，已始终订阅。\n'
-                    '官方原文：如果在鉴权时传递了无权限的 intents，websocket 会报错'
-                    '并直接关闭连接 —— 多勾一位就可能让机器人完全收不到消息，'
-                    '因此在开放平台后台申请到权限之前，请保持关闭。',
-                    style: TextStyle(
-                      fontSize: 11.5,
-                      height: 1.65,
-                      color: GlassTheme.textSecondary(context),
+                    const SizedBox(height: 6),
+                    Text(
+                      '「单聊与群聊事件」是必需项，已始终订阅。\n'
+                      '官方原文：如果在鉴权时传递了无权限的 intents，websocket 会报错'
+                      '并直接关闭连接 —— 多勾一位就可能让机器人完全收不到消息，'
+                      '因此在开放平台后台申请到权限之前，请保持关闭。',
+                      style: TextStyle(
+                        fontSize: 11.5,
+                        height: 1.65,
+                        color: GlassTheme.textSecondary(context),
+                      ),
                     ),
-                  ),
-                  const SizedBox(height: 8),
-                  for (final item in QqOptionalIntent.values)
-                    _IntentToggleRow(
-                      item: item,
-                      enabled: services.selectedOptionalIntents.contains(item),
-                      onChanged: (value) {
-                        final next = {...services.selectedOptionalIntents};
-                        if (value) {
-                          next.add(item);
-                        } else {
-                          next.remove(item);
-                        }
-                        services.setOptionalIntents(next);
-                      },
-                    ),
-                ],
-              ),
-            ),
-
-            GlassSectionTitle(text: '官方限制速查'),
-            GlassPanel(
-              margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  _row(
-                    context,
-                    '被动回复窗口',
-                    '群聊 ${QqLimits.groupReplyWindow.inMinutes} 分钟 / '
-                        '单聊 ${QqLimits.c2cReplyWindow.inMinutes} 分钟',
-                  ),
-                  _row(
-                    context,
-                    '被动回复次数',
-                    '群聊 ${QqLimits.groupMaxRepliesPerMessage} 次 / '
-                        '单聊 ${QqLimits.c2cMaxRepliesPerMessage} 次（每条原消息）',
-                  ),
-                  _row(
-                    context,
-                    '发消息 QPS',
-                    '${QqLimits.sendMessageQps} QPS',
-                  ),
-                  _row(
-                    context,
-                    '主动消息频控',
-                    '单关系 ${QqLimits.perRelationshipQpm} 条/分钟，'
-                        '每日每关系 ${QqLimits.perRelationshipDailyLimit} 条',
-                  ),
-                  _row(
-                    context,
-                    '撤回时限',
-                    '发送后 ${QqLimits.recallDeadline.inMinutes} 分钟内可撤回',
-                  ),
-                  _row(
-                    context,
-                    'access_token 有效期',
-                    '${QqLimits.accessTokenTtl.inHours} 小时'
-                        '（过期前 ${QqLimits.tokenRefreshLead.inSeconds} 秒自动换新）',
-                  ),
-                ],
-              ),
-            ),
-
-            GlassSectionTitle(text: '插件运行环境'),
-            GlassPanel(
-              margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-              accent: manager.isSupported
-                  ? const Color(0xFF2E9E6B)
-                  : const Color(0xFFD08A1E),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  _row(context, '平台', manager.capability.platform),
-                  _row(
-                    context,
-                    'Python',
-                    manager.capability.pythonExecutable ?? '未探测到',
-                  ),
-                  const SizedBox(height: 6),
-                  Text(
-                    manager.capability.reason ?? manager.capability.describe,
-                    style: TextStyle(
-                      fontSize: 12,
-                      height: 1.65,
-                      color: GlassTheme.textSecondary(context),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-
-            GlassSectionTitle(text: '诊断'),
-            GlassPanel(
-              margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-              child: Wrap(
-                spacing: 6,
-                runSpacing: 6,
-                children: [
-                  GlassButton(
-                    label: '复制诊断信息',
-                    icon: Icons.copy_all_outlined,
-                    dense: true,
-                    onPressed: () async {
-                      await Clipboard.setData(
-                        ClipboardData(text: services.log.exportText()),
-                      );
-                      if (!context.mounted) return;
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(content: Text('已复制到剪贴板')),
-                      );
-                    },
-                  ),
-                  GlassButton(
-                    label: '重建全部连接',
-                    icon: Icons.restart_alt,
-                    dense: true,
-                    onPressed: () async {
-                      await services.registry.shutdown();
-                      await services.registry.syncWithBots();
-                    },
-                  ),
-                  GlassButton(
-                    label: '清空消息与事件',
-                    icon: Icons.cleaning_services_outlined,
-                    dense: true,
-                    onPressed: () => _confirmClearHistory(context, services),
-                  ),
-                  GlassButton(
-                    label: '清空全部数据',
-                    icon: Icons.delete_forever_outlined,
-                    dense: true,
-                    onPressed: () => _confirmClearAll(context, services),
-                  ),
-                ],
+                    const SizedBox(height: 8),
+                    for (final item in QqOptionalIntent.values)
+                      _IntentToggleRow(
+                        item: item,
+                        enabled: services.selectedOptionalIntents.contains(item),
+                        onChanged: (value) {
+                          final next = {...services.selectedOptionalIntents};
+                          if (value) {
+                            next.add(item);
+                          } else {
+                            next.remove(item);
+                          }
+                          services.setOptionalIntents(next);
+                        },
+                      ),
+                  ],
+                ),
               ),
             ),
 
             GlassSectionTitle(text: '关于'),
-            GlassPanel(
-              margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  _row(context, '协议来源', 'QQ 机器人开放平台官方文档（api-v2）'),
-                  _row(context, '事件通道', 'Gateway WebSocket 长连接（非 Webhook）'),
-                  _row(context, '后端依赖', '无（事件链路设备直连官方网关）'),
-                  const SizedBox(height: 6),
-                  Text(
-                    '本应用仅使用官方 Gateway WebSocket 与 HTTP OpenAPI，'
-                    '不包含任何非官方协议实现。',
-                    style: TextStyle(
-                      fontSize: 11.5,
-                      height: 1.65,
-                      color: GlassTheme.textSecondary(context),
-                    ),
-                  ),
-                ],
+            FadeSlideIn(
+              delay: const Duration(milliseconds: 120),
+              child: GlassPanel(
+                margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    _row(context, '当前版本', AppInfo.version),
+                    _row(context, '作者', AppInfo.author),
+                  ],
+                ),
               ),
             ),
           ],
@@ -312,7 +151,7 @@ class SettingsPage extends ConsumerWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             SizedBox(
-              width: 104,
+              width: 76,
               child: Text(
                 label,
                 style: TextStyle(
@@ -326,68 +165,10 @@ class SettingsPage extends ConsumerWidget {
                 value,
                 style: TextStyle(
                   fontSize: 12.5,
+                  fontWeight: FontWeight.w600,
                   color: GlassTheme.textPrimary(context),
                 ),
               ),
-            ),
-          ],
-        ),
-      );
-
-  Future<void> _confirmClearHistory(
-    BuildContext context,
-    AppServices services,
-  ) async {
-    final confirmed = await _confirm(
-      context,
-      '清空消息与事件',
-      '将删除本机保存的消息缓存与事件日志，不影响账号与密钥。',
-    );
-    if (confirmed != true) return;
-    for (final bot in services.bots.bots) {
-      services.history.clearBot(bot.appId);
-    }
-    services.log.info(LogSource.system, '已清空消息与事件缓存');
-  }
-
-  Future<void> _confirmClearAll(BuildContext context, AppServices services) async {
-    final confirmed = await _confirm(
-      context,
-      '清空全部数据',
-      '将删除全部账号、密钥、消息、事件与日志。\n'
-          '该操作不可撤销，且删除后需要重新添加机器人账号。\n'
-          '（建议先「复制诊断信息」留档）',
-    );
-    if (confirmed != true) return;
-
-    await services.registry.shutdown();
-    for (final bot in services.bots.bots) {
-      await services.credentials.delete(bot.appId);
-      await services.bots.remove(bot.appId);
-      services.history.clearBot(bot.appId);
-    }
-    services.log.clear();
-    await services.store.clear();
-    services.log.info(
-      LogSource.system,
-      '已清空全部本地数据。账号与密钥已删除，请重新添加。',
-    );
-  }
-
-  Future<bool?> _confirm(BuildContext context, String title, String content) =>
-      showDialog<bool>(
-        context: context,
-        builder: (_) => AlertDialog(
-          title: Text(title),
-          content: Text(content),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context, false),
-              child: const Text('取消'),
-            ),
-            FilledButton(
-              onPressed: () => Navigator.pop(context, true),
-              child: const Text('确认'),
             ),
           ],
         ),

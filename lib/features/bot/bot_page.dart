@@ -71,13 +71,17 @@ class _BotPageState extends ConsumerState<BotPage> {
               : ListView.builder(
                   padding: const EdgeInsets.only(top: 8, bottom: 96),
                   itemCount: bots.length,
-                  itemBuilder: (context, index) => _BotCard(
-                    services: services,
-                    bot: bots[index],
-                    onEdit: () => _showBotEditor(
-                      context,
-                      services,
-                      bots[index],
+                  itemBuilder: (context, index) => FadeSlideIn(
+                    // 错落延迟只累加到第 6 个：再往后会让整页显得在慢慢加载。
+                    delay: Duration(milliseconds: 45 * index.clamp(0, 5)),
+                    child: _BotCard(
+                      services: services,
+                      bot: bots[index],
+                      onEdit: () => _showBotEditor(
+                        context,
+                        services,
+                        bots[index],
+                      ),
                     ),
                   ),
                 ),
@@ -124,14 +128,33 @@ class _BotCard extends StatelessWidget {
         subtitle: '${snapshot.phase.label}'
             '${snapshot.lastError == null ? '' : ' · ${snapshot.lastError!.userMessage}'}',
         accent: _accentFor(snapshot.phase),
-        leading: CircleAvatar(
-          radius: 15,
-          backgroundColor: _accentFor(snapshot.phase).withValues(alpha: 0.18),
-          child: Icon(
-            snapshot.isOnline ? Icons.wifi_tethering : Icons.wifi_tethering_off,
-            size: 16,
-            color: _accentFor(snapshot.phase),
-          ),
+        leading: Stack(
+          clipBehavior: Clip.none,
+          children: [
+            CircleAvatar(
+              radius: 15,
+              backgroundColor: _accentFor(snapshot.phase).withValues(alpha: 0.18),
+              child: Icon(
+                snapshot.isOnline
+                    ? Icons.wifi_tethering
+                    : Icons.wifi_tethering_off,
+                size: 16,
+                color: _accentFor(snapshot.phase),
+              ),
+            ),
+            // 仅在「正在进行中」（取接入点 / 连接中 / 鉴权 / 退避）时呼吸。
+            // 让用户能一眼区分「正在努力连接」与「已经稳定在线」，
+            // 否则两者都只是一个静止的圆点，看起来像卡死。
+            Positioned(
+              right: -3,
+              top: -3,
+              child: PulseDot(
+                color: _accentFor(snapshot.phase),
+                size: 8,
+                animate: _isInProgress(snapshot.phase),
+              ),
+            ),
+          ],
         ),
         trailing: Switch(
           value: bot.enabled,
@@ -323,13 +346,34 @@ class _BotCard extends StatelessWidget {
     String conversationId,
     ConversationScope scope,
   ) {
+    // 自定义过渡：淡入 + 极轻微的向上位移。
+    // 用 PageRouteBuilder 而不是默认的 MaterialPageRoute，
+    // 是因为默认过渡在深色玻璃背景上会露出一块空白底色，很割裂。
     Navigator.of(context).push(
-      MaterialPageRoute<void>(
-        builder: (_) => ConversationPage(
+      PageRouteBuilder<void>(
+        transitionDuration: const Duration(milliseconds: 260),
+        reverseTransitionDuration: const Duration(milliseconds: 200),
+        pageBuilder: (_, _, _) => ConversationPage(
           botId: bot.appId,
           conversationId: conversationId,
           scope: scope,
         ),
+        transitionsBuilder: (context, animation, secondary, child) {
+          final curved = CurvedAnimation(
+            parent: animation,
+            curve: Curves.easeOutCubic,
+          );
+          return FadeTransition(
+            opacity: curved,
+            child: SlideTransition(
+              position: Tween<Offset>(
+                begin: const Offset(0, 0.04),
+                end: Offset.zero,
+              ).animate(curved),
+              child: child,
+            ),
+          );
+        },
       ),
     );
   }
@@ -458,6 +502,22 @@ class _BotCard extends StatelessWidget {
         return const Color(0xFF7A7A8C);
       case ConnectionPhase.idle:
         return const Color(0xFF7A8CA0);
+    }
+  }
+
+  /// 是否处于「正在进行中」的连接阶段（用于脉冲动效）。
+  static bool _isInProgress(ConnectionPhase phase) {
+    switch (phase) {
+      case ConnectionPhase.fetchingEndpoint:
+      case ConnectionPhase.connecting:
+      case ConnectionPhase.authenticating:
+      case ConnectionPhase.backoff:
+        return true;
+      case ConnectionPhase.idle:
+      case ConnectionPhase.online:
+      case ConnectionPhase.blocked:
+      case ConnectionPhase.unsupported:
+        return false;
     }
   }
 

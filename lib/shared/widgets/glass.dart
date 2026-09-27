@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:ui';
 
 import 'package:flutter/material.dart';
@@ -68,6 +69,7 @@ class GlassPanel extends StatelessWidget {
     this.radius = GlassTheme.radius,
     this.onTap,
     this.accent,
+    this.blur = true,
   });
 
   final Widget child;
@@ -80,33 +82,49 @@ class GlassPanel extends StatelessWidget {
   /// 左侧强调色（用于区分状态，例如在线绿色、错误红色）。
   final Color? accent;
 
+  /// 是否对背景做模糊。
+  ///
+  /// **长列表里的条目应当传 `false`**：`BackdropFilter` 是 GPU 上最贵的
+  /// 常规操作之一，滚动时每个可见条目各做一次，在中低端机上会直接掉帧。
+  /// 关掉后仍保留半透明底色与描边，视觉上依然是「玻璃」，只是不再折射背景。
+  final bool blur;
+
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final content = ClipRRect(
+    final decoration = BoxDecoration(
+      // 关闭模糊时把底色做厚一点，否则缺少折射会让面板「发飘」。
+      color: GlassTheme.surfaceOf(isDark: isDark, alpha: blur ? 0.55 : 0.88),
       borderRadius: BorderRadius.circular(radius),
-      child: BackdropFilter(
-        filter: ImageFilter.blur(
-          sigmaX: blurSigma ?? GlassTheme.blurSigma,
-          sigmaY: blurSigma ?? GlassTheme.blurSigma,
-        ),
-        child: Container(
-          padding: padding,
-          decoration: BoxDecoration(
-            color: GlassTheme.surfaceOf(isDark: isDark),
-            borderRadius: BorderRadius.circular(radius),
-            border: Border.all(color: GlassTheme.borderOf(isDark: isDark)),
-          ),
-          child: child,
-        ),
-      ),
+      border: Border.all(color: GlassTheme.borderOf(isDark: isDark)),
     );
 
+    final surface = blur
+        ? RepaintBoundary(
+            // RepaintBoundary 让模糊结果被缓存成独立图层：
+            // 父级重绘（例如滚动、动画）时不必重新做一遍模糊。
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(radius),
+              child: BackdropFilter(
+                filter: ImageFilter.blur(
+                  sigmaX: blurSigma ?? GlassTheme.blurSigma,
+                  sigmaY: blurSigma ?? GlassTheme.blurSigma,
+                ),
+                child: Container(
+                  padding: padding,
+                  decoration: decoration,
+                  child: child,
+                ),
+              ),
+            ),
+          )
+        : Container(padding: padding, decoration: decoration, child: child);
+
     final wrapped = accent == null
-        ? content
+        ? surface
         : Stack(
             children: [
-              content,
+              surface,
               Positioned(
                 left: 0,
                 top: 14,
@@ -231,19 +249,26 @@ class _GlassExpandableCardState extends State<GlassExpandableCard>
               ),
             ),
           ),
-          AnimatedCrossFade(
-            firstChild: const SizedBox(width: double.infinity, height: 0),
-            secondChild: Padding(
-              padding: const EdgeInsets.fromLTRB(14, 0, 14, 14),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: widget.children,
-              ),
+          // 用 AnimatedSize + 条件子树，而不是 AnimatedCrossFade。
+          //
+          // AnimatedCrossFade 会**同时保留并构建两个子树**（收起的那个也在建），
+          // 卡片内容重时等于白算一遍布局与绘制；AnimatedSize 只构建当前子树，
+          // 仅在高度变化时做尺寸动画。
+          ClipRect(
+            child: AnimatedSize(
+              duration: const Duration(milliseconds: 200),
+              curve: Curves.easeOutCubic,
+              alignment: Alignment.topCenter,
+              child: _expanded
+                  ? Padding(
+                      padding: const EdgeInsets.fromLTRB(14, 0, 14, 14),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: widget.children,
+                      ),
+                    )
+                  : const SizedBox(width: double.infinity),
             ),
-            crossFadeState: _expanded
-                ? CrossFadeState.showSecond
-                : CrossFadeState.showFirst,
-            duration: const Duration(milliseconds: 180),
           ),
         ],
       ),
@@ -260,12 +285,10 @@ class GlassLogItem extends StatelessWidget {
     super.key,
     required this.entry,
     this.onTap,
-    this.blurSigma = GlassTheme.listBlurSigma,
   });
 
   final LogEntry entry;
   final VoidCallback? onTap;
-  final double blurSigma;
 
   @override
   Widget build(BuildContext context) {
@@ -276,7 +299,9 @@ class GlassLogItem extends StatelessWidget {
       margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 3),
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
       radius: 12,
-      blurSigma: blurSigma,
+      // 日志列表可能同时挂上千条记录（ListView 虽懒构建，
+      // 可见条目也有十来个），逐条做背景模糊会让滚动明显掉帧。
+      blur: false,
       onTap: onTap,
       accent: entry.isHighlighted ? levelColor : null,
       child: Row(
@@ -349,7 +374,10 @@ class GlassLogItem extends StatelessWidget {
 }
 
 /// 玻璃按钮。
-class GlassButton extends StatelessWidget {
+///
+/// 按下时做轻微缩放反馈。用 [AnimatedScale] 而不是自定义动画控制器：
+/// 隐式动画只在值变化时驱动一帧，不占用常驻 ticker，对列表里的多个按钮更划算。
+class GlassButton extends StatefulWidget {
   const GlassButton({
     super.key,
     required this.label,
@@ -364,33 +392,51 @@ class GlassButton extends StatelessWidget {
   final bool dense;
 
   @override
+  State<GlassButton> createState() => _GlassButtonState();
+}
+
+class _GlassButtonState extends State<GlassButton> {
+  bool _pressed = false;
+
+  @override
   Widget build(BuildContext context) {
-    return GlassPanel(
-      radius: 12,
-      blurSigma: GlassTheme.listBlurSigma,
-      padding: EdgeInsets.symmetric(
-        horizontal: dense ? 10 : 14,
-        vertical: dense ? 6 : 9,
-      ),
-      onTap: onPressed,
-      child: Opacity(
-        opacity: onPressed == null ? 0.45 : 1,
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            if (icon != null) ...[
-              Icon(icon, size: dense ? 14 : 16),
-              const SizedBox(width: 5),
-            ],
-            Text(
-              label,
-              style: TextStyle(
-                fontSize: dense ? 12 : 13,
-                fontWeight: FontWeight.w600,
-                color: GlassTheme.textPrimary(context),
-              ),
+    final enabled = widget.onPressed != null;
+    return GestureDetector(
+      onTapDown: enabled ? (_) => setState(() => _pressed = true) : null,
+      onTapUp: enabled ? (_) => setState(() => _pressed = false) : null,
+      onTapCancel: enabled ? () => setState(() => _pressed = false) : null,
+      onTap: widget.onPressed,
+      child: AnimatedScale(
+        scale: _pressed ? 0.94 : 1,
+        duration: const Duration(milliseconds: 110),
+        curve: Curves.easeOut,
+        child: GlassPanel(
+          radius: 12,
+          blur: false,
+          padding: EdgeInsets.symmetric(
+            horizontal: widget.dense ? 10 : 14,
+            vertical: widget.dense ? 6 : 9,
+          ),
+          child: Opacity(
+            opacity: enabled ? 1 : 0.45,
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                if (widget.icon != null) ...[
+                  Icon(widget.icon, size: widget.dense ? 14 : 16),
+                  const SizedBox(width: 5),
+                ],
+                Text(
+                  widget.label,
+                  style: TextStyle(
+                    fontSize: widget.dense ? 12 : 13,
+                    fontWeight: FontWeight.w600,
+                    color: GlassTheme.textPrimary(context),
+                  ),
+                ),
+              ],
             ),
-          ],
+          ),
         ),
       ),
     );
@@ -544,45 +590,202 @@ class GlassEmptyState extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(24),
-        child: GlassPanel(
-          padding: const EdgeInsets.all(22),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(icon, size: 34, color: GlassTheme.textSecondary(context)),
-              const SizedBox(height: 12),
-              Text(
-                title,
-                textAlign: TextAlign.center,
-                style: TextStyle(
-                  fontSize: 15,
-                  fontWeight: FontWeight.w600,
-                  color: GlassTheme.textPrimary(context),
-                ),
-              ),
-              if (description != null)
-                Padding(
-                  padding: const EdgeInsets.only(top: 6),
-                  child: Text(
-                    description!,
-                    textAlign: TextAlign.center,
-                    style: TextStyle(
-                      fontSize: 12.5,
-                      height: 1.6,
-                      color: GlassTheme.textSecondary(context),
-                    ),
+    return FadeSlideIn(
+      child: Center(
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: GlassPanel(
+            padding: const EdgeInsets.all(22),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(icon, size: 34, color: GlassTheme.textSecondary(context)),
+                const SizedBox(height: 12),
+                Text(
+                  title,
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w600,
+                    color: GlassTheme.textPrimary(context),
                   ),
                 ),
-              if (action != null)
-                Padding(
-                  padding: const EdgeInsets.only(top: 14),
-                  child: action!,
-                ),
-            ],
+                if (description != null)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 6),
+                    child: Text(
+                      description!,
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        fontSize: 12.5,
+                        height: 1.6,
+                        color: GlassTheme.textSecondary(context),
+                      ),
+                    ),
+                  ),
+                if (action != null)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 14),
+                    child: action!,
+                  ),
+              ],
+            ),
           ),
+        ),
+      ),
+    );
+  }
+}
+
+/// 一次性入场动效：淡入 + 轻微上移。
+///
+/// 刻意用隐式动画而不是 `AnimationController`：
+/// 动画只跑一次就停在终态，不留下常驻的 ticker；
+/// 列表里放几十个这样的组件也不会持续占用帧回调。
+class FadeSlideIn extends StatefulWidget {
+  const FadeSlideIn({
+    super.key,
+    required this.child,
+    this.delay = Duration.zero,
+    this.offset = 0.08,
+  });
+
+  final Widget child;
+
+  /// 延迟。用于做错落感，**不要给长列表逐条加延迟**：
+  /// 条目一多就会显得整页在「慢慢加载」，反而不利索。
+  final Duration delay;
+
+  /// 起始纵向偏移（相对自身高度的比例）。
+  final double offset;
+
+  @override
+  State<FadeSlideIn> createState() => _FadeSlideInState();
+}
+
+class _FadeSlideInState extends State<FadeSlideIn> {
+  bool _visible = false;
+  Timer? _timer;
+
+  @override
+  void initState() {
+    super.initState();
+    if (widget.delay == Duration.zero) {
+      // 必须等到首帧之后再切目标值：在 initState 里直接置为 true 的话，
+      // 隐式动画的起始值与目标值相同，动画根本不会发生。
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) setState(() => _visible = true);
+      });
+    } else {
+      _timer = Timer(widget.delay, () {
+        if (mounted) setState(() => _visible = true);
+      });
+    }
+  }
+
+  @override
+  void dispose() {
+    _timer?.cancel();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedOpacity(
+      opacity: _visible ? 1 : 0,
+      duration: const Duration(milliseconds: 240),
+      curve: Curves.easeOut,
+      child: AnimatedSlide(
+        offset: _visible ? Offset.zero : Offset(0, widget.offset),
+        duration: const Duration(milliseconds: 260),
+        curve: Curves.easeOutCubic,
+        child: widget.child,
+      ),
+    );
+  }
+}
+
+/// 状态脉冲点。
+///
+/// 连接中 / 重连退避时呼吸闪烁，在线时静止 —— 让「正在努力但还没连上」
+/// 与「已经好了」在视觉上区分开，避免用户看到静止的灰点以为程序卡死。
+class PulseDot extends StatefulWidget {
+  const PulseDot({
+    super.key,
+    required this.color,
+    this.size = 8,
+    this.animate = false,
+  });
+
+  final Color color;
+  final double size;
+
+  /// 是否呼吸。仅在「进行中」状态传 true。
+  final bool animate;
+
+  @override
+  State<PulseDot> createState() => _PulseDotState();
+}
+
+class _PulseDotState extends State<PulseDot>
+    with SingleTickerProviderStateMixin {
+  // 必须在 initState 里显式创建，**不能用 `late final` 惰性初始化**。
+  //
+  // 惰性字段只在第一次被读取时才求值：当 animate 为 false 时它从未被读过，
+  // 于是 dispose() 里的 `_controller.dispose()` 成了首次求值 ——
+  // 那一刻元素已经处于 deactivated 状态，AnimationController 创建 Ticker 时
+  // 查找 TickerMode ancestor 会直接抛
+  // 「Looking up a deactivated widget's ancestor is unsafe」。
+  late final AnimationController _controller;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 900),
+    );
+    if (widget.animate) _controller.repeat(reverse: true);
+  }
+
+  @override
+  void didUpdateWidget(covariant PulseDot oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    // 只在状态切换时启停动画。让它一直跑着会白白占一个每帧回调。
+    if (widget.animate == oldWidget.animate) return;
+    if (widget.animate) {
+      _controller.repeat(reverse: true);
+    } else {
+      _controller.stop();
+      _controller.value = 1;
+    }
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return FadeTransition(
+      opacity: widget.animate
+          ? Tween<double>(begin: 0.35, end: 1).animate(_controller)
+          : const AlwaysStoppedAnimation<double>(1),
+      child: Container(
+        width: widget.size,
+        height: widget.size,
+        decoration: BoxDecoration(
+          color: widget.color,
+          shape: BoxShape.circle,
+          boxShadow: [
+            BoxShadow(
+              color: widget.color.withValues(alpha: 0.5),
+              blurRadius: widget.size,
+              spreadRadius: widget.size / 6,
+            ),
+          ],
         ),
       ),
     );

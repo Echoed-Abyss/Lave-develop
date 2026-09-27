@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:lavedevelop/app/app.dart';
 import 'package:lavedevelop/app/app_services.dart';
+import 'package:lavedevelop/core/constants/app_info.dart';
 
 /// 应用骨架的冒烟测试。
 ///
@@ -40,11 +41,13 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('当前平台无法运行插件'), findsOneWidget);
     expect(find.text('还没有安装插件'), findsOneWidget);
+    // 插件协议说明已按要求移除。
+    expect(find.text('插件协议'), findsNothing);
 
     // ── 设置 Tab ──
     await tester.tap(find.byIcon(Icons.settings_outlined));
     await tester.pumpAndSettle();
-    expect(find.text('运行环境'), findsOneWidget);
+    expect(find.text('外观'), findsOneWidget);
 
     // 事件订阅范围必须可见且带风险提示：这是「收不到消息」这个 bug 的用户侧入口，
     // 默认只订阅必需位，可选位需用户按权限自行开启。
@@ -53,15 +56,17 @@ void main() {
     expect(find.text('GROUP_MEMBER_EVENT'), findsOneWidget);
     expect(find.text('该位不在官方 intents 清单中，风险最高'), findsOneWidget);
 
-    // 官方限制速查在列表更下方，ListView 懒构建，需要滚动才会被创建。
-    await tester.drag(find.byType(ListView).last, const Offset(0, -700));
+    // 已按要求移除的区块不应再出现。
+    expect(find.text('运行环境'), findsNothing);
+    expect(find.text('官方限制速查'), findsNothing);
+    expect(find.text('诊断'), findsNothing);
+
+    // 关于：只保留当前版本与作者。
+    await tester.drag(find.byType(ListView).last, const Offset(0, -600));
     await tester.pumpAndSettle();
-    expect(find.text('官方限制速查'), findsOneWidget);
-    // 被动回复窗口这两个数字来自官方文档，出现在界面上说明常量链路是通的。
-    expect(
-      find.textContaining('群聊 5 分钟 / 单聊 60 分钟'),
-      findsOneWidget,
-    );
+    expect(find.text('关于'), findsOneWidget);
+    expect(find.text(AppInfo.version), findsOneWidget);
+    expect(find.text(AppInfo.author), findsOneWidget);
   });
 
   test('空账号时并发上限判定与初始化状态', () {

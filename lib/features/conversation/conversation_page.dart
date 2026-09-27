@@ -117,7 +117,12 @@ class _ConversationPageState extends ConsumerState<ConversationPage> {
                           itemCount: messages.length,
                           itemBuilder: (context, index) {
                             final message = messages[messages.length - 1 - index];
-                            return _MessageBubble(message: message);
+                            final bubble = _MessageBubble(message: message);
+                            // 只给最新一条做入场动效（reverse 列表里 index 0 即最新）。
+                            // 给每条都做的话，滚动时不断有新条目挂载并播放动画，
+                            // 既干扰阅读也白白消耗帧预算。
+                            if (index != 0) return bubble;
+                            return FadeSlideIn(offset: 0.16, child: bubble);
                           },
                         ),
                 ),
