@@ -7,6 +7,7 @@ import 'package:image_picker/image_picker.dart';
 
 import '../../app/app.dart';
 import '../../app/theme.dart';
+import '../../core/utils/qq_avatar.dart';
 import '../../domain/models/connection_status.dart';
 import '../../domain/models/log_entry.dart';
 import '../../domain/models/qq_enums.dart';
@@ -77,10 +78,38 @@ class _ConversationPageState extends ConsumerState<ConversationPage> {
         final botName = bot?.title ?? '机器人';
         final botAvatarUrl = bot?.avatarUrl;
 
+        // 会话对方（最后一位发言的入站用户）。
+        //
+        // 单聊时标题直接用对方昵称、头像用对方真实头像——「单聊 · …3E00D6BDF0」
+        // 这种由 openid 尾巴拼出来的标题，用户根本认不出是谁。
+        // 群聊则不这么做：最后发言的用户不等于这个群，拿他的名字当标题是误导，
+        // 而且群头像官方与 CDN 都给不了，只能用群图标占位。
+        final isC2c = widget.scope == ConversationScope.c2c;
+        final peer = _lastIncoming(messages);
+        final peerName = peer?.sender.displayName?.trim();
+        final peerAvatarUrl = isC2c
+            ? (peer?.sender.avatarUrl ??
+                QqAvatar.forOpenid(
+                  appId: widget.botId,
+                  openid: widget.conversationId,
+                ))
+            : null;
+        final title = isC2c && peerName != null && peerName.isNotEmpty
+            ? peerName
+            : _title();
+
         return ValueListenableBuilder<ConnectionSnapshot>(
           valueListenable: connection.status,
           builder: (context, snapshot, _) => GlassScaffold(
-            title: _title(),
+            title: title,
+            titleLeading: LaveAvatar(
+              seed: '${widget.botId}:${widget.conversationId}',
+              imageUrl: peerAvatarUrl,
+              label: title,
+              radius: 14,
+              fallbackIcon:
+                  widget.scope == ConversationScope.group ? Icons.groups_outlined : null,
+            ),
             actions: [
               IconButton(
                 tooltip: '复制会话标识',
@@ -157,6 +186,14 @@ class _ConversationPageState extends ConsumerState<ConversationPage> {
         ? widget.conversationId
         : '…${widget.conversationId.substring(widget.conversationId.length - 10)}';
     return '${widget.scope.label} · $suffix';
+  }
+
+  /// 取最后一条入站消息（用于标题与对方头像）。
+  QqMessage? _lastIncoming(List<QqMessage> messages) {
+    for (final message in messages.reversed) {
+      if (message.isIncoming) return message;
+    }
+    return null;
   }
 
   /// 取最后一条「仍在被动回复窗口内且还有剩余次数」的入站消息。

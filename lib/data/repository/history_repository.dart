@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 
 import '../local/json_doc_store.dart';
+import '../../core/utils/qq_avatar.dart';
 import '../../domain/models/bot_event.dart';
 import '../../domain/models/qq_enums.dart';
 import '../../domain/models/qq_message.dart';
@@ -14,19 +15,33 @@ class ConversationSummary {
     required this.botId,
     required this.conversationId,
     required this.title,
-    required this.scopeLabel,
+    required this.scope,
     required this.lastAt,
     this.lastPreview = '',
     this.messageCount = 0,
     this.canSendActive = true,
+    this.peerAvatarUrl,
   });
 
   final String botId;
   final String conversationId;
   final String title;
 
-  /// 场景标签（单聊 / 群聊）。
-  final String scopeLabel;
+  /// 会话场景。
+  ///
+  /// 用枚举而不是字符串标签：界面原本靠 `scopeLabel == '群聊'` 判断场景，
+  /// 一旦标签文案改动（或做多语言）就会静默失配。
+  final ConversationScope scope;
+
+  /// 场景展示标签（单聊 / 群聊）。
+  String get scopeLabel => scope.label;
+
+  /// 会话对方的头像地址（拿不到时为 `null`）。
+  ///
+  /// 只有**单聊**能取到：群聊的会话标识是 group_openid，
+  /// 而头像 CDN 对群 openid 只会返回一张默认灰头像（实测），
+  /// 界面上用群图标占位更能区分不同会话。
+  final String? peerAvatarUrl;
 
   final DateTime lastAt;
   final String lastPreview;
@@ -103,20 +118,43 @@ class HistoryRepository extends ChangeNotifier {
       final conversationId = parts.last;
       final last = list.last;
       result.add(
-        ConversationSummary(
-          botId: botId,
-          conversationId: conversationId,
-          title: conversationId,
-          scopeLabel: last.scope.label,
-          lastAt: last.at,
-          lastPreview: last.preview,
-          messageCount: list.length,
-          canSendActive: isActiveMessageEnabled(botId, conversationId),
-        ),
-      );
+          ConversationSummary(
+            botId: botId,
+            conversationId: conversationId,
+            title: conversationId,
+            scope: last.scope,
+            lastAt: last.at,
+            lastPreview: last.preview,
+            messageCount: list.length,
+            canSendActive: isActiveMessageEnabled(botId, conversationId),
+            peerAvatarUrl: _peerAvatarOf(
+              botId: botId,
+              conversationId: conversationId,
+              last: last,
+            ),
+          ),
+        );
     });
     result.sort((a, b) => b.lastAt.compareTo(a.lastAt));
     return result;
+  }
+
+  /// 会话对方的头像地址（见 [ConversationSummary.peerAvatarUrl]）。
+  ///
+  /// 优先取最后一条**入站**消息的发送者头像，而不是无条件自行拼 URL：
+  /// 事件若带了官方 `avatar` 就该优先用它，拼串只是在官方没给时的补位。
+  /// 最后一条若是我们自己发的，它的发送者头像是**机器人**的，不能拿来当对方头像。
+  static String? _peerAvatarOf({
+    required String botId,
+    required String conversationId,
+    required QqMessage last,
+  }) {
+    // 群聊取不到（群 openid 只会拿到默认灰头像），交给界面用群图标占位。
+    if (last.scope != ConversationScope.c2c) return null;
+    if (last.isIncoming && last.sender.avatarUrl != null) {
+      return last.sender.avatarUrl;
+    }
+    return QqAvatar.forOpenid(appId: botId, openid: conversationId);
   }
 
   /// 主动消息开关是否可用（默认可用）。

@@ -22,6 +22,7 @@ class GlassScaffold extends StatelessWidget {
     super.key,
     required this.body,
     this.title,
+    this.titleLeading,
     this.actions,
     this.bottomNavigationBar,
     this.floatingActionButton,
@@ -29,6 +30,14 @@ class GlassScaffold extends StatelessWidget {
 
   final Widget body;
   final String? title;
+
+  /// 标题左侧的组件（会话页放对方头像）。
+  ///
+  /// 单独开一个槽位而不是让调用方把 `String title` 换成 Widget：
+  /// 绝大多数页面只需要文字标题，为个别页面把整个 API 泛化成 Widget
+  /// 会让所有调用点都变啰嗦。
+  final Widget? titleLeading;
+
   final List<Widget>? actions;
   final Widget? bottomNavigationBar;
   final Widget? floatingActionButton;
@@ -36,6 +45,7 @@ class GlassScaffold extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
+    final leading = titleLeading;
     return Container(
       decoration: BoxDecoration(
         gradient: isDark
@@ -47,7 +57,18 @@ class GlassScaffold extends StatelessWidget {
         appBar: title == null
             ? null
             : AppBar(
-                title: Text(title!),
+                title: leading == null
+                    ? Text(title!)
+                    : Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          leading,
+                          const SizedBox(width: 8),
+                          Flexible(
+                            child: Text(title!, overflow: TextOverflow.ellipsis),
+                          ),
+                        ],
+                      ),
                 actions: actions,
               ),
         body: body,

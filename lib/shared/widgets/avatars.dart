@@ -4,23 +4,20 @@ import '../../app/theme.dart';
 
 /// 通用头像。
 ///
-/// ## 为什么要做成「有图用图、没图用确定性占位」
+/// ## 两条数据来源，与「没有头像」时的兜底
 ///
-/// 官方对**单聊 / 群聊**的消息事件（`C2C_MESSAGE_CREATE`、
-/// `GROUP_AT_MESSAGE_CREATE`）的 `author` 对象里**没有 `avatar` 字段**——
-/// 那里只有各种 openid 与昵称；官方也没有提供「按 openid 查用户资料」的接口。
-/// 换句话说，**用户侧的头像数据在官方 API 里取不到**。
-///
-/// 因此本组件同时支持两条路径：
-///
-/// 1. [imageUrl] 有值就加载真实头像。机器人自己的头像确实拿得到
-///    （`GET /users/@me` 的 `avatar`），消息事件的 author 一旦也带上该字段
-///    就会自动生效，不需要改代码；
+/// 1. [imageUrl] 有值就加载真实头像。两种来源：
+///    - 机器人自己：`GET /users/@me` 的 `avatar`（官方接口）；
+///    - 消息发送者：`AppID + openid` 拼出的头像 CDN 地址，见
+///      `core/utils/qq_avatar.dart`（实测可用，但不在官方文档里）。
 /// 2. 没有就渲染确定性占位：颜色由 [seed] 稳定推导，文字取 [label] 首字。
 ///    同一个对象每次进来颜色都一样，不会出现「同一个人在两处不同色」。
 ///
-/// 刻意不做「按 openid 猜 QQ 头像 URL」这类事：那种 URL 依赖非公开的
-/// 映射关系，既不可靠也不合规。
+/// 占位还必须保留：那个头像 CDN 地址不是官方承诺的接口，随时可能失效，
+/// [imageUrl] 一旦加载不出来（网络不通、地址变更、预签名 URL 过期）都会落到这里。
+///
+/// 刻意不做「按 openid 猜 QQ 号再拼第三方头像」这类事：那需要非公开的映射关系，
+/// 既不可靠也不合规。头像 CDN 的地址只用到 AppID 与 openid，且直接发往腾讯。
 class LaveAvatar extends StatelessWidget {
   const LaveAvatar({
     super.key,
@@ -30,6 +27,7 @@ class LaveAvatar extends StatelessWidget {
     this.radius = 16,
     this.isBot = false,
     this.accent,
+    this.fallbackIcon,
   });
 
   /// 稳定键，用于占位色与首字的推导（一般传 openid 或 AppID）。
@@ -50,6 +48,12 @@ class LaveAvatar extends StatelessWidget {
 
   /// 强调色（机器人卡片用它表达连接状态）。
   final Color? accent;
+
+  /// 占位时改用图标而不是首字。
+  ///
+  /// 群聊会话用它：群没有可用的头像，而群 openid 的首字（十六进制字符）
+  /// 既无意义又不能区分会话，一个群图标反而更容易识别。
+  final IconData? fallbackIcon;
 
   /// 占位调色板。
   ///
@@ -99,6 +103,7 @@ class LaveAvatar extends StatelessWidget {
   Widget _fallback(BuildContext context) {
     final size = radius * 2;
     final color = accent ?? _colorFor(seed);
+    final icon = fallbackIcon;
 
     return Container(
       width: size,
@@ -108,17 +113,19 @@ class LaveAvatar extends StatelessWidget {
         color: color.withValues(alpha: 0.18),
       ),
       alignment: Alignment.center,
-      child: isBot
-          ? Icon(Icons.smart_toy_rounded, size: radius * 0.95, color: color)
-          : Text(
-              _initial(label, seed),
-              style: TextStyle(
-                fontSize: radius * 0.86,
-                fontWeight: FontWeight.w700,
-                color: color,
-                height: 1,
-              ),
-            ),
+      child: icon != null
+          ? Icon(icon, size: radius * 1.05, color: color)
+          : isBot
+              ? Icon(Icons.smart_toy_rounded, size: radius * 0.95, color: color)
+              : Text(
+                  _initial(label, seed),
+                  style: TextStyle(
+                    fontSize: radius * 0.86,
+                    fontWeight: FontWeight.w700,
+                    color: color,
+                    height: 1,
+                  ),
+                ),
     );
   }
 

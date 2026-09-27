@@ -1,4 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:lavedevelop/core/utils/qq_avatar.dart';
 import 'package:lavedevelop/domain/models/bot_profile.dart';
 import 'package:lavedevelop/domain/models/qq_enums.dart';
 import 'package:lavedevelop/domain/models/qq_message.dart';
@@ -57,6 +58,52 @@ void main() {
       // 资料刷新走的是 updateIdentity，它基于 copyWith；
       // 若 copyWith 漏字段，用户的官方昵称与头像会在第一次编辑后消失。
       expect(bot.copyWith(displayName: '新备注').officialName, '官方名');
+    });
+  });
+
+  group('QqAvatar 头像地址构造', () {
+    test('按 AppID + openid 拼出头像地址，默认 100 档', () {
+      final url = QqAvatar.forOpenid(
+        appId: '102810595',
+        openid: 'CA87605D7C22D7BA4863B86754D1876D',
+      );
+      expect(
+        url,
+        'https://q.qlogo.cn/qqapp/102810595/'
+        'CA87605D7C22D7BA4863B86754D1876D/100',
+      );
+    });
+
+    test('尺寸档位可覆盖（CDN 实测支持 40 / 100 / 640 / 0）', () {
+      String? at(int size) => QqAvatar.forOpenid(
+            appId: '1',
+            openid: 'AB',
+            size: size,
+          );
+      expect(at(QqAvatar.small), endsWith('/40'));
+      expect(at(QqAvatar.large), endsWith('/640'));
+      expect(at(QqAvatar.original), endsWith('/0'));
+    });
+
+    test('缺少 AppID 或 openid 时返回 null，而不是拼出一个无效地址', () {
+      // 拼出来必然只会拿到 CDN 的默认灰头像，不如让界面用可区分的占位。
+      expect(QqAvatar.forOpenid(appId: null, openid: 'AB'), isNull);
+      expect(QqAvatar.forOpenid(appId: '', openid: 'AB'), isNull);
+      expect(QqAvatar.forOpenid(appId: '1', openid: null), isNull);
+      expect(QqAvatar.forOpenid(appId: '1', openid: '   '), isNull);
+    });
+
+    test('两端空白被裁掉，特殊字符被编码', () {
+      expect(
+        QqAvatar.forOpenid(appId: ' 1 ', openid: ' AB '),
+        'https://q.qlogo.cn/qqapp/1/AB/100',
+      );
+      // openid 目前是十六进制串，编码只是防御性写法：
+      // 官方一旦换成含特殊字符的形态，拼串会静默错误。
+      expect(
+        QqAvatar.forOpenid(appId: '1', openid: 'a/b'),
+        contains('a%2Fb'),
+      );
     });
   });
 

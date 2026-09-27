@@ -228,6 +228,22 @@ class _BotCard extends StatelessWidget {
                     padding: const EdgeInsets.symmetric(vertical: 4),
                     child: Row(
                       children: [
+                        // 会话对方的头像：单聊是真实头像（AppID + 用户 openid
+                        // 从头像 CDN 取），群聊取不到，用群图标占位。
+                        Padding(
+                          padding: const EdgeInsets.only(right: 8),
+                          child: LaveAvatar(
+                            seed: '${conversation.botId}:'
+                                '${conversation.conversationId}',
+                            imageUrl: conversation.peerAvatarUrl,
+                            label: conversation.title,
+                            radius: 14,
+                            fallbackIcon: conversation.scope ==
+                                    ConversationScope.group
+                                ? Icons.groups_outlined
+                                : null,
+                          ),
+                        ),
                         Expanded(
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
@@ -279,9 +295,7 @@ class _BotCard extends StatelessWidget {
                             services,
                             bot,
                             conversation.conversationId,
-                            conversation.scopeLabel == '群聊'
-                                ? ConversationScope.group
-                                : ConversationScope.c2c,
+                            conversation.scope,
                           ),
                         ),
                       ],
@@ -314,9 +328,7 @@ class _BotCard extends StatelessWidget {
                           services,
                           bot,
                           conversations.first.conversationId,
-                          conversations.first.scopeLabel == '群聊'
-                              ? ConversationScope.group
-                              : ConversationScope.c2c,
+                          conversations.first.scope,
                         ),
               ),
             ],
