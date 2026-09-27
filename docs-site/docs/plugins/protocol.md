@@ -128,8 +128,28 @@
 | `sender.role` | string? | 群内角色：`owner` / `admin` / `member` |
 | `sender.is_bot` | bool | 是否机器人 |
 | `attachments` | array | 附件，见下 |
+| `mentions` | object | 消息里 @ 到的人：`openid → 昵称`，见下 |
 | `can_reply` | bool | **现在还能不能被动回复**（主程序已算好窗口与次数） |
 | `remaining_replies` | int | 本条消息还剩几次被动回复 |
+
+::: tip 为什么要有 `mentions`
+
+正文里的 @ 是**内嵌标签**：`<qqbot-at-user id="..." />`（新写法）
+或 `<@openid>`（旧写法，官方标注即将弃用），不是一个独立字段。
+官方没有说明标签里的 id 与事件 `mentions` 数组如何对应，
+所以主程序把每个被 @ 用户的**每一种标识**（`id` / `member_openid` /
+`user_openid` / `union_openid`）都作为 key 一起下发——
+按正文里的 id 直接查表即可，不用自己猜是哪一个字段。
+
+```python
+mentions = payload.get("mentions") or {}
+name = mentions.get("CA87605D7C22D7BA4863B86754D1876D", "某人")
+```
+
+查不到时请退化成通用占位，**不要把 openid 直接显示给用户**：
+那串十六进制对用户毫无意义。
+
+:::
 
 ::: tip 为什么要有 `can_reply`
 
