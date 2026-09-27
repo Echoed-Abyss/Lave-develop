@@ -61,6 +61,12 @@ void main() {
     expect(find.text('官方限制速查'), findsNothing);
     expect(find.text('诊断'), findsNothing);
 
+    // 后台保活：这是「应用退到后台就掉线」的修复入口，必须可达。
+    await tester.drag(find.byType(ListView).last, const Offset(0, -600));
+    await tester.pumpAndSettle();
+    expect(find.text('后台保活'), findsOneWidget);
+    expect(find.text('保活前台服务'), findsOneWidget);
+
     // 关于：只保留当前版本与作者。
     await tester.drag(find.byType(ListView).last, const Offset(0, -600));
     await tester.pumpAndSettle();

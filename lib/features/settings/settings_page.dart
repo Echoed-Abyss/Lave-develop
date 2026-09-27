@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../app/app.dart';
+import '../../app/keep_alive_coordinator.dart';
 import '../../app/theme.dart';
 import '../../core/constants/app_info.dart';
 import '../../gateway/protocol/qq_opcode.dart';
@@ -24,6 +25,7 @@ class SettingsPage extends ConsumerWidget {
       listenable: Listenable.merge([
         services.themeMode,
         services.intentsMask,
+        services.keepAlive,
       ]),
       builder: (context, _) => GlassScaffold(
         title: '设置',
@@ -125,9 +127,60 @@ class SettingsPage extends ConsumerWidget {
               ),
             ),
 
-            GlassSectionTitle(text: '关于'),
+            GlassSectionTitle(text: '后台保活'),
             FadeSlideIn(
               delay: const Duration(milliseconds: 120),
+              child: GlassPanel(
+                margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            '保活前台服务',
+                            style: TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w600,
+                              color: GlassTheme.textPrimary(context),
+                            ),
+                          ),
+                        ),
+                        Switch(
+                          value: services.keepAlive.isEnabled,
+                          onChanged: services.keepAlive.isSupported
+                              ? (value) => services.keepAlive.setEnabled(value)
+                              : null,
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 6),
+                    Text(
+                      services.keepAlive.isSupported
+                          ? '应用退到后台后，系统会在约 10 秒后冻结进程；被冻结时心跳停发，'
+                              '网关会直接关闭连接（这就是「后台容易掉线」的原因）。\n'
+                              '开启后由前台服务让进程免于冻结，代价是有一条常驻通知，'
+                              '它会显示当前在线的机器人数。'
+                          : '当前平台不支持前台服务保活（仅 Android 需要）。',
+                      style: TextStyle(
+                        fontSize: 11.5,
+                        height: 1.65,
+                        color: GlassTheme.textSecondary(context),
+                      ),
+                    ),
+                    if (services.keepAlive.isSupported) ...[
+                      const SizedBox(height: 8),
+                      _KeepAliveStatus(coordinator: services.keepAlive),
+                    ],
+                  ],
+                ),
+              ),
+            ),
+
+            GlassSectionTitle(text: '关于'),
+            FadeSlideIn(
+              delay: const Duration(milliseconds: 180),
               child: GlassPanel(
                 margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                 child: Column(
@@ -173,6 +226,107 @@ class SettingsPage extends ConsumerWidget {
           ],
         ),
       );
+}
+
+/// 保活的**真实**状态与系统前提。
+///
+/// 为什么要单独显示这三行：开关只表达用户意图，
+/// 「服务到底起来了没有」「有没有加电池优化白名单」才是决定
+/// 后台能不能保住连接的因素。只要开关不要事实，用户遇到
+/// 「开关是开的、机器人就是不在线」时完全没有排查方向。
+///
+/// 每次构建都重新查询而不是缓存：这几个值会被应用之外的操作改掉
+/// （用户在系统设置里加白名单、系统回收服务），缓存只会给出过期结论。
+class _KeepAliveStatus extends StatelessWidget {
+  const _KeepAliveStatus({required this.coordinator});
+
+  final KeepAliveCoordinator coordinator;
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return FutureBuilder<(bool, bool)>(
+      future: _load(),
+      builder: (context, snapshot) {
+        if (!snapshot.hasData) {
+          return Text(
+            '正在查询保活状态…',
+            style: TextStyle(
+              fontSize: 11.5,
+              color: GlassTheme.textSecondary(context),
+            ),
+          );
+        }
+        final (running, whitelisted) = snapshot.data!;
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _statusRow(
+              context,
+              label: '服务状态',
+              value: running ? '已在后台常驻' : '未运行',
+              ok: running,
+              isDark: isDark,
+            ),
+            const SizedBox(height: 3),
+            _statusRow(
+              context,
+              label: '电池优化',
+              value: whitelisted ? '已加白名单' : '未加白名单，点此设置',
+              ok: whitelisted,
+              isDark: isDark,
+              onTap:
+                  whitelisted ? null : coordinator.openBatteryOptimizationSettings,
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  Future<(bool, bool)> _load() async {
+    final running = await coordinator.isServiceRunning();
+    final whitelisted = await coordinator.isIgnoringBatteryOptimizations();
+    return (running, whitelisted);
+  }
+
+  Widget _statusRow(
+    BuildContext context, {
+    required String label,
+    required String value,
+    required bool ok,
+    required bool isDark,
+    VoidCallback? onTap,
+  }) {
+    final row = Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        SizedBox(
+          width: 76,
+          child: Text(
+            label,
+            style: TextStyle(
+              fontSize: 12,
+              color: GlassTheme.textSecondary(context),
+            ),
+          ),
+        ),
+        Expanded(
+          child: Text(
+            value,
+            style: TextStyle(
+              fontSize: 12.5,
+              fontWeight: FontWeight.w600,
+              color: GlassTheme.levelColor(ok ? 'INFO' : 'WARN', isDark: isDark),
+              decoration: onTap == null ? null : TextDecoration.underline,
+            ),
+          ),
+        ),
+      ],
+    );
+    if (onTap == null) return row;
+    return InkWell(onTap: onTap, child: row);
+  }
 }
 
 /// 单个可选 intents 的开关行。

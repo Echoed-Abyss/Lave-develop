@@ -18,6 +18,7 @@ class HeartbeatScheduler {
     required this.timeoutMultiplier,
     required this.onSend,
     required this.onDead,
+    this.onMissed,
   });
 
   /// 心跳周期（来自 Hello）。
@@ -31,6 +32,13 @@ class HeartbeatScheduler {
 
   /// 判定为死链时回调（调用方应主动断开并重连）。
   final void Function() onDead;
+
+  /// 连续丢失心跳 ACK 时回调，参数为累计丢失次数。
+  ///
+  /// 与 [onDead] 分开的理由：官方未提供心跳丢失的判定阈值，
+  /// 一旦等到判定死链才上报，排查时已经丢掉了「从第几次开始丢」
+  /// 以及「当时发生了什么」这两个关键信息。
+  final void Function(int missed)? onMissed;
 
   Timer? _timer;
   int? _lastSeq;
@@ -77,6 +85,7 @@ class HeartbeatScheduler {
   void _tick() {
     if (_awaitingAck) {
       _missedAcks++;
+      onMissed?.call(_missedAcks);
       if (_missedAcks >= timeoutMultiplier) {
         // 判定死链：不在这里主动关闭 socket，交给连接层统一处理，
         // 这样重连与状态迁移只有一条代码路径。

@@ -13,16 +13,19 @@ import 'qq_http_client.dart';
 abstract interface class MessageSender {
   /// 发送文本。
   ///
-  /// [passive] 为 `true` 时走被动回复（携带 `msg_id` / `event_id`），
-  /// 这是唯一不受主动消息频控约束的方式；官方给的窗口是
-  /// 单聊 60 分钟 / 群聊 5 分钟。
+  /// [credential] 为 `null` 时是**主动消息**；非空时是**被动回复**。
+  /// 两者差别很大：被动回复只在官方窗口内有效（群聊 5 分钟 / 单聊 60 分钟）、
+  /// 不受主动消息频控约束；主动消息则相反，且用户可在 QQ 客户端
+  /// 关闭「允许主动发送」，关闭后一律失败。
+  ///
+  /// 被动回复用哪个 id 由 [PassiveCredential] 决定，**不要**在这里传原始字符串：
+  /// 官方要求 `msg_id`（回复用户消息）与 `event_id`（响应事件）二选一，
+  /// 类型化之后就不可能同时传。
   Future<ApiResponse> sendText({
     required String conversationId,
     required ConversationScope scope,
     required String text,
-    bool passive = true,
-    String? msgId,
-    String? eventId,
+    PassiveCredential? credential,
     int? msgSeq,
   });
 
@@ -31,17 +34,24 @@ abstract interface class MessageSender {
     required String conversationId,
     required ConversationScope scope,
     required String filePath,
-    bool passive = true,
-    String? msgId,
-    String? eventId,
+    PassiveCredential? credential,
     int? msgSeq,
   });
+
+  /// 某条消息**已经用掉**的被动回复次数。
+  ///
+  /// 官方对同一条消息的被动回复有次数上限（群聊 5 次 / 单聊 4 次），
+  /// 超出后服务端直接拒绝。界面上要提示「还剩几次」就必须有个可靠计数器，
+  /// 而唯一与真实发送严格同步的就是发送层里按 `msg_id` 递增的 `msg_seq`——
+  /// 领域模型上的 `repliesUsed` 只是持久化快照，跟不上进程内的连续回复。
+  int repliesUsedFor(String? msgId);
 }
 
 /// [MessageSender] 的正式实现。
 ///
 /// 被动回复的关键细节：
-/// - `msg_id` 取自消息事件的 `d.id`，`event_id` 取自**最外层** payload 的 `id`；
+/// - 回复**用户消息**用 `msg_id`，取值是消息事件的 `d.id`；
+///   响应**事件**才用 `event_id`，取值是事件最外层 payload 的 `id`。二者互斥；
 /// - 对同一条消息多次回复必须**递增 `msg_seq`**，
 ///   否则会被官方以 40054005（消息被去重）拒绝；
 /// - 被动回复一旦超时（群 5 分钟 / 单聊 60 分钟）就只能改发主动消息，
@@ -69,16 +79,13 @@ class BotMessageService implements MessageSender {
     required String conversationId,
     required ConversationScope scope,
     required String text,
-    bool passive = true,
-    String? msgId,
-    String? eventId,
+    PassiveCredential? credential,
     int? msgSeq,
   }) {
     final request = SendMessageRequest.text(
       text,
-      msgId: passive ? msgId : null,
-      eventId: passive ? eventId : null,
-      msgSeq: passive ? (msgSeq ?? _nextSeq(msgId)) : null,
+      credential: credential,
+      msgSeq: _seqFor(credential, msgSeq),
     );
     return _dispatch(scope: scope, conversationId: conversationId, request: request);
   }
@@ -88,9 +95,7 @@ class BotMessageService implements MessageSender {
     required String conversationId,
     required ConversationScope scope,
     required String filePath,
-    bool passive = true,
-    String? msgId,
-    String? eventId,
+    PassiveCredential? credential,
     int? msgSeq,
   }) async {
     // 官方要求：单聊与群聊的文件上传接口相互独立，同一文件不能跨场景复用。
@@ -116,9 +121,8 @@ class BotMessageService implements MessageSender {
 
     final request = SendMessageRequest.media(
       upload.info!.fileInfo!,
-      msgId: passive ? msgId : null,
-      eventId: passive ? eventId : null,
-      msgSeq: passive ? (msgSeq ?? _nextSeq(msgId)) : null,
+      credential: credential,
+      msgSeq: _seqFor(credential, msgSeq),
     );
     return _dispatch(scope: scope, conversationId: conversationId, request: request);
   }
@@ -142,11 +146,27 @@ class BotMessageService implements MessageSender {
     );
   }
 
+  @override
+  int repliesUsedFor(String? msgId) {
+    if (msgId == null || msgId.isEmpty) return 0;
+    return _seqUsage[msgId] ?? 0;
+  }
+
+  /// 计算本次请求要携带的 `msg_seq`。
+  ///
+  /// 只有「回复用户消息」（携带 `msg_id`）这条路径需要它——官方原话是
+  /// 「与 msg_id 联合使用」。响应事件（`event_id`）时官方参数表未定义该字段，
+  /// 返回 `null` 让它不出现在请求体里。
+  int? _seqFor(PassiveCredential? credential, int? explicit) {
+    final msgId = credential?.msgId;
+    if (msgId == null || msgId.isEmpty) return null;
+    return explicit ?? _nextSeq(msgId);
+  }
+
   /// 取下一条 `msg_seq`。
   ///
   /// 官方：不填默认是 1。首次回复用 1，第二次用 2，以此类推。
-  int _nextSeq(String? msgId) {
-    if (msgId == null || msgId.isEmpty) return 1;
+  int _nextSeq(String msgId) {
     final used = (_seqUsage[msgId] ?? 0) + 1;
     _seqUsage[msgId] = used;
     // 控制内存：只保留最近的记录。
@@ -188,5 +208,5 @@ enum QqFileTypeGuess { image, video, audio, file }
 
 /// 便捷判定：错误是否值得自动重试。
 extension ApiResponseRetry on ApiResponse {
-  bool get isRetryable => failure?.retryable ?? false;
+  bool get retryable => failure?.retryable ?? false;
 }

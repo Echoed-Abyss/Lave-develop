@@ -1,5 +1,6 @@
 // AppExitResponse 由 dart:ui 提供（flutter/services 与 widgets 均不导出它，
 // Flutter 自己的 binding 也是以 `ui.AppExitResponse` 的形式引用）。
+import 'dart:async';
 import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
@@ -40,6 +41,15 @@ class _HomeShellState extends ConsumerState<HomeShell> {
         await ref.read(appServicesProvider).shutdown();
         return ui.AppExitResponse.exit;
       },
+      // 回到前台时补一次保活。
+      //
+      // 必要性：Android 12 起禁止从后台启动前台服务，若保活服务曾被系统
+      // 回收、重启时又恰好处于后台，那次 startForeground 会被拒。
+      // 应用回到前台是唯一能补救的时机，而 Dart 侧是知道这个时机的唯一一方——
+      // 不补这一下，用户会遇到「开关是开的、但机器人就是不在线」。
+      onResume: () => unawaited(
+        ref.read(appServicesProvider).keepAlive.reassert(),
+      ),
     );
   }
 

@@ -130,7 +130,7 @@ class _ConversationPageState extends ConsumerState<ConversationPage> {
                   controller: _text,
                   passive: _passive,
                   sending: _sending,
-                  passiveTarget: _latestRepliable(messages),
+                  passiveRemaining: _passiveRemaining(messages),
                   onTogglePassive: (value) => setState(() => _passive = value),
                   onSendText: _sendText,
                   onSendImage: _pickAndSendImage,
@@ -159,6 +159,20 @@ class _ConversationPageState extends ConsumerState<ConversationPage> {
     return null;
   }
 
+  /// 当前可被动回复的目标还剩几次额度；没有目标时返回 `null`。
+  ///
+  /// 次数取自发送层的**实时计数器**（按 `msg_id` 递增的 `msg_seq`），
+  /// 而不是消息模型上的 `repliesUsed`：后者是持久化快照，
+  /// 同一条消息被连续回复多次时它不会变，界面会一直显示「剩余满额」，
+  /// 直到服务端把第 6 次请求拒绝——那时用户已经白等一次失败。
+  int? _passiveRemaining(List<QqMessage> messages) {
+    final target = _latestRepliable(messages);
+    if (target == null) return null;
+    final sender = ref.read(appServicesProvider).registry.senderFor(widget.botId);
+    final used = sender?.repliesUsedFor(target.wireId) ?? 0;
+    return (target.maxReplies - used).clamp(0, target.maxReplies);
+  }
+
   Future<void> _sendText() async {
     final sender = ref.read(appServicesProvider).registry.senderFor(widget.botId);
     if (sender == null) return;
@@ -177,9 +191,9 @@ class _ConversationPageState extends ConsumerState<ConversationPage> {
       conversationId: widget.conversationId,
       scope: widget.scope,
       text: text,
-      passive: target != null,
-      msgId: target?.wireId,
-      eventId: target?.eventId,
+      // 手动回复这里刻意只传 msg_id：官方要求 msg_id（回复用户消息）
+      // 与 event_id（响应事件）二选一，而这是一条消息。
+      credential: target?.replyCredential,
     );
     if (!mounted) return;
     setState(() => _sending = false);
@@ -210,7 +224,8 @@ class _ConversationPageState extends ConsumerState<ConversationPage> {
       conversationId: widget.conversationId,
       scope: widget.scope,
       filePath: picked.path,
-      passive: false,
+      // 图片走主动消息：上传耗时可能超过群聊 5 分钟的被动回复窗口，
+      // 带 msg_id 反而更容易失败。需要被动发图时请在文本里说明后由插件处理。
     );
     if (!mounted) return;
     setState(() => _sending = false);
@@ -545,7 +560,7 @@ class _ComposerBar extends StatelessWidget {
     required this.controller,
     required this.passive,
     required this.sending,
-    required this.passiveTarget,
+    required this.passiveRemaining,
     required this.onTogglePassive,
     required this.onSendText,
     required this.onSendImage,
@@ -554,14 +569,18 @@ class _ComposerBar extends StatelessWidget {
   final TextEditingController controller;
   final bool passive;
   final bool sending;
-  final QqMessage? passiveTarget;
+
+  /// 被动回复剩余次数；`null` 表示当前没有可被动回复的目标。
+  final int? passiveRemaining;
+
   final ValueChanged<bool> onTogglePassive;
   final Future<void> Function() onSendText;
   final Future<void> Function() onSendImage;
 
   @override
   Widget build(BuildContext context) {
-    final canReply = passiveTarget != null;
+    final remaining = passiveRemaining;
+    final canReply = remaining != null && remaining > 0;
     return GlassPanel(
       margin: const EdgeInsets.fromLTRB(12, 4, 12, 12),
       radius: 14,
@@ -575,7 +594,7 @@ class _ComposerBar extends StatelessWidget {
               Text(
                 passive
                     ? (canReply
-                        ? '被动回复（剩余 ${passiveTarget!.remainingRepliesAt(DateTime.now())} 次）'
+                        ? '被动回复（剩余 $remaining 次）'
                         : '被动回复不可用，将按主动消息发送')
                     : '主动消息（受官方频控限制）',
                 style: TextStyle(

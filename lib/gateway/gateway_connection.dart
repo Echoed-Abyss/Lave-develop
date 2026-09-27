@@ -113,6 +113,9 @@ class GatewayConnection {
   Completer<_CloseOutcome>? _closeCompleter;
 
   Duration _heartbeatInterval = const Duration(milliseconds: 45000);
+
+  /// 最近一次收到下行帧的时刻（`null` 表示本次连接还没收到过任何帧）。
+  DateTime? _lastFrameAt;
   bool _stopped = true;
   bool _helloReceived = false;
   int _attempt = 0;
@@ -249,6 +252,7 @@ class GatewayConnection {
   /// 建立一次连接并一直等到它结束。
   Future<_CloseOutcome> _connectOnce() async {
     _helloReceived = false;
+    _lastFrameAt = null;
     _setPhase(ConnectionPhase.fetchingEndpoint, clearError: true);
 
     // 连续失败多次后强制刷新接入点缓存（可能是网关地址变了）。
@@ -375,7 +379,7 @@ class GatewayConnection {
       LogSource.gateway,
       '连接被关闭：$code ${socket.closeReason ?? ''}'.trim(),
       botId: botId,
-      detail: '判定：${appError.userMessage}',
+      detail: '判定：${appError.userMessage}。${_stallHint()}',
     );
 
     // ── 官方 4013 / 4014：intents 无权限，连接会被直接关闭 ──
@@ -419,7 +423,45 @@ class GatewayConnection {
 
   // ───────────────────────── 帧处理 ─────────────────────────
 
+  /// 描述「距离最后一次收到下行数据过了多久」。
+  ///
+  /// 用途：把「服务端按协议拒绝」与「本进程当时已经收不到东西」区分开。
+  /// 后者（进程被系统冻结、或网络已断）在日志里原本看不出来——
+  /// 两种情况都只留一行关闭码，排查时会误以为要去查协议实现，
+  /// 而真正的原因可能是「应用在后台被冻结，心跳没发出去」。
+  ///
+  /// 判据取一个心跳周期：周期内收到过任何数据，说明收发链路当时是通的。
+  String _stallHint() {
+    final last = _lastFrameAt;
+    final intervalMs = _heartbeatInterval.inMilliseconds;
+    if (last == null) {
+      return '本次连接从未收到过下行数据（心跳周期 $intervalMs 毫秒）';
+    }
+    final silentMs = DateTime.now().difference(last).inMilliseconds;
+    if (silentMs < intervalMs) {
+      return '最后收到数据在 ${_humanizeMs(silentMs)} 前，收发链路当时是通的';
+    }
+    final missed = _heartbeat?.missedAcks ?? 0;
+    return '最后收到数据在 ${_humanizeMs(silentMs)} 前，已超过一个心跳周期'
+        '（$intervalMs 毫秒，连续丢失 ACK $missed 次）——'
+        '这通常意味着进程当时已被系统冻结或网络已中断，而不是协议层被拒绝；'
+        '请检查「设置 → 后台保活」是否为开启且显示「已在后台常驻」。';
+  }
+
+  static String _humanizeMs(int ms) {
+    if (ms < 60000) return '${(ms / 1000).toStringAsFixed(1)} 秒';
+    return '${(ms / 60000).toStringAsFixed(1)} 分钟';
+  }
+
   void _onFrame(String raw) {
+    // 记录最近一次收到下行数据的时刻。
+    //
+    // 这不是「顺手的统计」，而是排查断连原因的关键证据：连接被关闭时，
+    // 「距离最后一次收到数据过了多久」能把两类原因区分开——
+    // 若接近或超过一个心跳周期，说明本进程当时已经收不到东西
+    // （被系统冻结、或网络中断），而不是协议层面被服务端拒绝。
+    _lastFrameAt = DateTime.now();
+
     Map<String, dynamic> decoded;
     try {
       final json = jsonDecode(raw);
@@ -666,6 +708,20 @@ class GatewayConnection {
         );
         unawaited(_socket?.close(1000, 'heartbeat timeout'));
         _completeClose(_CloseOutcome.resume);
+      },
+      onMissed: (missed) {
+        // 只在第一次丢失时告警：连续丢失会逐次触发，刷屏反而淹没线索。
+        if (missed != 1) return;
+        _log.warn(
+          LogSource.gateway,
+          '心跳超过一个周期未收到 ACK',
+          botId: botId,
+          detail: '心跳周期 ${_heartbeatInterval.inMilliseconds} 毫秒，'
+              '连续丢失 $_heartbeatMissDescription 即判定死链并重连。'
+              '若此刻应用正在后台，通常说明进程已被系统冻结、'
+              '心跳根本没发出去——请检查「设置 → 后台保活」是否开启并显示'
+              '「已在后台常驻」。',
+        );
       },
     );
     _heartbeat!.start();

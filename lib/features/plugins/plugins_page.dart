@@ -242,6 +242,11 @@ def main():
                 conversation_id = event.get("conversation_id")
                 if conversation_id:
                     # 由主进程代发消息：插件永远拿不到 access_token。
+                    #
+                    # 注意 msg_id 与 event_id 是**二选一**的：
+                    #   回复用户消息  -> msg_id（消息事件的 d.id，即 message_id）
+                    #   响应事件      -> event_id（按钮回调、入群、开启推送、加好友）
+                    # 两个都填会被官方直接拒绝，因此这里只给 msg_id。
                     emit({
                         "type": "reply",
                         "id": message.get("id"),
@@ -250,9 +255,7 @@ def main():
                             "conversation_id": conversation_id,
                             "scope": event.get("scope"),
                             "text": "你好，我是由 Python 插件发出的回复。",
-                            "passive": True,
                             "msg_id": event.get("message_id"),
-                            "event_id": event.get("event_id"),
                         },
                     })
     log("示例插件已退出")

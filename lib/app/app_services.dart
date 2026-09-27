@@ -20,6 +20,7 @@ import '../gateway/gateway_api.dart';
 import '../gateway/protocol/qq_opcode.dart';
 import '../plugins/native_runtime_info.dart';
 import '../plugins/plugin_manager.dart';
+import 'keep_alive_coordinator.dart';
 
 /// 应用服务装配。
 ///
@@ -77,6 +78,13 @@ class AppServices {
         unawaited(setIntentsMask(degraded, notifyDegraded: true));
       },
     );
+
+    keepAlive = KeepAliveCoordinator(
+      log: log,
+      bots: bots,
+      registry: registry,
+      store: this.store,
+    );
   }
 
   /// 运行配置（调试 / 生产）。
@@ -124,6 +132,13 @@ class AppServices {
   /// 多机器人连接注册表。
   late final ConnectionRegistry registry;
 
+  /// 后台保活协调器（前台服务起停 + 保活相关系统能力）。
+  ///
+  /// 它的重要性容易被低估：本应用全部功能都依赖那条 WSS 长连接，
+  /// 而应用退到后台后进程会被 Android 冻结、心跳停发、连接必断。
+  /// 保活不是「优化项」，是连接能否存活的前提。
+  late final KeepAliveCoordinator keepAlive;
+
   /// 界面主题模式控制器。
   final ValueNotifier<ThemeMode> themeMode =
       ValueNotifier<ThemeMode>(ThemeMode.system);
@@ -150,7 +165,10 @@ class AppServices {
   /// 顺序刻意固定：
   /// 1. 先恢复日志与本地数据 —— 后面任何一步失败都要有日志可查；
   /// 2. 再探测插件平台能力 —— 结论要写进日志，让用户知道插件为何不可用；
-  /// 3. 最后才建立连接 —— 连接会持续产生事件，必须在前面都就绪之后。
+  /// 3. 起保活前台服务 —— 必须早于建连接：等连接建立再保活的话，
+  ///    首次冷启动到连上之间的这段时间进程还不是前台，
+  ///    用户此刻切走应用就会让刚建立的连接立刻被冻结；
+  /// 4. 最后才建立连接 —— 连接会持续产生事件，必须在前面都就绪之后。
   Future<void> initialize() async {
     if (_initialized) return;
     log.info(
@@ -165,6 +183,8 @@ class AppServices {
     await _restoreTheme();
 
     await plugins.initialize();
+
+    await keepAlive.start();
 
     await registry.syncWithBots();
 
@@ -231,11 +251,14 @@ class AppServices {
     }
   }
 
-  /// 退出前的收尾：停连接、停插件进程。
+  /// 退出前的收尾：停连接、停插件进程、撤掉保活前台服务。
   ///
-  /// 必须显式调用：插件是独立进程，不主动结束会在系统里留下孤儿进程。
+  /// 必须显式调用：插件是独立进程，不主动结束会在系统里留下孤儿进程；
+  /// 保活服务不撤掉则会留下一个「正在维持网关连接」的常驻通知，
+  /// 而那时连接其实已经被关掉了——通知内容与事实不符是更糟的结果。
   Future<void> shutdown() async {
     AppLogger.info('开始收起应用资源', tag: 'lifecycle');
+    await keepAlive.detach();
     await registry.shutdown();
     await plugins.shutdownAll();
     http.dispose();

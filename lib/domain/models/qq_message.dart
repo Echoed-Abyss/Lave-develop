@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart';
 
+import '../../api/dto/send_message_request.dart';
 import 'qq_enums.dart';
 
 /// 领域消息模型。
@@ -54,10 +55,22 @@ class QqMessage {
   /// 消息时间（已归一为 `DateTime`）。
   final DateTime at;
 
-  /// 官方消息 id。撤回与引用都需要它。
+  /// 官方消息 id（消息事件 `d.id`）。撤回、引用与**被动回复**都用它。
+  ///
+  /// 官方参数表原文：`msg_id`「前置收到的用户发送过来的消息 ID，
+  /// 用于发送被动（回复）消息」——回复用户消息走的就是这条路径。
   final String? wireId;
 
-  /// 外层的 event id。用于「响应事件」式的被动回复。
+  /// 外层的 event id（`d` 之外的 `id`）。
+  ///
+  /// **只用于「响应事件」式的被动回复**，可响应的事件白名单是官方给定的
+  /// （群：`INTERACTION_CREATE`、`GROUP_ADD_ROBOT`、`GROUP_MSG_RECEIVE`；
+  /// 单聊：`INTERACTION_CREATE`、`C2C_MSG_RECEIVE`、`FRIEND_ADD`）。
+  ///
+  /// ⚠️ **回复一条消息时绝不能带它**：消息事件不在上面这份白名单里，
+  /// 官方会把它当作非法请求（`msg_id` 与 `event_id` 互斥）。
+  /// 回复消息请统一用 [replyCredential]。
+  /// 这里保留该字段只为排查与展示，不参与消息回复。
   final String? eventId;
 
   /// 文本内容。群聊场景下官方已去除 @机器人前缀。
@@ -87,6 +100,21 @@ class QqMessage {
 
   /// 是否为收到的消息。
   bool get isIncoming => direction == MessageDirection.incoming;
+
+  /// 被动回复凭据：**回复消息恒用 `msg_id`**（即 [wireId]）。
+  ///
+  /// 之所以做成「只能取 msg_id」的单一出入口：官方把被动消息分成
+  /// 「回复用户消息（`msg_id`）」与「响应事件（`event_id`）」两条互斥路径，
+  /// 而消息事件只属于前者。把选择权留在调用方手上只会制造
+  /// 「两个都填 → 请求非法」的缺陷（本项目真实踩过）。
+  ///
+  /// 返回 `null` 表示这条消息没有可回复的消息 id，
+  /// 此时只能改发主动消息（受独立频控约束）。
+  PassiveCredential? get replyCredential {
+    final id = wireId;
+    if (id == null || id.isEmpty) return null;
+    return PassiveCredential.message(id);
+  }
 
   /// 是否还可进行被动回复。
   bool canReplyAt(DateTime now) {

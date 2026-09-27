@@ -51,7 +51,6 @@ class AppConfig {
     required this.maxConcurrentConnections,
     required this.enableNetworkLog,
     required this.enableFrameLog,
-    required this.enableForegroundService,
   });
 
   /// 调试环境：日志全开；心跳判据更保守，便于尽早暴露断链问题。
@@ -72,10 +71,6 @@ class AppConfig {
     maxConcurrentConnections: 3,
     enableNetworkLog: true,
     enableFrameLog: true,
-    // 前台服务：当前版本**尚未实现** Android 原生 Service 与 iOS BGTask，
-    // 因此这里保持 false。置 true 会让配置读到的人以为「后台保活已经生效」，
-    // 而实际只有 Dart 侧的退避重连在工作。
-    enableForegroundService: false,
   );
 
   /// 生产环境：关闭逐帧日志与网络明细，降低耗电与日志体积；退避上限放宽。
@@ -90,8 +85,6 @@ class AppConfig {
     maxConcurrentConnections: 3,
     enableNetworkLog: false,
     enableFrameLog: false,
-    // 同上：原生前台服务未实现，保持 false，避免配置误导。
-    enableForegroundService: false,
   );
 
   /// 当前生效配置。
@@ -129,9 +122,6 @@ class AppConfig {
   /// 是否输出 WSS 逐帧日志。
   final bool enableFrameLog;
 
-  /// 是否启用 Android 前台服务。
-  final bool enableForegroundService;
-
   /// 心跳超时判据（由 `heartbeat_interval` 换算）。
   Duration heartbeatTimeoutFor(Duration heartbeatInterval) =>
       heartbeatInterval * heartbeatTimeoutMultiplier;
@@ -156,7 +146,6 @@ class AppConfig {
     int? maxConcurrentConnections,
     bool? enableNetworkLog,
     bool? enableFrameLog,
-    bool? enableForegroundService,
   }) {
     return AppConfig(
       heartbeatTimeoutMultiplier:
@@ -171,8 +160,6 @@ class AppConfig {
           maxConcurrentConnections ?? this.maxConcurrentConnections,
       enableNetworkLog: enableNetworkLog ?? this.enableNetworkLog,
       enableFrameLog: enableFrameLog ?? this.enableFrameLog,
-      enableForegroundService:
-          enableForegroundService ?? this.enableForegroundService,
     );
   }
 }

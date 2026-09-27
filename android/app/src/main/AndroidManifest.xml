@@ -5,11 +5,19 @@
     <uses-permission android:name="android.permission.INTERNET"/>
     <!-- connectivity_plus 用于监听网络切换后重建长连接。 -->
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE"/>
-    <!-- Android 13+ 前台服务常驻通知需要运行时权限。 -->
+    <!-- Android 13+ 前台服务常驻通知需要运行时权限。
+         注意：即使未授权，前台服务仍然成立（进程照样脱离 cached 状态），
+         只是通知不显示；因此这里不做「不给权限就不保活」的强绑定。 -->
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>
-    <!-- 前台服务用于维持 WSS 长连接；Android 14 起必须声明服务类型。 -->
+    <!-- 前台服务用于维持 WSS 长连接；Android 14 起必须声明服务类型权限。
+         两种类型都要声明：API 34+ 用 specialUse（无时长上限），
+         API 29~33 用 dataSync 兜底（那时还没有 specialUse）。 -->
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE"/>
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC"/>
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE"/>
+    <!-- 息屏后仍要按时发心跳，必须持有 PARTIAL_WAKE_LOCK。
+         前台服务只解决「进程被冻结」，不解决「CPU 停止调度」。 -->
+    <uses-permission android:name="android.permission.WAKE_LOCK"/>
     <application
         android:label="Lave"
         android:name="${applicationName}"
@@ -47,6 +55,26 @@
                 <category android:name="android.intent.category.LAUNCHER"/>
             </intent-filter>
         </activity>
+        <!-- 维持 WSS 长连接的前台服务。
+
+             foregroundServiceType 同时声明 dataSync 与 specialUse：
+             运行时在 API 34+ 选 specialUse（无时长上限），低版本退回 dataSync。
+             两者都必须在此声明，否则 startForeground 会因类型不匹配抛
+             MissingForegroundServiceTypeException 或 IllegalArgumentException。
+
+             stopWithTask=false（默认值，显式写出）：用户从最近任务里划掉应用时
+             服务继续运行——保活的意义就在于此。 -->
+        <service
+            android:name=".GatewayKeepAliveService"
+            android:exported="false"
+            android:foregroundServiceType="dataSync|specialUse"
+            android:stopWithTask="false">
+            <!-- specialUse 类型官方要求说明具体用途（Google Play 审核会读这段）。 -->
+            <property
+                android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
+                android:value="维持与腾讯 QQ 机器人开放平台网关的 WebSocket 长连接：需按服务端下发的周期持续发送心跳，进程被系统冻结即断连、机器人掉线。" />
+        </service>
+
         <!-- Don't delete the meta-data below.
              This is used by the Flutter tool to generate GeneratedPluginRegistrant.java -->
         <meta-data

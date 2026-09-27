@@ -7,6 +7,7 @@ import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 
 import '../api/bot_message_service.dart';
+import '../api/dto/send_message_request.dart';
 import '../api/qq_http_client.dart';
 import '../core/logging/log_service.dart';
 import '../domain/models/log_entry.dart';
@@ -436,9 +437,7 @@ class PluginManager extends ChangeNotifier {
       conversationId: conversationId,
       scope: scope,
       text: text,
-      passive: payload['passive'] as bool? ?? true,
-      msgId: payload['msg_id'] as String?,
-      eventId: payload['event_id'] as String?,
+      credential: _credentialOf(pluginId, payload),
     );
 
     _log.log(
@@ -454,6 +453,43 @@ class PluginManager extends ChangeNotifier {
         traceId: response.traceId,
       ),
     );
+  }
+
+  /// 把插件上报的 id 归一为被动回复凭据。
+  ///
+  /// 官方把被动消息分成两条**互斥**的路径：回复用户消息带 `msg_id`、
+  /// 响应事件带 `event_id`，请求体同时带两者会被直接拒绝
+  /// （「msg_id 与 event_id 只能二选一」）。
+  ///
+  /// 因此插件同时提供两者时**保留 `msg_id`**：插件的绝大多数意图是
+  /// 「回复刚才那条消息」，而 event_id 只对按钮回调、入群、开启推送、
+  /// 加好友这几类事件有效——对一个消息事件填 event_id 本身就是无效的。
+  /// 丢弃的同时记一条 WARN，让插件作者能定位到自己多传了字段，
+  /// 而不是收到一个语焉不详的失败。
+  PassiveCredential? _credentialOf(
+    String pluginId,
+    Map<String, dynamic> payload,
+  ) {
+    final msgId = payload['msg_id'] as String?;
+    final eventId = payload['event_id'] as String?;
+
+    if (msgId != null && msgId.isNotEmpty) {
+      if (eventId != null && eventId.isNotEmpty) {
+        _log.warn(
+          LogSource.plugin,
+          '插件同时提供了 msg_id 与 event_id，已按官方规则只取 msg_id',
+          pluginId: pluginId,
+          detail: '二者互斥：回复用户消息用 msg_id，响应事件才用 event_id。'
+              'event_id 已被忽略。',
+        );
+      }
+      return PassiveCredential.message(msgId);
+    }
+    if (eventId != null && eventId.isNotEmpty) {
+      return PassiveCredential.event(eventId);
+    }
+    // 两者都没有 → 主动消息。
+    return null;
   }
 
   /// 各机器人的代发通道（由上层在连接建立后注入）。

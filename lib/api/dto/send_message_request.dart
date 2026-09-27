@@ -3,6 +3,44 @@ import 'package:flutter/foundation.dart';
 import '../../core/constants/qq_limits.dart';
 import '../../domain/models/qq_enums.dart';
 
+/// 被动消息的凭据。
+///
+/// **为什么要有这个类型**：官方把被动消息分成两条互斥的路径——
+///
+/// | 路径 | 触发事件 | 携带字段 | 取值来源 |
+/// | --- | --- | --- | --- |
+/// | 回复用户消息 | `GROUP_AT_MESSAGE_CREATE` / `C2C_MESSAGE_CREATE` | `msg_id` | 消息事件体的 `d.id` |
+/// | 响应事件 | `INTERACTION_CREATE`、`GROUP_ADD_ROBOT`、`C2C_MSG_RECEIVE`、`FRIEND_ADD` | `event_id` | 事件最外层 payload 的 `id` |
+///
+/// 官方 `is_wakeup` 字段的说明原文即「与 msg_id，event_id 互斥使用」，
+/// 请求体同时带两者属于非法请求（本地校验会直接拦下）。
+///
+/// 之前这两个 id 是以两个独立的可空 `String?` 参数暴露的，
+/// 调用方「顺手都填上」就会立刻失败——本项目真实踩过这个坑
+/// （日志里表现为「指令回复发送失败：消息内容不合法：msg_id 与 event_id 只能二选一」）。
+/// 改成只有一个出入口的类型后，**同时传两者在类型层面就无法表达**。
+@immutable
+class PassiveCredential {
+  /// 回复用户消息：传消息事件的 `d.id`。
+  const PassiveCredential.message(String id)
+      : msgId = id,
+        eventId = null;
+
+  /// 响应事件：传事件最外层 payload 的 `id`。
+  const PassiveCredential.event(String id)
+      : msgId = null,
+        eventId = id;
+
+  /// 官方 `msg_id`。
+  final String? msgId;
+
+  /// 官方 `event_id`。
+  final String? eventId;
+
+  /// 是否走「回复用户消息」这条路径。
+  bool get isMessageReply => msgId != null;
+}
+
 /// 发消息请求实体（单聊与群聊共用同一套字段结构）。
 ///
 /// 字段逐字对照官方文档（知识库 7.1 节）。官方请求体是**平铺字段**，
@@ -31,8 +69,7 @@ class SendMessageRequest {
   /// 纯文本消息（`msg_type = 0`）。
   factory SendMessageRequest.text(
     String content, {
-    String? msgId,
-    String? eventId,
+    PassiveCredential? credential,
     int? msgSeq,
     bool? isWakeup,
     MessageReference? messageReference,
@@ -40,8 +77,8 @@ class SendMessageRequest {
       SendMessageRequest(
         msgType: QqSendMsgType.text.value,
         content: content,
-        msgId: msgId,
-        eventId: eventId,
+        msgId: credential?.msgId,
+        eventId: credential?.eventId,
         msgSeq: msgSeq,
         isWakeup: isWakeup,
         messageReference: messageReference,
@@ -53,8 +90,7 @@ class SendMessageRequest {
   factory SendMessageRequest.markdown(
     MessageMarkdown markdown, {
     Keyboard? keyboard,
-    String? msgId,
-    String? eventId,
+    PassiveCredential? credential,
     int? msgSeq,
     bool? isWakeup,
     MessageReference? messageReference,
@@ -63,8 +99,8 @@ class SendMessageRequest {
         msgType: QqSendMsgType.markdown.value,
         markdown: markdown,
         keyboard: keyboard,
-        msgId: msgId,
-        eventId: eventId,
+        msgId: credential?.msgId,
+        eventId: credential?.eventId,
         msgSeq: msgSeq,
         isWakeup: isWakeup,
         messageReference: messageReference,
@@ -74,8 +110,7 @@ class SendMessageRequest {
   factory SendMessageRequest.media(
     String fileInfo, {
     Keyboard? keyboard,
-    String? msgId,
-    String? eventId,
+    PassiveCredential? credential,
     int? msgSeq,
     bool? isWakeup,
     MessageReference? messageReference,
@@ -84,8 +119,8 @@ class SendMessageRequest {
         msgType: QqSendMsgType.media.value,
         media: MediaInfo(fileInfo: fileInfo),
         keyboard: keyboard,
-        msgId: msgId,
-        eventId: eventId,
+        msgId: credential?.msgId,
+        eventId: credential?.eventId,
         msgSeq: msgSeq,
         isWakeup: isWakeup,
         messageReference: messageReference,
@@ -96,8 +131,7 @@ class SendMessageRequest {
   /// 官方：`input_second` 为状态持续时间，**最长 60 秒**。
   factory SendMessageRequest.inputNotify({
     int second = 60,
-    String? msgId,
-    String? eventId,
+    PassiveCredential? credential,
   }) =>
       SendMessageRequest(
         msgType: QqSendMsgType.inputNotify.value,
@@ -105,8 +139,8 @@ class SendMessageRequest {
           inputType: 1,
           inputSecond: second.clamp(1, 60),
         ),
-        msgId: msgId,
-        eventId: eventId,
+        msgId: credential?.msgId,
+        eventId: credential?.eventId,
       );
 
   /// 消息类型，决定哪个内容字段生效：0 / 2 / 6 / 7。
@@ -125,13 +159,20 @@ class SendMessageRequest {
   final Keyboard? keyboard;
 
   /// 被动回复的消息 ID，取自消息事件的 `d.id`。
+  ///
+  /// 与 [eventId] **互斥**，由 [PassiveCredential] 保证不会同时出现。
   final String? msgId;
 
   /// 被动回复的事件 ID，取自**事件最外层** payload 的 `id`。
+  ///
+  /// 只用于「响应事件」（按钮回调、入群、开启推送、加好友），
+  /// **回复用户消息必须用 [msgId]**，否则官方返回 304026（消息 id 错误）。
   final String? eventId;
 
   /// 回复消息的序号。官方：不填默认是 1；
   /// **相同的 `msg_id + msg_seq` 重复发送会失败**，递增它可对同一消息多次回复。
+  ///
+  /// 仅在携带 [msgId] 时才会输出到请求体，见 [toJson]。
   final int? msgSeq;
 
   /// 引用回复。
@@ -162,7 +203,10 @@ class SendMessageRequest {
     put('keyboard', keyboard?.toJson());
     put('msg_id', msgId);
     put('event_id', eventId);
-    put('msg_seq', msgSeq);
+    // msg_seq 只与 msg_id 联合使用（官方原话：「与 msg_id 联合使用，
+    // 避免相同消息 id 回复重复发送」）。响应事件（event_id）路径下
+    // 官方参数表未定义该字段，带上属于多余字段，因此不输出。
+    if (msgId != null) put('msg_seq', msgSeq);
     put('message_reference', messageReference?.toJson());
     put('is_wakeup', isWakeup);
     put('input_notify', inputNotify?.toJson());
@@ -192,6 +236,9 @@ class SendMessageRequest {
       errors.add('传了 markdown 后 content 必须为空（官方要求二者互斥）');
     }
     if (msgId != null && eventId != null) {
+      // 这条规则现在**不可能被触发**（构造入口只有 PassiveCredential，
+      // 它在类型层面就排除了两者共存），保留它作为回归护栏：
+      // 一旦有人绕过工厂直接调主构造函数，这里会立刻拦住。
       errors.add('msg_id 与 event_id 只能二选一');
     }
     if (isWakeup == true && (msgId != null || eventId != null)) {
