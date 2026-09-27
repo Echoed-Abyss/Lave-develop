@@ -1321,6 +1321,15 @@ class PluginManager extends ChangeNotifier {
     final base = await pluginsDirectory();
     final root = p.join(base.path, id);
 
+    // **先停掉正在运行的旧进程，再覆盖文件。**
+    //
+    // 顺序反过来的后果很具体：旧进程仍在跑（Python 已经把 main.py 读进内存），
+    // 而磁盘上的代码已经被换成新版本。此时界面显示的是新清单、进程执行的
+    // 是旧代码，两边对不上，而且这个状态会一直持续到插件自己退出为止。
+    // 更糟的是 `listFiles`/`readPluginFile` 这类操作会在半写状态下读到新文件，
+    // 给人「已经更新好了」的错觉。
+    await stop(id);
+
     var written = 0;
     for (final entry in files.entries) {
       final content = QqJson.str(entry.value);
@@ -1333,10 +1342,6 @@ class PluginManager extends ChangeNotifier {
       written++;
     }
     if (written == 0) return '插件包内没有可写入的文本文件';
-
-    // 覆盖导入时把运行中的旧进程停掉：否则新旧代码同时在跑，
-    // 而界面显示的是新清单，行为对不上任何一份代码。
-    await stop(id);
 
     // 配置与状态存在主程序的 JSON 文档里（键为 `config_<id>` / `state_<id>`），
     // **不在插件目录内**，所以删目录、重写文件都带不走它们。

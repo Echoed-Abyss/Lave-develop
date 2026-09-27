@@ -332,6 +332,22 @@ class PluginRuntime {
     final executable = capability.pythonExecutable;
     if (executable == null) return null;
 
+    // ── 可执行文件预检 ──
+    //
+    // 内置运行时的路径来自**安装后的原生库目录**，其中的哈希由安装过程生成，
+    // 应用每次更新都会变。若探测结果与实际不符（极少数情况下会发生），
+    // `Process.start` 只会丢回一个 errno 级别的异常，
+    // 用户看到的就是一句「插件启动失败，详见日志」而毫无线索。
+    // 这里提前判存在性，把原因说清楚——「重启应用」往往就是解药。
+    if (p.isAbsolute(executable) && !File(executable).existsSync()) {
+      onDiagnostic(
+        'Python 解释器不存在：$executable —— '
+        '内置运行时位于安装后的原生库目录，应用更新后该目录会变化。'
+        '请重启应用（若仍失败，说明构建产物里没有内置运行时）。',
+      );
+      return null;
+    }
+
     // 内置运行时：先把标准库释放出来（首次启动一个插件时会花一点时间）。
     await bundled?.ensureExtracted();
 
@@ -374,7 +390,13 @@ class PluginRuntime {
     } catch (error, stack) {
       AppLogger.error('启动插件进程失败',
           error: error, stackTrace: stack, tag: 'plugin');
-      onDiagnostic('启动失败：$error');
+      onDiagnostic(
+        '启动失败：$error\n'
+        '解释器：$executable\n'
+        '${Platform.isAndroid ? 'Android 上常见原因：原生库目录里的启动器无法执行'
+            '（构建产物缺少 libpylauncher.so，或该文件被系统 strip 掉了）；'
+            '也可能是设备架构不在打包范围内（当前仅内置 arm64-v8a）。' : ''}',
+      );
       return null;
     }
   }
@@ -418,15 +440,34 @@ class PluginProcess {
   final PluginManifest manifest;
   final Process _process;
 
+  /// 三条流都**刻意用单订阅（非 broadcast）控制器**。
+  ///
+  /// 原因是一类很难复现、但后果确定的丢事件问题：`StreamController.broadcast()`
+  /// 在没有监听者时会把事件**直接丢弃**。而这里的事件顺序是：
+  /// 进程起来 → 立刻开始写 stdout → 管理器才来得及 `listen`。
+  /// 中间只要插入一次事件循环，插件提前发出的 `ready`、或进程立刻退出时
+  /// 产生的退出码，就会被丢掉，表现为：
+  ///
+  /// - 明明回了 `ready`，主程序却等满 20 秒握手超时，然后把一个**已经退出**的
+  ///   进程再 `kill()` 一次，日志写「握手超时」——完全指向错误的排查方向；
+  /// - 进程瞬间退出（解释器起不来）时退出事件丢失，插件永远停在「启动中」，
+  ///   既不显示崩溃原因，也不会触发自动重启。
+  ///
+  /// 单订阅控制器会把「尚无监听者期间」的事件**缓存**起来，
+  /// 监听者一旦挂上就能收到，从根本上消除这个竞态。
+  /// 每一条流都只有一个消费者（[PluginManager]），所以单订阅没有副作用。
   final StreamController<PluginMessage> _messages =
-      StreamController<PluginMessage>.broadcast();
+      StreamController<PluginMessage>();
   final StreamController<PluginMessage> _logLines =
-      StreamController<PluginMessage>.broadcast();
-  final StreamController<int> _exits = StreamController<int>.broadcast();
+      StreamController<PluginMessage>();
+  final StreamController<int> _exits = StreamController<int>();
 
   StreamSubscription<String>? _stdoutSub;
   StreamSubscription<String>? _stderrSub;
   bool _stopping = false;
+
+  /// 已观测到的退出码（`null` 表示仍在运行）。
+  int? _exitCode;
 
   /// 插件发来的协议消息（不含纯日志行）。
   Stream<PluginMessage> get messages => _messages.stream;
@@ -442,6 +483,9 @@ class PluginProcess {
 
   /// 是否仍在运行。
   bool get isRunning => !_stopping;
+
+  /// 已知的退出码；仍在运行时为 `null`。
+  int? get exitCode => _exitCode;
 
   void _init(void Function(String line) onDiagnostic) {
     _stdoutSub = _process.stdout
@@ -472,11 +516,18 @@ class PluginProcess {
 
     unawaited(_process.exitCode.then((code) {
       _stopping = true;
+      _exitCode = code;
       // 崩溃隔离的关键点：进程退出只影响这一个插件，
       // 主程序与其它插件不受影响，只把崩溃原因记录出来。
       _exits.add(code);
+      // 三条流全部关闭。`_exits` 也要关：早先漏了它，
+      // 自退出的插件会留下一个永不结束的流控制器（内存泄漏），
+      // 且 `stop()` 里那句 `isClosed` 判断永远为假、形同虚设。
+      // 单订阅控制器允许「先 add 再 close」——晚到的监听者仍能收到退出码，
+      // 随后才收到 done 事件，语义正好。
       if (!_messages.isClosed) unawaited(_messages.close());
       if (!_logLines.isClosed) unawaited(_logLines.close());
+      if (!_exits.isClosed) unawaited(_exits.close());
     }));
   }
 
@@ -583,8 +634,16 @@ class PluginProcess {
 
     await _stdoutSub?.cancel();
     await _stderrSub?.cancel();
-    if (!_messages.isClosed) await _messages.close();
-    if (!_logLines.isClosed) await _logLines.close();
-    if (!_exits.isClosed) await _exits.close();
+
+    // 关闭三条流时**不 await**。
+    //
+    // 单订阅控制器的 `close()` 返回的 future 要等 done 事件被监听者消费完
+    // 才完成；而 [PluginManager.dispose] 会先取消自己的订阅、再调 stop()，
+    // 那种顺序下监听者已经没了，await 会永远挂住（不动声色地泄漏一个未完成的
+    // future，并把 stop() 卡死）。关闭流本身不影响任何清理动作——
+    // 进程已经被结束、订阅已经取消——因此这里只需发出关闭即可。
+    if (!_messages.isClosed) unawaited(_messages.close());
+    if (!_logLines.isClosed) unawaited(_logLines.close());
+    if (!_exits.isClosed) unawaited(_exits.close());
   }
 }
