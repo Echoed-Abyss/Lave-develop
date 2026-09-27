@@ -1,0 +1,45 @@
+{
+  "id": "demo_plugin",
+  "name": "示例插件",
+  "version": "1.1.0",
+  "description": "演示插件协议 v2：声明配置项、持久化状态、使用数据目录、回复消息与优雅退出。",
+  "author": "Lave",
+  "entry": "main.py",
+  "protocol_version": 2,
+  "events": [
+    "GROUP_AT_MESSAGE_CREATE",
+    "C2C_MESSAGE_CREATE"
+  ],
+  "enabled_by_default": false,
+  "config": [
+    {
+      "key": "trigger",
+      "label": "触发前缀",
+      "type": "string",
+      "default": "#hi",
+      "description": "收到的消息以它开头时，插件会回一句问候。",
+      "required": true
+    },
+    {
+      "key": "greeting",
+      "label": "回复内容",
+      "type": "text",
+      "default": "你好，我是由 Python 插件发出的回复。",
+      "required": true
+    },
+    {
+      "key": "log_every_message",
+      "label": "记录每条消息",
+      "type": "boolean",
+      "default": true,
+      "description": "关闭后只记录触发问候的消息，减少日志噪音。"
+    },
+    {
+      "key": "note",
+      "label": "备注",
+      "type": "text",
+      "default": "",
+      "description": "演示一个纯展示用的配置项，插件本身不会读它。"
+    }
+  ]
+}

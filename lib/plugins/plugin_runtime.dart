@@ -335,7 +335,16 @@ class PluginRuntime {
     // 内置运行时：先把标准库释放出来（首次启动一个插件时会花一点时间）。
     await bundled?.ensureExtracted();
 
-    final entryPath = '$directory${Platform.pathSeparator}${manifest.entry}';
+    // 入口路径必须**留在插件目录内**。
+    //
+    // `plugin.json` 是插件包里的文件，`entry` 完全可以被写成
+    // `../../main.py` 或一个绝对路径。不校验就等于允许插件包指定
+    // 「执行本目录之外的任意 Python 文件」——那是把信任边界直接交了出去。
+    final entryPath = _resolveEntry(directory, manifest.entry);
+    if (entryPath == null) {
+      onDiagnostic('入口路径不合法（必须是插件目录内的相对路径）：${manifest.entry}');
+      return null;
+    }
     if (!File(entryPath).existsSync()) {
       onDiagnostic('入口文件不存在：$entryPath');
       return null;
@@ -377,6 +386,22 @@ class PluginRuntime {
     if (Platform.isMacOS) return 'macos';
     if (Platform.isLinux) return 'linux';
     return 'unknown';
+  }
+
+  /// 把 `entry` 解析为插件目录内的绝对路径；越界返回 `null`。
+  ///
+  /// 拒绝三类输入：绝对路径、含 `..` 的相对路径、以及规范化之后
+  /// 仍不在插件目录内的路径。这是「插件包不能指定执行目录外文件」的唯一保障。
+  static String? _resolveEntry(String directory, String entry) {
+    final trimmed = entry.trim();
+    if (trimmed.isEmpty) return null;
+    final normalized = p.normalize(trimmed.replaceAll('\\', '/'));
+    if (p.isAbsolute(normalized)) return null;
+    if (normalized == '.' || normalized.startsWith('..')) return null;
+    final root = p.normalize(directory);
+    final full = p.normalize(p.join(root, normalized));
+    if (!p.isWithin(root, full)) return null;
+    return full;
   }
 }
 
@@ -509,16 +534,44 @@ class PluginProcess {
     }
   }
 
-  /// 优雅停止（先发 shutdown，再等待，最后强杀）。
-  Future<void> stop({Duration grace = const Duration(seconds: 3)}) async {
+  /// 立刻强杀进程（用于握手超时与判定卡死的场景）。
+  ///
+  /// 与 [stop] 的区别：不发 `shutdown`、不等宽限期。卡死的插件根本处理不了
+  /// `shutdown`，等它只是白等三秒，而它在此期间仍占着内存并继续堆积输入。
+  void kill() {
     if (_stopping) return;
     _stopping = true;
     try {
-      send(const PluginMessage(type: PluginMessageType.shutdown));
+      _process.kill(ProcessSignal.sigkill);
+    } catch (error) {
+      AppLogger.warn('强杀插件进程失败：$error', tag: 'plugin');
+    }
+  }
+
+  /// 优雅停止（先发 shutdown，再等待，最后强杀）。
+  Future<void> stop({Duration grace = const Duration(seconds: 3)}) async {
+    if (_stopping) return;
+
+    // **必须先发 shutdown 再把 _stopping 置位。**
+    //
+    // 早期版本反过来写，而 [send] 会检查 `_stopping` 并直接返回——
+    // 于是这条优雅停止消息被自己丢掉了，插件永远收不到 shutdown，
+    // 每次停止都只能等满 3 秒宽限期再 SIGKILL。
+    // 这里直接写 stdin 而不是走 [send]，就是为了不再依赖那个标志位的时序。
+    try {
+      _process.stdin.writeln(
+        const PluginMessage(type: PluginMessageType.shutdown).toLine(),
+      );
       await _process.stdin.flush();
-      _process.stdin.close();
     } catch (_) {
       // 忽略：进程可能已经退出。
+    }
+
+    _stopping = true;
+    try {
+      _process.stdin.close();
+    } catch (_) {
+      // 同上。
     }
 
     final exited = await _process.exitCode

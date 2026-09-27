@@ -182,14 +182,16 @@ class EventDispatcher {
   ///
   /// 刻意**不投递官方原始 JSON**：插件作者看到的是稳定结构，
   /// 官方字段改名不会直接打断插件；同时这也让插件无法依赖内部实现细节。
-  /// 载荷字段一旦变更需要同步更新插件协议版本号。
+  ///
+  /// 注意协议版本**只在信封上**（`dispatch` 写入的 `payload.protocol_version`）：
+  /// 这里曾额外放一份硬编码的版本号，结果是信封说 v2、事件体说 v1，
+  /// 插件作者根本不知道该信哪个。
   Map<String, dynamic> _payloadFor(QqEvent event, {QqMessage? message}) {
     final payload = <String, dynamic>{
       't': event.typeName,
       'bot_id': botId,
       'seq': event.seq,
       if (event.eventId != null) 'event_id': event.eventId,
-      'protocol_version': 1,
     };
 
     if (message != null) {

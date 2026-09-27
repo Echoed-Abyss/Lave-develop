@@ -79,6 +79,12 @@ flutter:
   # 注意：这里必须声明该目录，否则目录不会被编入 assets，
   # 运行时的释放逻辑（PluginRuntime.rootBundleAssetExtractor）就找不到任何资源。
   assets:
+    # 示例插件：README 也要打进包，它是插件作者的第一份文档。
+    # 逐个文件列出而不是写目录：**Flutter 的资产目录声明不是递归的**，
+    # 写 `assets/plugins/demo_plugin/` 只会带上直接文件，将来加了子目录会静默丢失。
+    - assets/plugins/demo_plugin/plugin.json
+    - assets/plugins/demo_plugin/main.py
+    - assets/plugins/demo_plugin/README.md
     - assets/python/arm64-v8a/
     - assets/python/arm64-v8a/lib/
     - assets/python/arm64-v8a/lib/python3.14/
