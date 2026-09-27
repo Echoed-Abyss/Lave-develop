@@ -7,6 +7,7 @@ import '../core/constants/qq_endpoints.dart';
 import '../core/error/app_error.dart';
 import '../core/logging/app_logger.dart';
 import '../core/logging/log_service.dart';
+import '../core/utils/media_checksum.dart';
 import '../domain/models/log_entry.dart';
 import '../domain/models/qq_enums.dart';
 import 'dto/media_payloads.dart';
@@ -117,14 +118,22 @@ class MediaApi {
       );
     }
 
-    // ② upload_prepare
+    final bytes = await file.readAsBytes();
+    final name = fileName ?? file.uri.pathSegments.last;
+
+    // ② upload_prepare。官方的 md5 / sha1 / md5_10m 标为必填，
+    // 会在读文件时一并算出来，不做「不传也能通过」的侥幸依赖。
+    final checksum = MediaChecksum.of(bytes);
     final prepareResponse = await _http.postJson(
       prepareUrl,
-      {
-        'file_type': effectiveType.value,
-        'file_name': fileName ?? file.uri.pathSegments.last,
-        'file_size': size,
-      },
+      UploadPrepareRequest(
+        fileType: effectiveType,
+        fileSize: size,
+        fileName: name,
+        md5: checksum.md5,
+        sha1: checksum.sha1,
+        md5Prefix: checksum.md5Prefix,
+      ).toJson(),
       authToken: token,
     );
     if (!prepareResponse.isSuccess) {
@@ -133,8 +142,6 @@ class MediaApi {
 
     final prepared = UploadPrepareResponse.fromJson(prepareResponse.body);
     if (!prepared.isUsable) {
-      // 官方未给出该响应的完整字段名（知识库第 9 章待实测第 8 项），
-      // 因此把原始响应写进日志，方便真机核对字段名后调整解析。
       _log.error(
         LogSource.api,
         'upload_prepare 响应缺少必要字段，无法继续分片上传',
@@ -150,29 +157,47 @@ class MediaApi {
     }
 
     // ③ 逐片 PUT + upload_part_finish
-    final bytes = await file.readAsBytes();
-    final blockSize = prepared.effectiveBlockSize;
-    final partUrls = prepared.partUrls!;
+    //
+    // 字节范围按**列表顺序**推出来，而不是用 part.index 去乘分片大小。
+    // 官方文档写 index 从 0 开始，实测却出现过 index = 1；两种情况下
+    // 「第 n 片的数据在文件里的位置」都是位置 × 分片大小，
+    // 而 index 只需原样回传即可。这样无论起点是 0 还是 1 都不会错位。
+    final parts = prepared.parts!;
+    final uploadConfig = prepared.uploadConfig ?? const UploadConfig();
+    final fallbackBlockSize = prepared.effectiveBlockSize;
+    var offset = 0;
 
-    for (var index = 0; index < partUrls.length; index++) {
-      final start = index * blockSize;
-      if (start >= bytes.length && index > 0) break;
-      final end = (start + blockSize).clamp(0, bytes.length);
-      final chunk = Uint8List.sublistView(bytes, start, end);
-
-      final putResult = await _putPart(partUrls[index], chunk);
-      if (!putResult.isSuccess) {
+    for (final part in parts) {
+      final chunkSize = part.blockSize ?? fallbackBlockSize;
+      if (chunkSize <= 0) {
         return UploadOutcome.failure(
-          putResult.error ?? MediaTransferError(userMessage: '分片上传失败。'),
+          MediaTransferError(userMessage: '平台返回的分片大小为 0，无法上传。'),
         );
+      }
+      final end = (offset + chunkSize).clamp(0, bytes.length);
+      if (end <= offset) break;
+      final chunk = Uint8List.sublistView(bytes, offset, end);
+      offset = end;
+
+      final putError = await _putPartWithRetry(
+        url: part.presignedUrl,
+        chunk: chunk,
+        config: uploadConfig,
+      );
+      if (putError != null) {
+        return UploadOutcome.failure(MediaTransferError(
+          userMessage: putError,
+          cause: 'presigned PUT 到 COS 失败',
+        ));
       }
 
       final finishResponse = await _http.postJson(
         partFinishUrl,
         UploadPartFinishRequest(
           uploadId: prepared.uploadId!,
-          partNumber: index,
-          etag: putResult.etag,
+          partIndex: part.index,
+          blockSize: chunk.length,
+          md5: MediaChecksum.md5Of(chunk),
         ).toJson(),
         authToken: token,
       );
@@ -187,7 +212,7 @@ class MediaApi {
       {
         'file_type': effectiveType.value,
         'srv_send_msg': false,
-        'file_name': fileName ?? file.uri.pathSegments.last,
+        'file_name': name,
         'upload_id': prepared.uploadId,
       },
       authToken: token,
@@ -215,33 +240,68 @@ class MediaApi {
     _log.info(
       LogSource.api,
       '文件上传完成（${effectiveType.label}，${(size / 1024).toStringAsFixed(0)}KB，'
-      '${partUrls.length} 个分片'
+      '${parts.length} 个分片'
       '${info.ttl == null ? '' : '，凭证有效期 ${info.ttl} 秒'}）',
       botId: botId,
     );
     return UploadOutcome.success(info);
   }
 
-  /// 向预签名地址直传一个分片。
-  Future<PartPutResult> _putPart(String url, Uint8List chunk) async {
+  /// 带重试地直传一个分片，成功返回 `null`，失败返回给用户看的说明。
+  ///
+  /// 重试节奏取自官方下发的 `upload_config.retry_delay`（默认 1 秒）。
+  /// 官方还给了 `retry_timeout`（默认 300 秒），表示服务端容忍的重试总窗口；
+  /// 本项目**不把它用作上限**——真按 5 分钟一直重试，用户会盯着一个转圈的
+  /// 发送按钮不知道发生了什么。改为固定 3 次尝试，失败即返回并让用户重发，
+  /// 这在移动网络的瞬时抖动场景下已经够用，代价是行为可预期。
+  Future<String?> _putPartWithRetry({
+    required String url,
+    required Uint8List chunk,
+    required UploadConfig config,
+  }) async {
+    const maxAttempts = 3;
+    String? lastError;
+
+    for (var attempt = 1; attempt <= maxAttempts; attempt++) {
+      lastError = await _putPart(url, chunk);
+      if (lastError == null) return null;
+      if (attempt == maxAttempts) break;
+      await Future<void>.delayed(config.retryDelayDuration);
+    }
+    return '分片上传失败（已尝试 $maxAttempts 次）：$lastError';
+  }
+
+  /// 向预签名地址直传一个分片，成功返回 `null`，失败返回错误说明。
+  ///
+  /// 这一条请求**不带 QQBot 鉴权头**：鉴权信息已经在预签名 URL 里，
+  /// 多带一个 `Authorization` 反而会让 COS 拒绝。
+  Future<String?> _putPart(String url, Uint8List chunk) async {
     try {
       final response = await _rawClient
           .put(Uri.parse(url), body: chunk)
           .timeout(const Duration(seconds: 60));
-      if (response.statusCode >= 200 && response.statusCode < 300) {
-        return PartPutResult.success(response.headers['etag']);
-      }
-      return PartPutResult.failure(
-        MediaTransferError(
-          userMessage: '分片上传失败（HTTP ${response.statusCode}），正在重试。',
-        ),
-      );
+      if (response.statusCode >= 200 && response.statusCode < 300) return null;
+
+      final reason = 'HTTP ${response.statusCode}'
+          '${_cosErrorCode(response.body) ?? ''}';
+      AppLogger.warn('分片直传被拒绝：$reason', tag: 'media');
+      return reason;
     } catch (error, stack) {
       AppLogger.error('分片直传异常', error: error, stackTrace: stack, tag: 'media');
-      return PartPutResult.failure(
-        MediaTransferError(userMessage: '分片上传网络异常，正在重试。', cause: error),
-      );
+      return '网络异常（${error.runtimeType}）';
     }
+  }
+
+  /// 从 COS 的错误响应里抠出错误码。
+  ///
+  /// COS 返回的是 XML（`<Code>SignatureDoesNotMatch</Code>`），
+  /// 直接把整个 XML 塞进用户可见的文案里毫无意义，只保留 Code 那一段。
+  /// 预签名 URL 过期时这里会给出 `AccessDenied` / `SignatureDoesNotMatch`,
+  /// 是排障时最关键的一条信息。
+  static String? _cosErrorCode(String body) {
+    final match = RegExp(r'<Code>([^<]{1,64})</Code>').firstMatch(body);
+    if (match == null) return null;
+    return '（${match.group(1)}）';
   }
 
   void dispose() => _rawClient.close();
@@ -260,19 +320,4 @@ class UploadOutcome {
   final AppError? error;
 
   bool get isSuccess => info != null && error == null;
-}
-
-/// 分片直传结果。
-@immutable
-class PartPutResult {
-  const PartPutResult({this.etag, this.error});
-
-  factory PartPutResult.success(String? etag) => PartPutResult(etag: etag);
-
-  factory PartPutResult.failure(AppError error) => PartPutResult(error: error);
-
-  final String? etag;
-  final AppError? error;
-
-  bool get isSuccess => error == null;
 }
