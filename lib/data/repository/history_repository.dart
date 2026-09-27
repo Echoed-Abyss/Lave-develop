@@ -208,12 +208,14 @@ class HistoryRepository extends ChangeNotifier {
   /// 从本地载入历史。
   ///
   /// 说明：只恢复「展示所需的最小字段」（时间、方向、正文、官方消息 id、
-  /// 发送者昵称与头像地址），不恢复附件 —— 官方附件 URL 带签名且会过期，
-  /// 存下来也只会得到一堆失效图片，反而让用户以为「消息坏了」。
+  /// 发送者身份与头像地址、@ 到的人、被引用的那条消息），不恢复附件 ——
+  /// 官方附件 URL 带签名且会过期，存下来也只会得到一堆失效图片，
+  /// 反而让用户以为「消息坏了」。
   ///
-  /// 昵称与头像地址是特意落盘的：会话页要靠它们渲染头像与发言者，
-  /// 不存的话重启后所有历史气泡都会退回「用户…xxxx」的匿名占位，
-  /// 看起来像数据丢了。两者都只是短字符串，体积与隐私代价可接受。
+  /// 发送者身份（`sender_scope_id`）必须落盘，不能拿会话标识顶替：
+  /// 群聊的会话标识是 `group_openid`，而发言者是某个 `member_openid`，
+  /// 两者混用会让重启后的历史气泡全部显示成「同一个人」，
+  /// 头像与占位色也跟着错。这是真实存在过的缺陷。
   Future<void> restore() async {
     try {
       for (final item in await _store.readList('messages')) {
@@ -224,31 +226,54 @@ class HistoryRepository extends ChangeNotifier {
         final direction = item['direction'] == MessageDirection.outgoing.name
             ? MessageDirection.outgoing
             : MessageDirection.incoming;
+        final scope = ConversationScope.values.firstWhere(
+          (e) => e.value == item['scope'],
+          orElse: () => ConversationScope.c2c,
+        );
         final list = _messages.putIfAbsent(
           _key(botId, conversationId),
           () => <QqMessage>[],
         );
+        final senderScopeId =
+            (item['sender_scope_id'] as String?)?.trim();
+        final effectiveScopeId = (senderScopeId != null && senderScopeId.isNotEmpty)
+            ? senderScopeId
+            : (direction == MessageDirection.incoming ? conversationId : 'robot');
         list.add(
           QqMessage(
             localId: nextLocalId(),
             botId: botId,
-            scope: ConversationScope.values.firstWhere(
-              (e) => e.value == item['scope'],
-              orElse: () => ConversationScope.c2c,
-            ),
+            scope: scope,
             conversationId: conversationId,
             sender: ActorRef(
-              scopeId: direction == MessageDirection.incoming
-                  ? conversationId
-                  : 'robot',
+              scopeId: effectiveScopeId,
               displayName: item['sender_name'] as String?,
-              avatarUrl: item['sender_avatar'] as String?,
+              avatarUrl: _restoredAvatar(
+                botId: botId,
+                stored: item['sender_avatar'] as String?,
+                outgoing: direction == MessageDirection.outgoing,
+                senderScopeId: senderScopeId,
+                // 单聊的会话标识本身就是对方 openid，可以安全地当作头像依据；
+                // 群聊的会话标识是群，拿它拼只会得到默认灰头像。
+                conversationId: conversationId,
+                scope: scope,
+              ),
               isBot: direction == MessageDirection.outgoing,
             ),
             direction: direction,
             at: DateTime.tryParse(item['at'] as String? ?? '') ?? DateTime.now(),
             wireId: item['wire_id'] as String?,
             content: item['content'] as String?,
+            // @ 到的人跟着正文一起落盘：不存的话正文里的 `<@openid>`
+            // 重启后就只能显示成 `@某人`，而这条消息本来是能显示昵称的。
+            mentions: _stringMapOf(item['mentions']),
+            messageType: item['message_type'] as int?,
+            quote: _restoredQuote(
+              item['quote'],
+              botId: botId,
+              conversationId: conversationId,
+              scope: scope,
+            ),
           ),
         );
       }
@@ -287,6 +312,113 @@ class HistoryRepository extends ChangeNotifier {
   static String _key(String botId, String conversationId) =>
       '$botId|$conversationId';
 
+  /// 恢复一个发送者的头像地址。
+  ///
+  /// 顺序：落盘值 → 按 openid 推导 → `null`（交给界面用首字占位）。
+  /// 推导只在**确实知道发送者自己的 openid** 时做：
+  /// 单聊的会话标识就是对方 openid，可以直接用；群聊的会话标识是群，
+  /// 拿它去拼只会得到 CDN 的默认灰头像——那种「看起来有头像但其实是错的」
+  /// 比明确的占位更难排查，所以宁可返回 `null`。
+  static String? _restoredAvatar({
+    required String botId,
+    required String? stored,
+    required bool outgoing,
+    required String? senderScopeId,
+    required String conversationId,
+    required ConversationScope scope,
+  }) {
+    final saved = stored?.trim();
+    if (saved != null && saved.isNotEmpty) return saved;
+    if (outgoing) return null;
+    final own = senderScopeId?.trim();
+    final openid = (own != null && own.isNotEmpty)
+        ? own
+        : (scope == ConversationScope.c2c ? conversationId : null);
+    if (openid == null) return null;
+    return QqAvatar.forOpenid(appId: botId, openid: openid);
+  }
+
+  /// 把持久化里的 `mentions` 读回成 `openid → 昵称`。
+  ///
+  /// 逐项校验类型：本地文档可能来自旧版本，一条脏数据不该让整个历史读不出来。
+  static Map<String, String> _stringMapOf(Object? raw) {
+    if (raw is! Map) return const {};
+    final result = <String, String>{};
+    raw.forEach((key, value) {
+      if (key is! String || value is! String) return;
+      if (key.isEmpty || value.isEmpty) return;
+      result[key] = value;
+    });
+    return result;
+  }
+
+  /// 把被引用的消息压成可落盘的扁平结构。
+  ///
+  /// 只存展示要用的文本与发送者信息，附件同样不带（同顶层消息的理由：
+  /// 预签名 URL 存下来只会变成失效图片）。
+  static Map<String, dynamic> _packQuote(QqMessage quote) => {
+        if (quote.content != null) 'content': quote.content,
+        if (quote.sender.displayName != null)
+          'sender_name': quote.sender.displayName,
+        if (quote.sender.scopeId.isNotEmpty)
+          'sender_scope_id': quote.sender.scopeId,
+        if (quote.sender.avatarUrl != null)
+          'sender_avatar': quote.sender.avatarUrl,
+        'at': quote.at.toIso8601String(),
+        if (quote.ark != null)
+          'ark': {
+            if (quote.ark!.displayName != null)
+              'display_name': quote.ark!.displayName,
+            if (quote.ark!.title != null) 'title': quote.ark!.title,
+          },
+      };
+
+  /// 把落盘的引用块读回成一条（精简的）消息。
+  static QqMessage? _restoredQuote(
+    Object? raw, {
+    required String botId,
+    required String conversationId,
+    required ConversationScope scope,
+  }) {
+    if (raw is! Map) return null;
+    final map = raw.cast<Object?, Object?>();
+    final content = map['content'] as String?;
+    final name = map['sender_name'] as String?;
+    final arkName = (map['ark'] is Map)
+        ? (map['ark'] as Map)['display_name'] as String?
+        : null;
+    // 什么都没有的引用块不如不显示
+    if ((content == null || content.isEmpty) && arkName == null) return null;
+
+    final senderScopeId = map['sender_scope_id'] as String?;
+    return QqMessage(
+      localId: 0,
+      botId: botId,
+      scope: scope,
+      conversationId: conversationId,
+      sender: ActorRef(
+        scopeId: (senderScopeId?.isNotEmpty ?? false)
+            ? senderScopeId!
+            : 'quoted',
+        displayName: name,
+        avatarUrl: _restoredAvatar(
+          botId: botId,
+          stored: map['sender_avatar'] as String?,
+          outgoing: false,
+          senderScopeId: senderScopeId,
+          conversationId: conversationId,
+          scope: scope,
+        ),
+        isBot: (senderScopeId?.isNotEmpty ?? false) &&
+            senderScopeId == 'robot',
+      ),
+      direction: MessageDirection.incoming,
+      at: DateTime.tryParse(map['at'] as String? ?? '') ?? DateTime.now(),
+      content: content,
+      ark: arkName == null ? null : ArkSummary(displayName: arkName),
+    );
+  }
+
   Timer? _persistTimer;
 
   /// 合并写入，避免消息密集时反复落盘。
@@ -295,6 +427,18 @@ class HistoryRepository extends ChangeNotifier {
     _persistTimer = Timer(const Duration(seconds: 3), () {
       unawaited(_persist());
     });
+  }
+
+  /// 立即落盘（取消待执行的防抖写）。
+  ///
+  /// 应用退出时必须调一次：落盘走的是 3 秒防抖，
+  /// 「刚收到几条消息就被系统回收 / 用户退出」会把这批消息丢掉，
+  /// 而这类丢失在用户看来就是「消息记录莫名其妙少了几条」。
+  /// 统计那边一直是这么做的（见 `AppServices.shutdown`），历史此前漏了。
+  Future<void> flush() async {
+    _persistTimer?.cancel();
+    _persistTimer = null;
+    await _persist();
   }
 
   Future<void> _persist() async {
@@ -314,11 +458,18 @@ class HistoryRepository extends ChangeNotifier {
             'at': message.at.toIso8601String(),
             if (message.content != null) 'content': message.content,
             if (message.wireId != null) 'wire_id': message.wireId,
-            // 昵称与头像地址：会话页渲染头像需要，见 restore 的说明。
+            if (message.messageType != null) 'message_type': message.messageType,
+            // 昵称、发送者身份与头像地址：会话页渲染头像与发言者需要，
+            // 见 restore 的说明。
             if (message.sender.displayName != null)
               'sender_name': message.sender.displayName,
             if (message.sender.avatarUrl != null)
               'sender_avatar': message.sender.avatarUrl,
+            if (message.sender.scopeId.isNotEmpty)
+              'sender_scope_id': message.sender.scopeId,
+            // @ 到的人：正文里的 `<@openid>` 要靠它才能渲染成昵称。
+            if (message.mentions.isNotEmpty) 'mentions': message.mentions,
+            if (message.quote != null) 'quote': _packQuote(message.quote!),
           });
         }
       });

@@ -5,7 +5,6 @@ import '../api/bot_message_service.dart';
 import '../api/interaction_api.dart';
 import '../core/constants/qq_limits.dart';
 import '../core/logging/log_service.dart';
-import '../core/utils/qq_avatar.dart';
 import '../data/repository/history_repository.dart';
 import '../domain/command/command_engine.dart';
 import '../domain/models/bot_event.dart';
@@ -13,6 +12,7 @@ import '../domain/models/log_entry.dart';
 import '../domain/models/qq_enums.dart';
 import '../domain/models/qq_message.dart';
 import '../plugins/plugin_manager.dart';
+import 'message_mapper.dart';
 import 'protocol/events/qq_event.dart';
 
 /// 事件分发层。
@@ -231,7 +231,14 @@ class EventDispatcher {
             )
             .toList(growable: false)
         ..['can_reply'] = message.canReplyAt(DateTime.now())
-        ..['remaining_replies'] = message.remainingRepliesAt(DateTime.now());
+        ..['remaining_replies'] = message.remainingRepliesAt(DateTime.now())
+        // @ 到的人：`openid → 昵称`。
+        //
+        // 正文里的占位符是 `<@openid>` 或 `<qqbot-at-user id="..." />`，
+        // 插件拿不到昵称就只能显示一串十六进制。官方没有说明占位符与
+        // `mentions` 元素如何对应，所以这里把每个被 @ 用户的每一种标识
+        // 都作为 key 一起下发，插件按内容里的 id 直接查即可。
+        ..['mentions'] = message.mentions;
       return payload;
     }
 
@@ -298,6 +305,9 @@ class EventDispatcher {
   }
 
   /// 把协议事件归一为领域消息。
+  ///
+  /// 这里只做「组装」：字段怎么从官方结构映射到领域模型，
+  /// 全部交给 [MessageMapper]（那部分没有 IO，可以单独测）。
   QqMessage? _toMessage(QqEvent event) {
     final now = DateTime.now();
     switch (event) {
@@ -314,7 +324,11 @@ class EventDispatcher {
           sender: ActorRef(
             scopeId: senderId,
             displayName: event.author?.username,
-            avatarUrl: _avatarOf(event, senderId),
+            avatarUrl: MessageMapper.avatarOf(
+              event,
+              botId: botId,
+              senderId: senderId,
+            ),
             unionId: event.author?.unionOpenid,
             isBot: event.author?.bot ?? false,
           ),
@@ -323,11 +337,13 @@ class EventDispatcher {
           wireId: event.id,
           eventId: event.eventId,
           content: event.content,
-          attachments: _attachmentsOf(event),
-          ark: _arkOf(event),
-          quote: null,
+          attachments: MessageMapper.attachmentsOf(event),
+          ark: MessageMapper.arkOf(event),
+          quote: MessageMapper.quoteOf(event, botId: botId),
           replyDeadline: now.add(QqLimits.c2cReplyWindow),
           deduplicationKey: event.dedupKey,
+          mentions: MessageMapper.mentionsOf(event),
+          messageType: event.messageType,
         );
 
       case GroupAtMessageCreate():
@@ -343,7 +359,11 @@ class EventDispatcher {
           sender: ActorRef(
             scopeId: senderId,
             displayName: event.author?.username,
-            avatarUrl: _avatarOf(event, senderId),
+            avatarUrl: MessageMapper.avatarOf(
+              event,
+              botId: botId,
+              senderId: senderId,
+            ),
             role: GroupRole.fromValue(event.author?.memberRole),
             isBot: event.author?.bot ?? false,
           ),
@@ -352,78 +372,18 @@ class EventDispatcher {
           wireId: event.id,
           eventId: event.eventId,
           content: event.content,
-          attachments: _attachmentsOf(event),
-          ark: _arkOf(event),
+          attachments: MessageMapper.attachmentsOf(event),
+          ark: MessageMapper.arkOf(event),
+          quote: MessageMapper.quoteOf(event, botId: botId),
           replyDeadline: now.add(QqLimits.groupReplyWindow),
           deduplicationKey: event.dedupKey,
+          mentions: MessageMapper.mentionsOf(event),
+          messageType: event.messageType,
         );
 
       case _:
         return null;
     }
-  }
-
-  /// 发送者的头像地址。
-  ///
-  /// 两级来源：
-  /// 1. 事件里带的 `author.avatar`——官方对单聊/群聊事件**目前不返回**该字段，
-  ///    但一旦补上就直接生效，属于前瞻性写法；
-  /// 2. 用 `本机器人 AppID + 发送者 openid` 从腾讯头像 CDN 取。
-  ///    这是消息场景下拿到用户头像的**唯一**途径（官方没有按 openid
-  ///    查资料的接口），可用性与限制见 `core/utils/qq_avatar.dart`。
-  ///
-  /// `senderId` 是 `'unknown'` 时返回 `null`：那种情况下拼出来的地址必然只指向
-  /// CDN 的默认灰头像，不如让界面用「首字 + 配色」的占位——后者还能区分不同的人。
-  String? _avatarOf(QqEvent event, String senderId) {
-    final fromEvent = switch (event) {
-      C2cMessageCreate() => event.author?.avatar,
-      GroupAtMessageCreate() => event.author?.avatar,
-      _ => null,
-    };
-    if (fromEvent != null && fromEvent.isNotEmpty) return fromEvent;
-    if (senderId == 'unknown') return null;
-    return QqAvatar.forOpenid(appId: botId, openid: senderId);
-  }
-
-  List<AttachmentRef> _attachmentsOf(QqEvent event) {
-    final raw = switch (event) {
-      C2cMessageCreate() => event.attachments,
-      GroupAtMessageCreate() => event.attachments,
-      _ => null,
-    };
-    if (raw == null) return const [];
-    return raw
-        .map(
-          (a) => AttachmentRef(
-            url: a.url,
-            filename: a.filename,
-            contentType: a.contentType,
-            size: a.size,
-            width: a.width,
-            height: a.height,
-            voiceWavUrl: a.voiceWavUrl,
-            asrText: a.asrReferText,
-          ),
-        )
-        .toList(growable: false);
-  }
-
-  ArkSummary? _arkOf(QqEvent event) {
-    final ark = switch (event) {
-      C2cMessageCreate() => event.arkData,
-      GroupAtMessageCreate() => event.arkData,
-      _ => null,
-    };
-    if (ark == null) return null;
-    return ArkSummary(
-      type: ark.arkType,
-      displayName: ark.displayName,
-      title: ark.title,
-      description: ark.description,
-      jumpUrl: ark.jumpUrl,
-      previewUrl: ark.field('preview'),
-      prompt: ark.prompt,
-    );
   }
 
   /// 把协议事件归一为生命周期事件。

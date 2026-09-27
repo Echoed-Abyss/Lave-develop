@@ -20,6 +20,7 @@ class C2cMessageCreate extends QqEvent {
     this.messageType,
     this.messageScene,
     this.attachments,
+    this.mentions,
     this.arkData,
     this.msgElements,
   });
@@ -49,6 +50,12 @@ class C2cMessageCreate extends QqEvent {
   /// 消息附件（图片、文件、语音等）。
   final List<MessageAttachment>? attachments;
 
+  /// 消息中 @ 的用户列表。
+  ///
+  /// 官方**只在群聊事件体里**定义了 `mentions`，单聊字段表里没有它。
+  /// 这里仍然解析：官方一旦补上就自动生效，与 `author.avatar` 的处理一致。
+  final List<QqUser>? mentions;
+
   /// 结构化卡片数据（`message_type = 3` 时有值）。
   final ArkData? arkData;
 
@@ -70,6 +77,7 @@ class C2cMessageCreate extends QqEvent {
         messageType: QqJson.integer(json['message_type']),
         messageScene: _scene(json['message_scene']),
         attachments: QqJson.list(json['attachments'], MessageAttachment.fromJson),
+        mentions: QqJson.list(json['mentions'], QqUser.fromJson),
         arkData: _ark(json['ark_data']),
         msgElements: QqJson.list(json['msg_elements'], MsgElement.fromJson),
       );

@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart';
 
 import '../../api/dto/send_message_request.dart';
+import 'message_segment.dart';
 import 'qq_enums.dart';
 
 /// 领域消息模型。
@@ -32,6 +33,8 @@ class QqMessage {
     this.replyDeadline,
     this.repliesUsed = 0,
     this.deduplicationKey,
+    this.mentions = const {},
+    this.messageType,
   });
 
   /// 本地自增主键。未落库时为 0。
@@ -98,6 +101,35 @@ class QqMessage {
   /// 去重键（官方 `message_scene.ext` 的 `msg_idx`，回退到官方消息 id）。
   final String? deduplicationKey;
 
+  /// 消息里 @ 到的人：`openid → 昵称`。
+  ///
+  /// 官方在群聊消息事件里给了 `mentions`（`[]User`，**不含 @机器人自身**），
+  /// 正文里的占位符是 `<@openid>` 或 `<qqbot-at-user id="..." />`。
+  /// 官方**没有说明**两者如何对应，因此这里把该用户的**每一种标识**
+  /// （`id` / `member_openid` / `user_openid` / `union_openid`）都作为 key，
+  /// 正文里出现哪一个都能命中——只认一种的话，官方换个字段就解析不出昵称，
+  /// 而这种失败是静默的（界面只会显示 `@某人`）。
+  ///
+  /// 未 @ 任何人时为空表。
+  final Map<String, String> mentions;
+
+  /// 官方 `message_type`。
+  ///
+  /// 0=普通文本，3=结构化卡片，101=并行消息，102=聊天记录，103=引用消息。
+  /// 保留原始值只为排障与降级展示：真正的渲染依据是
+  /// [content] / [attachments] / [ark] / [quote] 这些已经归一好的字段。
+  final int? messageType;
+
+  /// 是否为引用消息（官方 `message_type = 103`）。
+  bool get isQuote => quote != null;
+
+  /// 把正文切成可渲染片段。
+  ///
+  /// 放在领域模型上而不是界面里，是因为「正文里哪些是 @、哪些是表情」
+  /// 属于对协议的理解，不属于渲染细节；插件层将来也可能需要同一份切分结果。
+  List<MessageSegment> get segments =>
+      MessageContentParser.parse(content, mentions: mentions);
+
   /// 是否为收到的消息。
   bool get isIncoming => direction == MessageDirection.incoming;
 
@@ -144,9 +176,16 @@ class QqMessage {
   bool get hasVoice => attachments.any((e) => e.isVoice);
 
   /// 列表展示用的单行摘要。
+  ///
+  /// 正文走一遍 [segments] 再拼回纯文本：会话列表里不该出现
+  /// `<@CA87605D7C22D7BA4863B86754D1876D>` 这种东西，
+  /// 也不用为了摘要另写一套正则。
   String get preview {
     final text = content?.trim();
-    if (text != null && text.isNotEmpty) return text;
+    if (text != null && text.isNotEmpty) {
+      final plain = segments.map((e) => e.text).join().trim();
+      if (plain.isNotEmpty) return plain;
+    }
     if (hasImage) return '[图片]';
     if (hasVoice) return '[语音]';
     if (attachments.any((e) => e.isVideo)) return '[视频]';
@@ -161,6 +200,7 @@ class QqMessage {
     DateTime? replyDeadline,
     int? repliesUsed,
     List<AttachmentRef>? attachments,
+    QqMessage? quote,
   }) =>
       QqMessage(
         localId: localId ?? this.localId,
@@ -175,10 +215,12 @@ class QqMessage {
         content: content,
         attachments: attachments ?? this.attachments,
         ark: ark,
-        quote: quote,
+        quote: quote ?? this.quote,
         replyDeadline: replyDeadline ?? this.replyDeadline,
         repliesUsed: repliesUsed ?? this.repliesUsed,
         deduplicationKey: deduplicationKey,
+        mentions: mentions,
+        messageType: messageType,
       );
 }
 

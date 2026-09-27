@@ -296,9 +296,10 @@ class AppServices {
   Future<void> shutdown() async {
     AppLogger.info('开始收起应用资源', tag: 'lifecycle');
     await keepAlive.detach();
-    // 统计走的是 3 秒防抖落盘，这里补一次立即写，
-    // 否则「刚收到最后几条消息就退出」会丢掉这几个计数。
+    // 统计与历史都走 3 秒防抖落盘，这里各补一次立即写，
+    // 否则「刚收到最后几条消息就退出」会把它们丢掉。
     await stats.flush();
+    await history.flush();
     await registry.shutdown();
     await plugins.shutdownAll();
     http.dispose();
