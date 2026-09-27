@@ -110,11 +110,13 @@ def on_event(host, envelope, payload):
     )
 ```
 
-!!! warning "最常见的两个错误"
+::: warning 最常见的两个错误
 
-    - 从 `payload` 顶层取 `scope` / `content`。它们都在嵌套的 `event` 对象里，
-      写错了不会报错，只会一直拿到 `None`——表现为「插件收到事件了但什么都没做」。
-    - 把 `host.reply()` 写成 `print()`。`print` 只会进日志，不会发出任何消息。
+- 从 `payload` 顶层取 `scope` / `content`。它们都在嵌套的 `event` 对象里，
+  写错了不会报错，只会一直拿到 `None`——表现为「插件收到事件了但什么都没做」。
+- 把 `host.reply()` 写成 `print()`。`print` 只会进日志，不会发出任何消息。
+
+:::
 
 三个关键点：
 

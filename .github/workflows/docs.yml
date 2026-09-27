@@ -1,7 +1,7 @@
 # 文档站部署
 #
 # 用 GitHub 官方的 Pages 产物流程（configure-pages → upload-pages-artifact →
-# deploy-pages），而不是 `mkdocs gh-deploy` 推 gh-pages 分支。
+# deploy-pages），而不是把构建产物推到一个 gh-pages 分支。
 #
 # 关于 Pages 的启用：`enablement: true` 会让 configure-pages 走
 # `POST /repos/{owner}/{repo}/pages` 去创建站点，但 workflow 里的默认
@@ -38,27 +38,29 @@ jobs:
     steps:
       - uses: actions/checkout@v7
 
-      - uses: actions/setup-python@v7
+      - uses: actions/setup-node@v7
         with:
-          python-version: '3.12'
-          cache: pip
-          cache-dependency-path: docs-site/requirements.txt
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: docs-site/package-lock.json
 
       - name: 安装依赖
-        run: pip install -r docs-site/requirements.txt
+        working-directory: docs-site
+        run: npm ci
 
       - name: 构建站点
-        # `docs/qq-bot/*.html` 由构建钩子 hooks/copy_official.py 并入站点，
-        # 本地与 CI 走的是同一条路径，这里不需要额外复制。
-        # strict: true 已写进 mkdocs.yml，链接与配置问题直接让构建失败。
+        # `docs/qq-bot/*.html` 由 prebuild 脚本 tools/copy-official.mjs 并入
+        # public/，本地与 CI 走的是同一条路径，这里不需要额外复制。
+        # VitePress 的 ignoreDeadLinks: false 会让 Markdown 源文件里的死链
+        # 直接失败（配置在 docs/.vitepress/config.mts）。
         working-directory: docs-site
-        run: mkdocs build
+        run: npm run build
 
       - name: 校验站内链接与锚点
-        # MkDocs 自身的校验盯不到静态资源与「HTML 里套 Markdown」这两种情况，
-        # 所以再用脚本把产物过一遍，避免部署出去才发现死链。
+        # VitePress 自带的死链检查盯不到指向 public/ 静态资源的链接，
+        # 也完全不检查锚点，所以再用脚本把产物过一遍。
         working-directory: docs-site
-        run: python check_links.py site /Lave-develop
+        run: npm run check
 
       - name: 启用 Pages（若尚未启用）
         uses: actions/configure-pages@v6
@@ -67,7 +69,7 @@ jobs:
 
       - uses: actions/upload-pages-artifact@v5
         with:
-          path: docs-site/site
+          path: docs-site/docs/.vitepress/dist
 
   deploy:
     needs: build

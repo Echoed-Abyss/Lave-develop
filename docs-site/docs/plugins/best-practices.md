@@ -50,6 +50,13 @@ path = os.path.join(host.data_dir, "cache.json")
 被动回复的窗口与次数由主程序算好并放进事件里。
 自己算会出现两套实现，而且你拿不到准确的事件接收时刻。
 
+### 触发前缀避开三条内置命令
+
+`#help` / `#ping` / `#status` 由主程序先回复掉，用它们当触发前缀的插件
+永远收不到消息。其余 `#` 开头的消息不受影响，可以放心用——
+遇到「插件显示运行中、发什么都没反应」时，先确认前缀有没有撞上这三条。
+详见[内置命令与插件的边界](builtin-commands.md)。
+
 ## 不要做的
 
 ### 不要在顶层做阻塞操作
@@ -69,10 +76,12 @@ def on_init(payload):
 握手有 20 秒上限。顶层阻塞会让插件在「启动中」卡到超时，然后被记为崩溃——
 而它在你的电脑上跑得好好的。
 
-!!! note "标准库里没有 requests"
+::: info 标准库里没有 requests
 
-    内置运行时只带标准库。用 `urllib.request`，或者把依赖 vendor 进插件目录
-    （纯 Python 的可以，带 C 扩展的不行）。
+内置运行时只带标准库。用 `urllib.request`，或者把依赖 vendor 进插件目录
+（纯 Python 的可以，带 C 扩展的不行）。
+
+:::
 
 ### 不要在循环里 `print`
 
@@ -110,22 +119,24 @@ except Exception:
 | 需要并发时用 `threading` | 主循环必须保持能读 stdin；把耗时工作丢给后台线程 |
 | 状态别存大对象 | 它会落进主程序的 JSON 文档，每次写入都是整份文档 |
 
-!!! tip "要跑长任务怎么办"
+::: tip 要跑长任务怎么办
 
-    启动一个后台线程处理，主循环继续读 stdin：
+启动一个后台线程处理，主循环继续读 stdin：
 
-    ```python
-    import threading
+```python
+import threading
 
-    def long_task(payload):
-        ...            # 耗时工作
+def long_task(payload):
+    ...            # 耗时工作
 
-    if kind == "event":
-        threading.Thread(target=long_task, args=(payload,), daemon=True).start()
-    ```
+if kind == "event":
+    threading.Thread(target=long_task, args=(payload,), daemon=True).start()
+```
 
-    注意线程里写 stdout 可能交错，建议给发送函数加一把锁，
-    或让后台线程把结果投进 `queue.Queue`，由主循环统一发送。
+注意线程里写 stdout 可能交错，建议给发送函数加一把锁，
+或让后台线程把结果投进 `queue.Queue`，由主循环统一发送。
+
+:::
 
 ## 调试流程
 
@@ -157,7 +168,6 @@ class Host:
     def log(self, text, level="info"):
         self.send("log", {"level": level, "message": text})
 
-
 def main():
     host = Host()
     for line in sys.stdin:
@@ -185,7 +195,6 @@ def main():
         except Exception:
             host.log(traceback.format_exc(), "error")
     return 0
-
 
 if __name__ == "__main__":
     sys.exit(main())

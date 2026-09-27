@@ -3,11 +3,13 @@
 全部路径逐字取自官方 api-v2 文档。唯一官方统一域名是 `https://api.bot.qq.com`
 （旧版文档里的 `api.sgroup.qq.com` 与沙箱域名不在本项目使用范围内）。
 
-!!! note "命名约定"
+::: info 命名约定
 
-    - `{user_openid}` / `{group_openid}` 是单聊、群聊场景的用户与群标识；
-    - `{user_id}` / `{group_id}` 是**富媒体预上传与分片完成**接口用的标识，
-      官方参数名如此，与 openid **不是同一个东西**，不要互相替换。
+- `{user_openid}` / `{group_openid}` 是单聊、群聊场景的用户与群标识；
+- `{user_id}` / `{group_id}` 是**富媒体预上传与分片完成**接口用的标识，
+  官方参数名如此，与 openid **不是同一个东西**，不要互相替换。
+
+:::
 
 ## 鉴权
 
@@ -46,9 +48,11 @@
 | POST | `/v2/groups/{group_id}/upload_prepare` | 10 QPS |
 | POST | `/v2/groups/{group_id}/upload_part_finish` | 10 QPS |
 
-!!! warning "单聊与群聊的上传接口相互独立"
+::: warning 单聊与群聊的上传接口相互独立
 
-    同一份文件不能跨场景复用：往群聊上传得到的 `file_info` 只能用于群聊消息。
+同一份文件不能跨场景复用：往群聊上传得到的 `file_info` 只能用于群聊消息。
+
+:::
 
 ## 互动与表情
 

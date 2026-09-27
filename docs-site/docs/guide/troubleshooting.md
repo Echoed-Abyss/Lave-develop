@@ -4,11 +4,13 @@
 
 ## 机器人连上了但收不到任何消息
 
-!!! danger "首要怀疑 intents"
+::: danger 首要怀疑 intents
 
-    官方原文：如果在鉴权的时候传递了无权限的 `intents`，`websocket` 会报错，
-    并直接关闭连接。除了 `GUILDS`、`PUBLIC_GUILD_MESSAGES`、`GUILD_MEMBERS`
-    是基础事件默认有权限之外，其他的特殊事件都需要经过申请才能够使用。
+官方原文：如果在鉴权的时候传递了无权限的 `intents`，`websocket` 会报错，
+并直接关闭连接。除了 `GUILDS`、`PUBLIC_GUILD_MESSAGES`、`GUILD_MEMBERS`
+是基础事件默认有权限之外，其他的特殊事件都需要经过申请才能够使用。
+
+:::
 
 也就是说**多订阅一位就可能让连接建不起来**，表现为「一直重连、日志里没有任何事件」。
 

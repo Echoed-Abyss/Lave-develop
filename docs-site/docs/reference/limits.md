@@ -9,15 +9,17 @@
 | 单聊 | 60 分钟 | **4 次**（官方两处口径冲突，本项目取保守值） |
 | 群聊 | **5 分钟** | 5 次 |
 
-!!! warning "官方文档的两处冲突"
+::: warning 官方文档的两处冲突
 
-    - **次数**：`overview.html` 写单聊 4 次，`send.html` 正文写 5 次，
-      但同一页 2026/01/10 的更新说明写「由 60 分钟 5 次调整为 60 分钟 4 次」。
-    - **有效期**：`send.html` 顶部写「被动消息有效期 60 分钟」，
-      字段说明又写「`msg_id` 5 分钟内有效」。
+- **次数**：`overview.html` 写单聊 4 次，`send.html` 正文写 5 次，
+  但同一页 2026/01/10 的更新说明写「由 60 分钟 5 次调整为 60 分钟 4 次」。
+- **有效期**：`send.html` 顶部写「被动消息有效期 60 分钟」，
+  字段说明又写「`msg_id` 5 分钟内有效」。
 
-    本项目的取值见 [`QqLimits`](https://github.com/Echoed-Abyss/Lave-develop/blob/main/lib/core/constants/qq_limits.dart)，
-    并把「5 分钟」当作「尽快回复」的提示阈值。
+本项目的取值见 [`QqLimits`](https://github.com/Echoed-Abyss/Lave-develop/blob/main/lib/core/constants/qq_limits.dart)，
+并把「5 分钟」当作「尽快回复」的提示阈值。
+
+:::
 
 ## 主动消息频控
 
@@ -41,10 +43,12 @@
 | 富媒体预上传 / 分片完成 | 10 QPS |
 | 获取 WSS 接入点 | **2 QPM**（另有 10 QPM burst） |
 
-!!! tip "接入点的缓存不是优化"
+::: tip 接入点的缓存不是优化
 
-    2 QPM 意味着「每 30 秒只能问一次」。快速重连时如果不缓存，
-    几秒内就会撞上限流。本项目对结果做了缓存。
+2 QPM 意味着「每 30 秒只能问一次」。快速重连时如果不缓存，
+几秒内就会撞上限流。本项目对结果做了缓存。
+
+:::
 
 ## Session 与连接
 

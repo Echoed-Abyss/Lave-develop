@@ -1,10 +1,11 @@
-# 构建产物，不入库。
-site/
+# 依赖与构建产物，都不入库。
+node_modules/
+docs/.vitepress/dist
+docs/.vitepress/cache
 
-# 由 hooks/copy_official.py 在构建时从 ../docs/qq-bot/ 复制进来，
+# 由 tools/copy-official.mjs 在 dev/build 前从 ../../docs/qq-bot/ 复制进来。
 # 源头在那边，这里留副本只会产生「两份内容各自漂移」的问题。
-docs/official/
+docs/public/official/
 
-# Python 缓存
-__pycache__/
-*.pyc
+# 日志
+*.log

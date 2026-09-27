@@ -5,24 +5,19 @@
 
 ## 两份资料
 
-<div class="grid cards" markdown>
+- **[官方文档知识库](../official/knowledge-base.html)** —— 按主题整理：全部字段表、
+  枚举、限流、错误码、事件 JSON 样例。开发时「某个字段到底怎么拼」查这一份。
+- **[系统架构说明](../official/app-architecture.html)** —— 分层设计、模块职责、
+  Dart 数据模型、连接状态机、目录结构。第一份的结论怎么落成代码，看这一份。
 
-- **[官方文档知识库](../official/knowledge-base.html)**
+::: info 这两份资料由构建脚本复制进站点
 
-    按主题整理：全部字段表、枚举、限流、错误码、事件 JSON 样例。
-    开发时「某个字段到底怎么拼」查这一份。
+源头在仓库的 `docs/qq-bot/`。`npm run dev` 与 `npm run build` 之前会由
+`docs-site/tools/copy-official.mjs` 复制到 `docs-site/docs/public/official/`，
+因此站点上的版本与仓库里的**永远是同一份内容**，不会出现两份各自漂移。
+复制产物已 gitignore，不要提交副本。
 
-- **[系统架构说明](../official/app-architecture.html)**
-
-    分层设计、模块职责、Dart 数据模型、连接状态机、目录结构。
-    第一份的结论怎么落成代码，看这一份。
-
-</div>
-
-!!! note "这两份资料由 CI 复制进站点"
-
-    源头在仓库的 `docs/qq-bot/`，文档站构建时复制过来，
-    因此站点上的版本与仓库里的**永远是同一份内容**，不会出现两份各自漂移。
+:::
 
 ## 原始抓取笔记
 
@@ -63,11 +58,13 @@
 
 ## 项目遵守的底线
 
-!!! danger "只使用官方协议"
+::: danger 只使用官方协议
 
-    本项目**禁止**引入任何逆向 QQ、抓包客户端协议、Hook、模拟登录 QQ 客户端的方案。
-    全部实现基于官方文档公开的 OpenAPI 与 Gateway WebSocket。
+本项目**禁止**引入任何逆向 QQ、抓包客户端协议、Hook、模拟登录 QQ 客户端的方案。
+全部实现基于官方文档公开的 OpenAPI 与 Gateway WebSocket。
 
-    唯一边界情况是头像 CDN（`q.qlogo.cn/qqapp/{appid}/{openid}/{size}`）：
-    它未出现在官方文档中，但只是一张公开图片的地址，不含凭证、不涉及协议逆向。
-    [相关问题](https://github.com/Echoed-Abyss/Lave-develop/issues)可以讨论。
+唯一边界情况是头像 CDN（`q.qlogo.cn/qqapp/{appid}/{openid}/{size}`）：
+它未出现在官方文档中，但只是一张公开图片的地址，不含凭证、不涉及协议逆向。
+[相关问题](https://github.com/Echoed-Abyss/Lave-develop/issues)可以讨论。
+
+:::

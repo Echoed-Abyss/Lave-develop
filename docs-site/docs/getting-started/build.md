@@ -16,14 +16,20 @@
 ```powershell
 flutter pub get
 flutter analyze            # 静态检查
-flutter test               # 205 项测试
+flutter test               # 全部单元测试（纯 Dart，不需要设备）
 flutter build apk --release --target-platform android-arm64
 ```
 
-!!! danger "`--target-platform android-arm64` 是必需的"
+测试覆盖的是「算得出对错」的部分：协议帧编解码、intents 掩码、关闭码判定、
+富媒体分片协议、插件清单与状态机、回复凭据互斥、时间与统计数据。界面与真机行为
+（保活是否真的生效、上传是否真的落盘）在单元测试里验不了，只能上真机。
 
-    内置的 Python 运行时只打包了 `arm64-v8a`。不加这个参数，Flutter 会同时放进
-    `armeabi-v7a`，而后者没有运行时，结果是**装得上但插件不可用**。
+::: danger `--target-platform android-arm64` 是必需的
+
+内置的 Python 运行时只打包了 `arm64-v8a`。不加这个参数，Flutter 会同时放进
+`armeabi-v7a`，而后者没有运行时，结果是**装得上但插件不可用**。
+
+:::
 
 产物在 `build/app/outputs/flutter-apk/app-release.apk`，约 22.4MB。
 
@@ -98,12 +104,14 @@ int main(int argc, char **argv) {
 
 详细步骤与坑见 [`assets/python/README.md`](https://github.com/Echoed-Abyss/Lave-develop/blob/main/assets/python/README.md)。
 
-!!! warning "Flutter 的资产目录声明不是递归的"
+::: warning Flutter 的资产目录声明不是递归的
 
-    只写 `assets/python/` 只会把该目录下的**直接文件**打进包，
-    653 个位于子目录中的标准库文件会全部丢失——而打包过程**不会报错**。
-    症状是插件启动后立刻 `ModuleNotFoundError: No module named 'encodings'`，
-    很容易被误判成 Python 本身有问题。因此 `pubspec.yaml` 里逐条列出了全部子目录。
+只写 `assets/python/` 只会把该目录下的**直接文件**打进包，
+653 个位于子目录中的标准库文件会全部丢失——而打包过程**不会报错**。
+症状是插件启动后立刻 `ModuleNotFoundError: No module named 'encodings'`，
+很容易被误判成 Python 本身有问题。因此 `pubspec.yaml` 里逐条列出了全部子目录。
+
+:::
 
 ### 增加 x86_64（模拟器）
 
@@ -128,38 +136,52 @@ int main(int argc, char **argv) {
 
 ## 文档站
 
-文档站用 MkDocs Material，源码在 `docs-site/`：
+文档站用 VitePress（纯静态站点生成器，Node 侧），源码在 `docs-site/`：
 
 ```powershell
-py -m pip install -r docs-site/requirements.txt
 cd docs-site
-mkdocs serve        # 本地预览 http://127.0.0.1:8000
+npm install
+npm run dev         # 本地预览 http://localhost:5173
 ```
 
 推送到 `main` 后由 `.github/workflows/docs.yml` 自动构建并发布到 GitHub Pages。
+
+`docs-site/docs/` 里就是普通的 Markdown。注意两点与 MkDocs 时代的差别：
+
+- 提示块写 `::: tip` / `::: info` / `::: warning` / `::: danger` + 自定义标题，
+  不是 `!!!`。VitePress 内置的容器类型里**没有 `note`**，原来的 `!!! note`
+  已统一映射到 `::: info`。
+- 没有「标签页」语法。原来用 `=== "标题"` 的地方已经改成小节标题——
+  这样正文能被本地搜索索引到，而藏在标签页里的字是搜不到的。
 
 ### 改动文档后请跑一遍这两条
 
 ```powershell
 cd docs-site
-mkdocs build                    # mkdocs.yml 里开了 strict，任何 WARNING 直接失败
-py check_links.py site /Lave-develop
+npm run build       # VitePress 构建，死链会让构建失败（ignoreDeadLinks: false）
+npm run check       # 校验产物里的站内链接与锚点
 ```
 
-`strict: true` 只能挡住 Markdown 源文件里的链接问题。下面两类它看不见，
-所以还要跑一遍站内链接自检脚本：
+VitePress 的死链检查只能覆盖 Markdown 源文件里能解析成页面的链接。下面两类它看不见，
+所以还要跑一遍 `tools/check-links.mjs`：
 
-- **静态资源目标**：站点里那两份手写 HTML（`docs/qq-bot/*.html`）、图片、SVG
-  作为链接目标时，校验很宽松，写错不报错；
-- **「HTML 外壳里套 Markdown」**：Material 的卡片网格 `<div class="grid cards" markdown>`
-  依赖 `md_in_html` 扩展。漏开时块内的 Markdown 不会被解析，页面上会原样显示
-  `**[标题](链接)**` 这种源码——它根本不是 `<a>`，校验器自然也看不见。
+- **静态资源目标**：指向 `public/` 里那两份手写 HTML、图片、SVG 的链接，
+  写错了构建照样成功；
+- **锚点（`#xxx`）**：完全不检查。中文标题的锚点尤其危险——一旦 slugify
+  把非 ASCII 字符丢掉，站内互链与分享出去的 URL 会一起失效，
+  而构建过程不会有任何提示。
 
-该脚本会以非 0 退出并在 CI 里作为独立一步执行，部署前就能拦住死链。
+该脚本按浏览器的方式解算相对路径，逐个验证目标文件与锚点，任何一条坏了就
+以非 0 退出；它在 CI 里是独立一步，部署前就能拦住死链。
 
 ### 官方文档知识库是复制进来的
 
-`docs/qq-bot/*.html` 由构建钩子 `docs-site/hooks/copy_official.py` 在构建时
-复制进 `docs-site/docs/official/`。用钩子而不是让 CI 单独 `cp` 一步，
-是为了让本地 `mkdocs build` 也能直接跑通——否则 nav 里引用了那两个页面，
-本地构建会直接失败。`docs/official/` 已在 `.gitignore` 里，不要提交副本。
+`docs/qq-bot/*.html` 由 `docs-site/tools/copy-official.mjs` 在
+`dev` / `build` 之前复制到 `docs-site/docs/public/official/`
+（挂在 `package.json` 的 `predev` / `prebuild` 上）。
+
+不用「CI 里单独 `cp` 一步」是因为：正文与侧栏都引用了那两个页面，
+本地少了这一步就会看到断开的目标，贡献者得先知道「有个额外的复制步骤」
+才能本地预览。挂到 npm 脚本之后，任何机器上跑 `npm run dev` 都是自洽的。
+
+`docs/public/official/` 已在 `.gitignore` 里，不要提交副本——源头只有一份。
