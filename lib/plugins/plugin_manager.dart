@@ -543,7 +543,17 @@ class PluginManager extends ChangeNotifier {
 
     // 兜底：退出事件没派发（或已被取消订阅）时也要把状态落到「已停止」。
     _finalizeStopped(pluginId);
-    _intentionalStops.remove(pluginId);
+
+    // **「主动停止」的标记要留给退出事件去消费，不能在这里删掉。**
+    //
+    // 进程退出事件是异步派发的，比这个函数返回得晚。早期版本在这里就
+    // `_intentionalStops.remove(pluginId)`，于是晚到的那次退出被当成崩溃：
+    // 日志里出现 `ERROR 插件 X 的进程已退出（退出码 0）`，崩溃次数 +1 并被
+    // 持久化。删除插件时尤其明显——一次正常删除会给同名插件留下
+    // 「已崩溃 N 次」的历史。
+    //
+    // 标记由 `_handleExit` 消费、由 `start()` 在新一轮启动时清掉，
+    // 因此不会无限增长。
   }
 
   /// 把描述符落到「已停止」。**幂等**：状态本来就不在进程态时什么都不做。
@@ -833,11 +843,22 @@ class PluginManager extends ChangeNotifier {
     _liveSnapshot.remove(pluginId);
     _sentEvents.remove(pluginId);
     _autoRestarts.remove(pluginId);
+    _missedPongs.remove(pluginId);
+    _logBudgets.remove(pluginId);
+    _recovering.remove(pluginId);
+    _pendingExitReason.remove(pluginId);
+    _cancelRestart(pluginId);
+    _stopPing(pluginId);
 
-    // 配置与状态存在主文档里（不在插件目录内），必须单独清理，
-    // 否则同名插件重新装回来时会继承上一份的配置——包括已经失效的密钥。
+    // 配置、状态与崩溃计数都存在主文档里（不在插件目录内），必须单独清理。
+    // 不清配置会继承上一份的旧密钥；不清崩溃计数则会让**重新安装的同一个
+    // 插件**一上来就显示「已崩溃 N 次」——那是上一次安装留下的账。
     await _store.writeJsonMap('config_$pluginId', {});
     await _store.writeJsonMap('state_$pluginId', {});
+    final crashCounts = await _store.readIntMap('crash_count');
+    if (crashCounts.remove(pluginId) != null) {
+      await _store.writeIntMap('crash_count', crashCounts);
+    }
 
     final names = await _store.readSet('enabled');
     names.remove(pluginId);
@@ -865,17 +886,19 @@ class PluginManager extends ChangeNotifier {
     }
   }
 
-  /// 把事件投递给插件。
+  /// 把事件投递给插件，返回**实际收到它的插件个数**。
   ///
   /// [eventPayload] 是**归一化后的事件载荷**（不是官方原始 JSON）：
   /// 插件作者看到的是稳定结构，官方字段改名不会直接打断插件。
-  /// 载荷结构见 `docs/qq-bot/app-architecture.html` 的插件协议说明。
-  Future<void> dispatch(
+  ///
+  /// 返回值不是装饰：调用方用「有没有插件接」来决定要不要对一条没人认领的
+  /// 疑似指令给出提示。返回 0 与「插件都在忙」是两回事，不能混为一谈。
+  Future<int> dispatch(
     Map<String, dynamic> eventPayload, {
     required String eventType,
     required String botId,
   }) async {
-    if (_processes.isEmpty) return;
+    if (_processes.isEmpty) return 0;
     final requestId = 'evt-${++_requestSeed}';
     final message = PluginMessage(
       type: PluginMessageType.event,
@@ -888,6 +911,7 @@ class PluginManager extends ChangeNotifier {
       },
     );
 
+    var delivered = 0;
     for (final entry in _processes.entries) {
       final descriptor = _plugins[entry.key];
       if (descriptor == null) continue;
@@ -901,7 +925,9 @@ class PluginManager extends ChangeNotifier {
       if (!descriptor.manifest.subscribesTo(eventType)) continue;
       entry.value.send(message);
       _sentEvents[entry.key] = (_sentEvents[entry.key] ?? 0) + 1;
+      delivered++;
     }
+    return delivered;
   }
 
   /// 已投递的事件计数（key = pluginId）。

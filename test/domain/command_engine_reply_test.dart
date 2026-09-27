@@ -50,6 +50,7 @@ QqMessage _groupMessage({
   String? wireId = 'msg-id-from-d',
   String? eventId = 'outer-event-id',
   Duration windowLeft = const Duration(minutes: 5),
+  String content = '#help',
 }) =>
     QqMessage(
       localId: 1,
@@ -61,11 +62,55 @@ QqMessage _groupMessage({
       at: DateTime.now(),
       wireId: wireId,
       eventId: eventId,
-      content: '#help',
+      content: content,
       replyDeadline: DateTime.now().add(windowLeft),
     );
 
 void main() {
+  group('未注册的 # 指令要放行给插件', () {
+    // 线上现象：示例插件（触发前缀 #hi）装好后日志显示「已就绪」，
+    // 但发 #hi 毫无反应。原因是指令引擎把所有 # 开头的消息都当成
+    // 「已消费」拦下了，插件的触发前缀根本没有被投递的机会。
+    // 现在引擎只认自己注册过的名字，不认就返回 false。
+
+    test('#hi 未被消费，可以继续交给插件', () async {
+      final engine = CommandEngine(log: LogService());
+      final sender = _RecordingSender();
+
+      final handled =
+          await engine.tryHandle(_groupMessage(content: '#hi'), sender);
+
+      expect(handled, isFalse);
+      expect(sender.credentials, isEmpty, reason: '引擎不该替插件回复');
+    });
+
+    test('#help 仍然被内置指令消费', () async {
+      final engine = CommandEngine(log: LogService());
+      final sender = _RecordingSender();
+
+      final handled =
+          await engine.tryHandle(_groupMessage(content: '#help'), sender);
+
+      expect(handled, isTrue);
+      expect(sender.texts, hasLength(1));
+    });
+
+    test('「长得像指令但没注册」才值得提示，普通消息不算', () {
+      final engine = CommandEngine(log: LogService());
+
+      expect(engine.looksLikeUnknownCommand('#hi'), isTrue);
+      expect(engine.looksLikeUnknownCommand('#help'), isFalse);
+      expect(engine.looksLikeUnknownCommand('你好'), isFalse);
+      expect(engine.looksLikeUnknownCommand('#'), isFalse);
+      expect(engine.looksLikeUnknownCommand(null), isFalse);
+    });
+
+    test('大小写不敏感：注册名一律小写比较', () {
+      final engine = CommandEngine(log: LogService());
+      expect(engine.looksLikeUnknownCommand('#HELP'), isFalse);
+      expect(engine.looksLikeUnknownCommand('#Help'), isFalse);
+    });
+  });
   group('被动回复凭据（msg_id / event_id 二选一）', () {
     test('回复消息只用 msg_id，绝不把 event_id 一起带上', () async {
       // 这条用例锁定的是一个真实发生过的缺陷：

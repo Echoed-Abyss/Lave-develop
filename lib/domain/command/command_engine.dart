@@ -92,6 +92,12 @@ class CommandEngine {
   final Map<String, CommandSpec> _registry = {};
 
   /// 指令前缀。官方文档未对指令格式做任何规定，`#` 只是本项目约定。
+  ///
+  /// 引擎**只认自己注册过的指令**：`#` 开头但不在表里的内容不再被吞掉，
+  /// 而是返回 `false` 交给插件处理（见 [tryHandle]）。
+  /// 早期版本对所有 `#` 开头的消息一律返回「已消费」，于是插件永远收不到
+  /// 以 `#` 为触发前缀的消息——而示例插件当年用的正是 `#hi`，
+  /// 表现为「插件装好了、日志里也说就绪了，但发什么都没反应」。
   static const String prefix = '#';
 
   /// 全部已注册指令。
@@ -102,23 +108,16 @@ class CommandEngine {
 
   /// 尝试把一条消息当作指令处理。
   ///
-  /// 返回 `true` 表示「这是一条指令，已被消费」（无论是否成功回复）；
-  /// 返回 `false` 表示不是指令，调用方可以继续交给插件处理。
+  /// 返回 `true` 表示「这是一条**已注册**的指令，已被消费」；
+  /// 返回 `false` 表示「引擎不认这条消息」，调用方可以继续交给插件处理——
+  /// 包括「`#` 开头但没注册过」的情况，因为插件同样可以用 `#` 做前缀。
   Future<bool> tryHandle(QqMessage message, MessageSender sender) async {
     if (!message.isIncoming) return false;
     final parsed = parse(message.content);
     if (parsed == null) return false;
 
     final spec = _registry[parsed.name];
-    if (spec == null) {
-      _log.warn(
-        LogSource.event,
-        '收到未知指令：$prefix${parsed.name}（可用 ${prefix}help 查看全部指令）',
-        botId: message.botId,
-      );
-      return true;
-    }
-
+    if (spec == null) return false;
     final invocation = CommandInvocation(
       message: message,
       args: parsed.args,
@@ -209,6 +208,31 @@ class CommandEngine {
     return '${reasons.join('；')}。'
         '主动消息受独立频控约束，且用户可在 QQ 客户端关闭「允许主动发送」，'
         '关闭后发送会失败。';
+  }
+
+  /// 这条消息是否「长得像内置指令，但引擎不认识」。
+  ///
+  /// 分发层用它判断要不要提示「可用 #help 查看全部指令」。
+  /// 判断依据是**消息形态**而不是「引擎是否消费了它」：
+  /// 「不认识」不再是消费的理由，插件同样有权用 `#` 开头做触发前缀。
+  bool looksLikeUnknownCommand(String? content) {
+    final parsed = parse(content);
+    return parsed != null && !_registry.containsKey(parsed.name);
+  }
+
+  /// 提示用户内置指令表的入口。
+  ///
+  /// 只在「没有内置指令认领、也没有任何插件订阅这条事件」时才调用：
+  /// 有插件在场就说明这条消息可能有主，再插一句「未知指令」只会误导
+  /// 用户去怀疑插件没生效。
+  void logUnknownCommand(QqMessage message) {
+    final parsed = parse(message.content);
+    if (parsed == null) return;
+    _log.warn(
+      LogSource.event,
+      '收到未知指令：$prefix${parsed.name}（可用 ${prefix}help 查看全部指令）',
+      botId: message.botId,
+    );
   }
 
   /// 解析指令文本。

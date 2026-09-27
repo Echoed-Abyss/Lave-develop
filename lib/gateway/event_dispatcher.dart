@@ -169,11 +169,20 @@ class EventDispatcher {
     final handled = await _commands.tryHandle(message, _sender);
     if (!handled) {
       // 未被指令消费的事件再交给插件。
-      await _plugins.dispatch(
+      final delivered = await _plugins.dispatch(
         _payloadFor(event, message: message),
         eventType: event.typeName,
         botId: botId,
       );
+      // 内置指令不认、也没有任何插件订阅时才提示「可用 #help」。
+      //
+      // 早期版本由指令引擎对所有 `#` 开头的消息一律回「已消费」，
+      // 于是插件永远收不到这类消息；改成「不认就放行」之后，
+      // 提示必须挪到这里，否则用户在插件已经处理了的情况下
+      // 还会看到一句「未知指令」，反而怀疑插件没生效。
+      if (delivered == 0 && _commands.looksLikeUnknownCommand(message.content)) {
+        _commands.logUnknownCommand(message);
+      }
     }
     handledCount++;
   }
